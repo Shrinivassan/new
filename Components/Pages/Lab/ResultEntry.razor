@@ -14,6 +14,9 @@
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @inject ProtectedSessionStorage sessionStorage
 @using Syncfusion.Blazor.Popups
+@using Lims.Components.Pages
+@using Lims.Components.Data
+@inject ExecutionClass exe
 
 
 <PageTitle>Result Entry - LIMS</PageTitle>
@@ -826,7 +829,7 @@
             <div style="display: flex; gap: 8px; margin-left: auto;">
                 <button class="re-btn-outline" @onclick="ToggleLabFixedValues">Clear</button>
                 <button class="re-btn-save"><i class="fas fa-save"></i> Save</button>
-                <button class="re-btn-print" title="Print"><i class="fas fa-print"></i> Print</button>
+                <button class="re-btn-print" title="Print" @onclick="PrintReport"><i class="fas fa-print"></i> Print</button>
             </div>
         </div>
     </div>
@@ -1352,9 +1355,14 @@
 
     private async Task PrintReport()
     {
-        
+        if (lre1 == null || !lre1.Any()) return;
+
         try
         {
+            isviewer = true; // Show dialog early with loading state
+            reportstring = ""; // Reset previous report
+            StateHasChanged();
+
             preNatalRequest = new PreNatalRequest
             {
                 RequestGUID = Guid.Parse(RequestGuid),
@@ -1363,59 +1371,42 @@
 
             var parameters = new RoutineReportDto
             {
-                ClientID = appSettings.ClientId,
-                DataSource = "LabCare",
-                ReportName = "LabResult",
+                ClientID = "",
+                DataSource = "DataSet3",
+                ReportName = "LabReport.rdlc",
                 RequestGUID = RequestGuid,
-                TCode = lre1.FirstOrDefault()?.TCode.ToString() ?? "0",
+                TCode = "",
                 IsAuthorized2Finished = true,
-                QueryString = $"SampleID={RequestGuid}", // Placeholder matching the required format
+                QueryString = $"SampleID={RequestGuid}",
                 Parameters = new List<ReportParameterDto>
                 {
-                    new ReportParameterDto { Name = "TCode", Values = new List<string> { lre1.FirstOrDefault()?.TCode.ToString() ?? "0" } },
+                    new ReportParameterDto { Name = "RequestGUID", Values = new List<string> { RequestGuid } },
+                    new ReportParameterDto { Name = "TCode", Values = new List<string> { lre1.FirstOrDefault()?.TCode.ToString() ?? "" } },
                     new ReportParameterDto { Name = "IsLetterHead", Values = new List<string> { (PrintOption == "LetterHead" ? "true" : "false") } }
                 }
             };
 
-            var wrappedRequest = new LabReportRequest { rpt = parameters };
-            var json = JsonConvert.SerializeObject(wrappedRequest);
-            Console.WriteLine($"DEBUG LabReport Payload: {json}");
+            // Call GetStatement directly from ExecutionClass which uses PostAsJsonAsync without the wrapper
+            // which often resolves 400 Bad Request issues if the API expects the DTO directly.
+            var res = await exe.GetStatement(parameters, "Report/LabReport");
 
-            var request = new HttpRequestMessage(HttpMethod.Post, $"{appSettings.BaseUrl}report/LabReport")
+            if (!string.IsNullOrEmpty(res) && res.Length > 200)
             {
-                Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
-            };
-            
-            if (!string.IsNullOrEmpty(token))
-                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-
-            var res = await http.SendAsync(request);
-            if (res.IsSuccessStatusCode)
-            {
-                reportstring = await res.Content.ReadAsStringAsync();
-                if (reportstring.Length > 200)
-                {
-                    isviewer = true;
-                    StateHasChanged();
-                }
-                else
-                {
-                    saveError = true;
-                    saveMessage = "Report has no data.";
-                    StateHasChanged();
-                }
+                reportstring = res;
             }
             else
             {
+                isviewer = false;
                 saveError = true;
-                saveMessage = $"Report failed: {res.StatusCode}";
-                StateHasChanged();
+                saveMessage = "Report generation failed or returned no data.";
             }
+            StateHasChanged();
         }
         catch (Exception ex)
         {
+            isviewer = false;
             saveError = true;
-            saveMessage = $"Error: {ex.Message}";
+            saveMessage = $"Error generating report: {ex.Message}";
             StateHasChanged();
         }
     }
