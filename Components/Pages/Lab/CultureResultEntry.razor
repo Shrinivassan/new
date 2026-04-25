@@ -1,0 +1,409 @@
+@page "/culture-result-entry"
+@using Lims.Components.Model
+@using LIMS.Model
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using System.Net.Http.Headers
+@using Newtonsoft.Json
+@inject HttpClient http
+@inject LIMS.Model.AppSettings AppSettings
+@inject ProtectedSessionStorage _sessionStorage
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<div class="cre-container">
+    <!-- Header -->
+    <div class="cre-header-section">
+        <div class="cre-breadcrumb">
+            <i class="fas fa-home"></i> 
+            <span class="cre-text-muted">Lab</span> 
+            <i class="fas fa-chevron-right separator"></i> 
+            <span class="active">Culture Result Entry</span>
+        </div>
+        <div class="cre-header-right">
+            <!-- Any top level actions -->
+        </div>
+    </div>
+
+    <!-- Patient Info Banner -->
+    <div class="cre-panel-card cre-patient-banner">
+        <div class="cre-patient-details">
+            <span class="cre-highlight-text cre-bold">@(billData?.customer?.Name ?? "--Patient Name--")</span>
+            <span class="cre-soft-text">(@(billData?.customer?.AgeYears.ToString() ?? "--")Yrs/@(billData?.customer?.Gender ?? "--"))</span>
+        </div>
+        <div class="cre-ref-details">
+            <span class="cre-label-inline">Ref.by :</span>
+            <span class="cre-value">@(billData?.Request_Master?.Reference ?? "--")</span>
+        </div>
+        <div class="cre-sid-details">
+            <span class="cre-label-inline">SID.No :</span>
+            <span class="cre-value cre-highlight-text">@(billData?.Request_Master?.RequestSnoPrint ?? "--/--/----")</span>
+        </div>
+        <div class="cre-auth-action">
+            <button class="cre-btn cre-btn-outline">
+                <i class="fas fa-user-check"></i> Authorize
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="cre-main-content">
+        <!-- Top Section: 3 Columns -->
+        <div class="cre-panel-card cre-top-section">
+            <div class="cre-top-grid">
+                <!-- Left Column -->
+                <div class="cre-form-column">
+                    <div class="cre-field-group">
+                        <label class="cre-label">Select Culture</label>
+                        <select class="cre-select">
+                            <option>-- Select Culture --</option>
+                        </select>
+                    </div>
+                    
+                    <div class="cre-field-group align-top">
+                        <label class="cre-label">Report Status</label>
+                        <div class="cre-radio-group">
+                            <label class="cre-radio-label">
+                                <input type="radio" name="reportStatus" checked />
+                                <span class="cre-radio-mark"></span> Preliminary
+                            </label>
+                            <label class="cre-radio-label">
+                                <input type="radio" name="reportStatus" />
+                                <span class="cre-radio-mark"></span> Supplementary
+                            </label>
+                            <label class="cre-radio-label">
+                                <input type="radio" name="reportStatus" />
+                                <span class="cre-radio-mark"></span> Final Report
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="cre-field-group align-top">
+                        <label class="cre-label">Growth</label>
+                        <div class="cre-radio-group">
+                            <label class="cre-radio-label">
+                                <input type="radio" name="growth" />
+                                <span class="cre-radio-mark"></span> No Growth
+                            </label>
+                            <label class="cre-radio-label">
+                                <input type="radio" name="growth" />
+                                <span class="cre-radio-mark"></span> Growth
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="cre-field-group">
+                        <label class="cre-label">Reporting Method</label>
+                        <select class="cre-select">
+                            <option>-- Select Method --</option>
+                        </select>
+                    </div>
+
+                    <div class="cre-field-group">
+                        <label class="cre-label">Sample</label>
+                        <select class="cre-select">
+                            <option>-- Select Sample --</option>
+                        </select>
+                    </div>
+
+                    <div class="cre-field-group align-top">
+                        <label class="cre-label">Direct Smear</label>
+                        <textarea class="cre-textarea" rows="2"></textarea>
+                    </div>
+
+                    <div class="cre-field-group align-top">
+                        <label class="cre-label">Growth Grade</label>
+                        <textarea class="cre-textarea" rows="2"></textarea>
+                    </div>
+                </div>
+
+                <!-- Middle Column -->
+                <div class="cre-form-column">
+                    <div class="cre-field-group">
+                        <label class="cre-label">Sample Date</label>
+                        <div class="cre-datetime-group">
+                            <input type="date" class="cre-input" />
+                            <input type="time" class="cre-input" />
+                        </div>
+                    </div>
+
+                    <div class="cre-field-group">
+                        <label class="cre-label">Reported Date</label>
+                        <div class="cre-datetime-group">
+                            <input type="date" class="cre-input" />
+                            <input type="time" class="cre-input" />
+                        </div>
+                    </div>
+
+                    <div class="cre-field-group">
+                        <label class="cre-label">Smear for AFB</label>
+                        <input type="text" class="cre-input" />
+                    </div>
+
+                    <div class="cre-field-group">
+                        <label class="cre-label">PUS Cells</label>
+                        <input type="text" class="cre-input" />
+                    </div>
+
+                    <div class="cre-field-group">
+                        <label class="cre-label">Gram's Staining</label>
+                        <input type="text" class="cre-input" />
+                    </div>
+
+                    <div class="cre-field-group align-top">
+                        <label class="cre-label">Diagnosis</label>
+                        <textarea class="cre-textarea" rows="3"></textarea>
+                    </div>
+                </div>
+
+                <!-- Right Column -->
+                <div class="cre-form-column">
+                    <div class="cre-user-info-box">
+                        <div class="cre-user-row">
+                            <span class="cre-label-user">Entered by</span>
+                            <span class="separator">:</span>
+                            <span class="cre-value-user">--</span>
+                        </div>
+                        <div class="cre-user-row">
+                            <span class="cre-label-user">Authorized by</span>
+                            <span class="separator">:</span>
+                            <span class="cre-value-user">--</span>
+                        </div>
+                    </div>
+
+                    <div class="cre-vitek-panel">
+                        <div class="cre-vitek-header">Vitek Results</div>
+                        <div class="cre-vitek-table-wrap">
+                            <table class="cre-table cre-table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Sample</th>
+                                        <th>Organism</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>&nbsp;</td>
+                                        <td></td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td>&nbsp;</td>
+                                        <td></td>
+                                        <td></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="cre-vitek-actions">
+                            <button class="cre-btn-link">Load to (A)</button>
+                            <button class="cre-btn-link">Load to (B)</button>
+                            <button class="cre-btn-link">Load to (C)</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Organism Section -->
+        <div class="cre-panel-card">
+            <div class="cre-panel-header">
+                <div class="cre-panel-title">
+                    <i class="fas fa-bacterium"></i> Organisms & Sensitivity
+                </div>
+            </div>
+            
+            <div class="cre-organism-section">
+                <div class="cre-organism-container">
+                    <div class="cre-organism-grid">
+                        <div class="cre-org-header-row">
+                            <div class="cre-org-empty"></div>
+                            <div class="cre-org-col-header cre-bg-a">SECTION A</div>
+                            <div class="cre-org-col-header cre-bg-b">SECTION B</div>
+                            <div class="cre-org-col-header cre-bg-c">SECTION C</div>
+                        </div>
+                        
+                        <div class="cre-org-row">
+                            <div class="cre-label cre-text-danger">Organism Grown</div>
+                            <div><select class="cre-select"><option>-- Select Organism --</option></select></div>
+                            <div><select class="cre-select"><option>-- Select Organism --</option></select></div>
+                            <div><select class="cre-select"><option>-- Select Organism --</option></select></div>
+                        </div>
+
+                        <div class="cre-org-row">
+                            <div class="cre-label cre-text-danger">Colony Count</div>
+                            <div><input type="text" class="cre-input" placeholder="Count..." /></div>
+                            <div><input type="text" class="cre-input" placeholder="Count..." /></div>
+                            <div><input type="text" class="cre-input" placeholder="Count..." /></div>
+                        </div>
+
+                        <div class="cre-org-row">
+                            <div class="cre-label cre-text-danger">Comments</div>
+                            <div><input type="text" class="cre-input" placeholder="Notes..." /></div>
+                            <div><input type="text" class="cre-input" placeholder="Notes..." /></div>
+                            <div class="cre-expand-wrapper">
+                                <input type="text" class="cre-input" placeholder="Notes..." />
+                                <a href="#" class="cre-link-expand">Expand</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sensitivity Table -->
+                <div class="cre-sensitivity-wrapper">
+                    <div class="cre-table-wrap cre-margin-top">
+                        <table class="cre-table cre-table-bordered">
+                            <thead>
+                                <tr>
+                                    <th class="cre-col-group">Group</th>
+                                    <th class="cre-col-antibiotic">Antibiotic</th>
+                                    <th colspan="3" class="cre-bg-a">A</th>
+                                    <th colspan="3" class="cre-bg-b">B</th>
+                                    <th colspan="3" class="cre-bg-c">C</th>
+                                </tr>
+                                <tr class="cre-sub-header">
+                                    <th></th>
+                                    <th></th>
+                                    <th class="cre-bg-a">Disk</th>
+                                    <th class="cre-bg-a">Res</th>
+                                    <th class="cre-bg-a">MM</th>
+                                    <th class="cre-bg-b">Disk</th>
+                                    <th class="cre-bg-b">Res</th>
+                                    <th class="cre-bg-b">MM</th>
+                                    <th class="cre-bg-c">Disk</th>
+                                    <th class="cre-bg-c">Res</th>
+                                    <th class="cre-bg-c">MM</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td></td>
+                                    <td><select class="cre-select"><option>-- Select Antibiotic --</option></select></td>
+                                    <td class="cre-bg-a"></td><td class="cre-bg-a"></td><td class="cre-bg-a"></td>
+                                    <td class="cre-bg-b"></td><td class="cre-bg-b"></td><td class="cre-bg-b"></td>
+                                    <td class="cre-bg-c"></td><td class="cre-bg-c"></td><td class="cre-bg-c"></td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="cre-bg-a"></td><td class="cre-bg-a"></td><td class="cre-bg-a"></td>
+                                    <td class="cre-bg-b"></td><td class="cre-bg-b"></td><td class="cre-bg-b"></td>
+                                    <td class="cre-bg-c"></td><td class="cre-bg-c"></td><td class="cre-bg-c"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Footer Notes Section -->
+                <div class="cre-notes-section">
+                    <div class="cre-note-col">
+                        <div class="cre-field-group">
+                            <label class="cre-label cre-text-danger">Note</label>
+                            <select class="cre-select">
+                                <option>-- Select Note --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="cre-note-col">
+                        <div class="cre-field-group">
+                            <label class="cre-label cre-text-danger">Note Message</label>
+                            <textarea class="cre-textarea" rows="2" placeholder="Enter message..."></textarea>
+                        </div>
+                    </div>
+                    <div class="cre-note-col">
+                        <div class="cre-field-group">
+                            <label class="cre-label cre-text-danger">Comments</label>
+                            <textarea class="cre-textarea" rows="2" placeholder="Additional comments..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sticky Bottom Bar -->
+    <div class="cre-bottom-bar">
+        <div class="cre-bottom-left">
+            <span class="cre-label-bold">Page Setup</span>
+            <select class="cre-select" style="width: 140px;">
+                <option>General</option>
+            </select>
+            
+            <div class="cre-footer-divider"></div>
+            
+            <label class="cre-radio-label">
+                <input type="radio" name="printType" checked />
+                <span class="cre-radio-mark"></span> Print in Letter Head
+            </label>
+            <label class="cre-radio-label">
+                <input type="radio" name="printType" />
+                <span class="cre-radio-mark"></span> Print White Sheet
+            </label>
+        </div>
+        <div class="cre-bottom-right">
+            <button class="cre-btn cre-btn-primary"><i class="fas fa-save"></i> Save</button>
+            <button class="cre-btn cre-btn-outline"><i class="fas fa-eye"></i> Preview</button>
+            <button class="cre-btn cre-btn-outline"><i class="fas fa-print"></i> Print</button>
+            <button class="cre-btn cre-btn-danger" @onclick="NavigateBack"><i class="fas fa-times"></i> Close</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "requestGuid")]
+    public string RequestGuid { get; set; } = "";
+
+    private string token = "";
+    private BillRequest billData;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!http.DefaultRequestHeaders.Contains("X-Tenant-ID"))
+        {
+            http.DefaultRequestHeaders.Add("X-Tenant-ID", AppSettings.ClientId);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var tkn = await _sessionStorage.GetAsync<UserAuth>("claim");
+            if (tkn.Success && tkn.Value != null && !string.IsNullOrEmpty(tkn.Value.token))
+            {
+                token = tkn.Value.token;
+                await LoadDataAsync();
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        if (string.IsNullOrEmpty(RequestGuid)) return;
+
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{AppSettings.BaseUrl}request/EditBill?rid={RequestGuid}");
+            if (!string.IsNullOrEmpty(token))
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var res = await http.SendAsync(request);
+            if (res.IsSuccessStatusCode)
+            {
+                var content = await res.Content.ReadAsStringAsync();
+                billData = JsonConvert.DeserializeObject<BillRequest>(content);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading culture details: {ex.Message}");
+        }
+    }
+
+    private void NavigateBack()
+    {
+        NavigationManager.NavigateTo("/result-search");
+    }
+}

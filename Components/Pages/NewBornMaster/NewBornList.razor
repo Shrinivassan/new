@@ -1,0 +1,278 @@
+@page "/newborn-list"
+@using System.Net.Http.Json
+
+@using System.Net
+@using LIMS.Model
+@using Lims.Components.Data
+@using System.Net.Http.Headers
+@using Lims.Components.Model
+@using Microsoft.AspNetCore.Components.Web
+@using Syncfusion.Blazor.RichTextEditor
+@using Syncfusion.Blazor.Popups
+@using Syncfusion.Blazor.Grids
+@using Lims.Components.Pages.PreNatalMaster
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+@inject ExecutionClass exe
+@inject  HttpClient http
+@inject AppSettings appSettings
+@inject ProtectedSessionStorage _sessionStorage
+@using AspChangeEvent = Microsoft.AspNetCore.Components.ChangeEventArgs
+
+<!-- Modern NewBorn Header -->
+<div class="d-flex align-items-center mb-3 py-2 px-3 shadow-sm rounded position-relative overflow-hidden" style="background: var(--bg-card); border-left: 5px solid #0ba360; border: 1px solid var(--border-color); border-left-width: 5px;">
+    <i class="bi bi-stars position-absolute pe-none" style="font-size: 6rem; right: -10px; top: -15px; opacity: 0.05; color: #0ba360;"></i>
+    <div class="me-3 rounded-circle d-flex justify-content-center align-items-center" style="background: rgba(11, 163, 96, 0.1); width: 45px; height: 45px; z-index: 1;">
+        <i class="bi bi-stars" style="font-size: 1.5rem; color: #0ba360;"></i>
+    </div>
+    <div style="z-index: 1;">
+        <h4 class="mb-0 fw-bold" style="font-family: 'Inter', sans-serif; letter-spacing: 0.3px; color: var(--text-primary);">NewBorn List</h4>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row align-items-end">
+                        <div class="col-md-2">
+                            <label>From Date</label>    
+                            <InputDate @bind-Value="fromDate" class="form-control" />
+                        </div>
+                        <div class="col-md-2">
+                            <label>To Date</label>    
+                            <InputDate @bind-Value="toDate" class="form-control" />
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-primary mt-2" @onclick="btnrefreshAsync">
+                                <i class="bi bi-search"></i> Search
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col">
+            <div class="card">
+                <div class="card-body">
+               <SfGrid DataSource="@newBornRequests" AllowPaging="true" AllowSorting="true" @ref="grd1">
+                            <GridSortSettings>
+                                <GridSortColumns>
+                                    <GridSortColumn Field="RequestSnoPrint" Direction="SortDirection.Ascending"></GridSortColumn>
+                                </GridSortColumns>
+                            </GridSortSettings>
+                            <GridColumns>
+                                <GridColumn Field="RequestSnoPrint" HeaderText="Bill No" Width="120"></GridColumn>
+                                <GridColumn Field="RequestDateTime" HeaderText="Date" Format="dd-MM-yyyy" Width="140"></GridColumn>
+                                <GridColumn Field="PatientName" HeaderText="Patient" Width="200"></GridColumn>
+                                @* <GridColumn Field="RequestSno" HeaderText="Sample ID" Width="120"></GridColumn> *@
+                                <GridColumn HeaderText="Test" Width="100">
+                                    <Template>
+                                        @if (context is LIMS.Model.NewBornRequest row)
+                                        {
+                                            <div class="test-name">@row.TestName</div>
+                                            @if (testMasterCache.TryGetValue(row.TCode, out var md) && md?.nrd != null && md.nrd.Any())
+                                            {
+                                                var first = md.nrd.First();
+                                                <div class="test-table-title">@((first.TableTitle ?? "").Trim())</div>
+                                                <div class="test-parameters">@((first.Parameters ?? "").Trim())</div>
+                                            }
+                                        }
+                                    </Template>
+                                </GridColumn>
+                                @* <GridColumn Field="TCode" HeaderText="Test code" Width="200"></GridColumn> *@
+                                <GridColumn Field="MobileNo" HeaderText="Mobile" Width="140"></GridColumn>
+                                <GridColumn HeaderText="Actions" Width="100">
+                                    <Template>
+                                    @{
+                                        var dat = (context as NewBornRequest);
+                                    }
+                                        <div class="d-flex gap-1">
+                                            @if (context is LIMS.Model.NewBornRequest row)
+                                            {
+                                                <button class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1" @onclick="@(() => OpenFromBill(@dat))">
+                                                    <i class="bi bi-pencil-square"></i> Entry
+                                                </button>
+                                            }
+                                            @if (dat.AuthorizedBy > 0)
+                                        {
+                                                <button type="button" @onclick="() => GetReport(dat)" class="btn btn-sm btn-info d-flex align-items-center gap-1">
+                                                    <i class="bi bi-eye"></i> View
+                                                </button>
+                                        }
+                                        </div>
+                                    </Template>
+                                </GridColumn>
+
+                            </GridColumns>
+                        </SfGrid>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Result Entry Dialog -->
+<SfDialog Visible="@isshow" Width="100%" Height="100vh" IsModal="true" ShowCloseIcon="true">
+    <DialogTemplates>
+        <Header>Result Entry</Header>
+        <Content>
+           <Lims.Components.Shared.ToastComponent />
+           <NewBornResult SelectedBill="selectedRequest"></NewBornResult>
+        </Content>
+    </DialogTemplates>
+    <DialogEvents OnClose="CloseEntry"></DialogEvents>
+</SfDialog>
+
+<SfDialog Visible="@isviewer" Width="80%" Header="Result" Height="80%" IsModal="true" ShowCloseIcon="true">
+    <DialogTemplates>
+        <Header>Result Entry</Header>
+        <Content>
+            <ReportViewer Reportstring="@reportstring" pnr="@preNatalRequest"></ReportViewer>
+        </Content>
+    </DialogTemplates>
+    <DialogEvents OnClose="CloseViewer"></DialogEvents>
+</SfDialog>
+
+
+@code {
+    PreNatalRequest preNatalRequest = new();
+
+    DateTime fromDate = DateTime.Now;
+    DateTime toDate = DateTime.Now;
+
+    NewBornResult nrm  = new();
+
+    SfGrid<NewBornRequest>? grd1;
+    IList<NewBornRequest> newBornRequests = new List<NewBornRequest>();
+    // Cache test master/details by TCode so the list can preview test details when multiple patients share the same TCode
+    Dictionary<int, NewBornResultData> testMasterCache = new Dictionary<int, NewBornResultData>();
+    NewBornRequest selectedRequest = new();
+    // Reference to the result component so we can explicitly tell it to load
+
+    bool isshow = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            http.DefaultRequestHeaders.Clear();
+            http.DefaultRequestHeaders.Add("X-Tenant-ID", appSettings.ClientId);
+            // Use per-request HttpClient instances from the factory in btnrefreshAsync
+            await btnrefreshAsync();
+        }
+    }
+
+    private async Task btnrefreshAsync()
+    {
+        try
+        {
+
+
+            string sd = fromDate.ToString("yyyy-MM-dd") + " 12:00:00 AM";
+            string ed = toDate.ToString("yyyy-MM-dd") + " 11:59:59 PM";
+
+
+            var res = await http.GetAsync($"{appSettings.BaseUrl}newborn/newbornrequest?fdate={Uri.EscapeDataString(sd)}&tdate={Uri.EscapeDataString(ed)}");
+
+            if (res.IsSuccessStatusCode)
+            {
+                var tt = await res.Content.ReadAsStringAsync();
+
+                if (!string.IsNullOrWhiteSpace(tt))
+                {
+                    var options = new System.Text.Json.JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    };
+                    newBornRequests = System.Text.Json.JsonSerializer.Deserialize<IList<NewBornRequest>>(tt, options) ?? new List<NewBornRequest>();
+
+
+                    // If the API provides SkyCode values and you want to show only "NBS" items,
+                    // you can enable the filter below. Many APIs don't return SkyCode, so
+                    // apply the filter only when at least one item contains a non-empty SkyCode.
+                    bool hasSkyCode = newBornRequests.Any(x => !string.IsNullOrWhiteSpace(x?.SkyCode));
+                    if (hasSkyCode)
+                    {
+                        newBornRequests = newBornRequests
+                            .Where(x => string.Equals(x?.SkyCode?.Trim(), "NBS", StringComparison.OrdinalIgnoreCase))
+                            .ToList();
+                    }
+
+                    // Notify UI and refresh the grid reference (if available)
+                    if (grd1 != null)
+                    {
+                        await grd1.Refresh();
+                    }
+                    StateHasChanged();
+                }
+            }
+        }
+        catch(Exception ex)
+        {
+            var errorMsg = ex.Message.ToString();
+            // Log or handle error as needed
+        }
+    }
+
+    private async Task CloseEntry()
+    {
+        isshow = false;
+        await btnrefreshAsync();
+    }
+    // Report Viewer Variables
+    bool isviewer = false;
+    string reportstring = "";
+
+    bool letterhead = false;
+
+
+    private async Task CloseViewer()
+    {
+        isviewer = false;
+        await btnrefreshAsync();
+    }
+
+    private async Task OpenFromBill(NewBornRequest request)
+    {
+        try
+        {
+            selectedRequest = request;
+            isshow = true;
+            await InvokeAsync(StateHasChanged);
+
+
+        }
+        catch (Exception ex)
+        {
+            var errorMsg = ex.Message.ToString();
+            // Log or handle error as needed
+        }
+    }
+    NewBornRequest reportrequest = new();
+    private async Task GetReport(NewBornRequest args)
+    {
+        try
+        {
+            reportrequest = args;
+            var basestring = await exe.GetReport<NewBornRequest>(args, (await _sessionStorage.GetAsync<string>("MainBranch")).Value ?? "General", letterhead, "NewBornReport.rdlc");
+            if (basestring.Length > 0)
+            {
+                preNatalRequest = exe.MapNewBornToPreNatal(args);
+
+
+
+                reportstring = basestring;
+                isviewer = true;
+                StateHasChanged();
+            }
+        }catch(Exception ex)
+        {
+            var errorMsg = ex.Message.ToString();
+        }
+    }
+    }

@@ -1,0 +1,31 @@
+.page-header[b-y14ktywimx] {
+    background: #304458;
+    color: #fff;
+    font-size: 22px;
+    font-weight: 600;
+    padding: 12px 20px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.page-header h3[b-y14ktywimx] {
+    margin: 0;
+    position: relative;
+}
+
+.page-header .title-underline[b-y14ktywimx] {
+    position: absolute;
+    left: 0;
+    bottom: -4px;
+    width: 100%;
+    height: 3px;
+    background: blue;
+    border-radius: 2px;
+}
+
+.test-name[b-y14ktywimx] { font-weight: 600; }
+.test-table-title[b-y14ktywimx] { font-size: 12px; color: #666; margin-top: 2px; }
+.test-parameters[b-y14ktywimx] { font-size: 11px; color: #888; }

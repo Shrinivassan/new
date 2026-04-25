@@ -1,0 +1,215 @@
+.page-header[b-gl3x2e5tmt] {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #ffffff;
+    padding: 8px 20px;
+    border-radius: 10px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+    position: relative;
+    overflow: hidden;
+    height: 48px;
+    border: 1px solid var(--border-color);
+}
+
+.page-header-title[b-gl3x2e5tmt] {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-primary) !important;
+    font-size: 1.15rem;
+    font-weight: 700;
+    z-index: 1;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.page-header-title i[b-gl3x2e5tmt] {
+    font-size: 1.4rem;
+    color: var(--brand-accent);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.05));
+}
+
+.page-header-accent[b-gl3x2e5tmt] {
+    position: absolute;
+    right: -25px;
+    top: -25px;
+    width: 120px;
+    height: 120px;
+    background: linear-gradient(135deg, var(--bg-hover), transparent);
+    border-radius: 50%;
+    z-index: 0;
+}
+
+[data-theme="dark"] .page-header[b-gl3x2e5tmt] {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .page-header-title[b-gl3x2e5tmt] {
+    color: var(--text-on-brand) !important;
+}
+
+[data-theme="dark"] .page-header-title i[b-gl3x2e5tmt] {
+    color: #fff;
+}
+
+[data-theme="dark"] .page-header-accent[b-gl3x2e5tmt] {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), transparent);
+}
+
+/* --- Form Layout & Sections --- */
+.form-section-container[b-gl3x2e5tmt] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.editor-wrapper[b-gl3x2e5tmt] {
+    flex: 1;
+    min-width: 500px;
+}
+
+.form-label-styled[b-gl3x2e5tmt] {
+    font-weight: 600;
+    color: #333;
+}
+
+.form-label-styled i[b-gl3x2e5tmt] {
+    margin-right: 6px;
+}
+
+/* --- Test Selection --- */
+.test-selection-container[b-gl3x2e5tmt] {
+    position: relative;
+}
+
+/* --- Details Panel (Result Table Entry) --- */
+.details-panel[b-gl3x2e5tmt] {
+    margin-top: 20px;
+    padding: 15px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.details-header[b-gl3x2e5tmt] {
+    margin-bottom: 10px;
+}
+
+.details-actions-container[b-gl3x2e5tmt] {
+    display: flex;
+    align-items: end;
+    justify-content: center;
+}
+
+.details-save-container[b-gl3x2e5tmt] {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1rem;
+}
+
+/* --- Buttons --- */
+.btn-add[b-gl3x2e5tmt] {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background-color: #0d6efd;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.btn-add i[b-gl3x2e5tmt] {
+    font-size: 16px;
+}
+
+.btn-save[b-gl3x2e5tmt] {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 1rem;
+    font-size: 0.9rem;
+    background-color: #0d6efd;
+    color: white;
+    border: none;
+    border-radius: 0.25rem;
+    cursor: pointer;
+}
+
+.btn-edit[b-gl3x2e5tmt] {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background-color: #0d6efd;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 4px 10px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.btn-edit i[b-gl3x2e5tmt] {
+    font-size: 15px;
+}
+
+.btn-delete[b-gl3x2e5tmt] {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 4px 10px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.btn-delete i[b-gl3x2e5tmt] {
+    font-size: 15px;
+}
+
+/* --- Icon Colors --- */
+.icon-disclaimer[b-gl3x2e5tmt] {
+    color: #dc3545;
+}
+
+.icon-normal[b-gl3x2e5tmt] {
+    color: #28a745;
+}
+
+.icon-abnormal[b-gl3x2e5tmt] {
+    color: #dc3545;
+}
+
+/* --- Item Template in AutoComplete --- */
+.autocomplete-item[b-gl3x2e5tmt] {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 8px 12px;
+}
+
+.autocomplete-item-main[b-gl3x2e5tmt] {
+    display: flex;
+    flex-direction: column;
+}
+
+.autocomplete-item-name[b-gl3x2e5tmt] {
+    font-weight: 600;
+}
+
+.autocomplete-item-details[b-gl3x2e5tmt] {
+    font-size: 0.85rem;
+    color: #6c757d;
+}

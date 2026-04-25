@@ -1,0 +1,107 @@
+﻿<!-- CLINICAL_LAB_REPORT_EMAIL -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>Clinical Laboratory Report</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f2f4f6;">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+            <td align="center" style="padding:20px 10px;">
+                <!-- container -->
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 0 8px rgba(0,0,0,0.05);">
+                    <!-- header -->
+                    <tr>
+                        <td style="background:#0b6efd;padding:20px;text-align:left;">
+                            <img alt="Clinic Logo" src="https://demo.iscansoft.com/images/metaomics/logo.jpg" width="160" style="display:block;border:0;outline:none;text-decoration:none;" />
+                        </td>
+                    </tr>
+
+                    <!-- title section -->
+                    <tr>
+                        <td style="padding:30px 32px 10px 32px;font-family:Arial, Helvetica, sans-serif;">
+                            <h1 style="margin:0;font-size:22px;line-height:28px;color:#111;">
+                                Hello, {{PatientName}}
+                            </h1>
+                            <p style="margin:10px 0 0 0;font-size:15px;line-height:22px;color:#555;">
+                                We are pleased to inform you that your <strong>laboratory test report</strong> is now available.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- summary block -->
+                    <tr>
+                        <td style="padding:10px 32px 10px 32px;font-family:Arial, Helvetica, sans-serif;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                                <tr>
+                                    <td style="padding:10px 0;font-size:14px;line-height:22px;color:#333;">
+                                        <strong>Patient ID:</strong> {{PatientID}}<br />
+                                        <strong>Report Date:</strong> {{ReportDate}}<br />
+                                        <strong>Referring Doctor:</strong> {{DoctorName}}<br />
+                                        <strong>Department:</strong> {{Department}}
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- results block -->
+                    <tr>
+                        <td style="padding:5px 32px 20px 32px;font-family:Arial, Helvetica, sans-serif;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                                <tr>
+                                    <td style="font-size:14px;line-height:22px;color:#333;">
+                                        <p style="margin:0 0 12px 0;">
+                                            
+                                        </p>
+
+                                
+
+                                        <p style="margin:16px 0 0 0;color:#555;">
+                                            Please find the attached report.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- CTA -->
+                    <!--<tr>
+                        <td style="padding:10px 32px 20px 32px;text-align:center;">
+                            <a href="{{ReportUrl}}" target="_blank"
+                               style="display:inline-block;padding:12px 20px;border-radius:6px;background:#0b6efd;color:#ffffff;text-decoration:none;font-weight:bold;font-family:Arial, Helvetica, sans-serif;">
+                                View / Download Full Report
+                            </a>
+                        </td>
+                    </tr>-->
+
+                    <!-- note -->
+                    <tr>
+                        <td style="padding:0 32px 20px 32px;font-family:Arial, Helvetica, sans-serif;">
+                            <p style="margin:0;font-size:13px;line-height:20px;color:#666;">
+                                If you have any questions regarding your results, please contact our laboratory support team at
+                                <a href="{{supportemail}}" style="color:#0b6efd;text-decoration:none;">{{supportemail}}</a>
+                                or call us at <strong>{{mobileno}}</strong>.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- footer -->
+                    <tr>
+                        <td style="padding:20px 32px;background:#f7f7fb;font-family:Arial, Helvetica, sans-serif;text-align:center;">
+                            <p style="margin:0;font-size:12px;color:#777;line-height:18px;">
+                                © {{Year}} {{LabName}} · {{LabAddress}}<br />
+                                This is an automated message — please do not reply.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+                <!-- /container -->
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

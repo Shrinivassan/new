@@ -1,0 +1,271 @@
+/* Test Requisition Details Page Styles */
+
+.details-container {
+    padding: 20px;
+    background-color: #f8f9fa;
+    min-height: 100vh;
+}
+
+.details-container h2 {
+    color: #2c3e50;
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 25px;
+    text-align: center;
+    border-bottom: 3px solid #3498db;
+    padding-bottom: 10px;
+}
+
+/* Table Container for better scrolling */
+.table-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    margin-top: 20px;
+    width:100%;
+    height:calc(100vh - 500px) !important;
+    border:10px solid red !important;
+}
+
+/* Main Table Styles */
+.table {
+    margin-bottom: 0;
+    font-size: 14px;
+    width: 100%;
+    border-collapse: collapse;
+    position:relative;
+    overflow-y:scroll;
+}
+.table thead{
+    background:red !important;
+}
+.table thead th {
+    background: #fff9ec;
+    color:black;
+    font-weight: 600;
+    font-size: 13px;
+    text-align: center;
+    padding: 12px 8px;
+    border: 1px solid #dee2e6;
+    position: fixed;
+    top: 0;
+    z-index: 10;
+    white-space: nowrap;
+    min-width: 120px;
+}
+
+.table tbody td {
+    padding: 10px 8px;
+    border: 1px solid #dee2e6;
+    vertical-align: middle;
+    background-color: white;
+    font-size: 13px;
+}
+
+/* Alternating row colors */
+.table tbody tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.table tbody tr:nth-child(odd) {
+    background-color: white;
+}
+
+/* Hover effect for rows */
+.table tbody tr:hover {
+    background-color: #e3f2fd;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+}
+
+/* Specific column styling */
+.table td:first-child {
+    font-weight: 600;
+    color: #2c3e50;
+    min-width: 150px;
+}
+
+.table td:nth-child(2), 
+.table td:nth-child(18), 
+.table td:nth-child(19) {
+    min-width: 100px;
+    text-align: center;
+}
+
+.table td:nth-child(7), 
+.table td:nth-child(12) {
+    max-width: 200px;
+    word-wrap: break-word;
+}
+
+/* Email and mobile columns */
+.table td:nth-child(9), 
+.table td:nth-child(13), 
+.table td:nth-child(8), 
+.table td:nth-child(14) {
+    min-width: 140px;
+    font-size: 12px;
+}
+
+/* Ethnicity column styling */
+.table td:nth-child(17) {
+    min-width: 120px;
+}
+
+/* Screening columns styling */
+.table td:nth-child(25), 
+.table td:nth-child(26) {
+    min-width: 130px;
+}
+
+.table td:nth-child(25) div, 
+.table td:nth-child(26) div {
+    background-color: #e8f5e8;
+    color: #2e7d32;
+    padding: 3px 6px;
+    margin: 2px 0;
+    border-radius: 12px;
+    font-size: 11px;
+    text-align: center;
+    font-weight: 500;
+}
+
+/* Parity column styling */
+.table td:nth-child(21) {
+    font-weight: 600;
+    color: #1976d2;
+}
+
+/* Boolean value styling */
+.table td:nth-child(5), 
+.table td:nth-child(6) {
+    text-align: center;
+    font-weight: 500;
+}
+
+/* No data message */
+.details-container p {
+    text-align: center;
+    font-size: 18px;
+    color: #666;
+    margin-top: 50px;
+    padding: 40px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .details-container {
+        padding: 15px;
+    }
+    
+    .details-container h2 {
+        font-size: 24px;
+    }
+    
+    .table {
+        font-size: 12px;
+    }
+    
+    .table thead th,
+    .table tbody td {
+        padding: 8px 6px;
+        min-width: 100px;
+    }
+    
+    .table thead th {
+        font-size: 11px;
+    }
+}
+
+@media (max-width: 576px) {
+    .details-container {
+        padding: 10px;
+    }
+    
+    .details-container h2 {
+        font-size: 20px;
+    }
+    
+    .table {
+        font-size: 11px;
+    }
+    
+    .table thead th,
+    .table tbody td {
+        padding: 6px 4px;
+        min-width: 80px;
+    }
+}
+
+/* Print styles */
+@media print {
+    .details-container {
+        background-color: white;
+        padding: 0;
+    }
+    
+    .table {
+        font-size: 10px;
+    }
+    
+    .table thead th {
+        background: #333 !important;
+        color: white !important;
+    }
+    
+    .table tbody tr:hover {
+        background-color: transparent;
+        transform: none;
+        box-shadow: none;
+    }
+}
+
+/* Loading state */
+.loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 200px;
+    font-size: 16px;
+    color: #666;
+}
+
+.loading::after {
+    content: '';
+    width: 20px;
+    height: 20px;
+    margin-left: 10px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Scrollbar styling for webkit browsers */
+.details-container::-webkit-scrollbar {
+    height: 8px;
+}
+
+.details-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.details-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.details-container::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

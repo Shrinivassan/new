@@ -1,0 +1,598 @@
+@page "/newborn-master"
+@using System
+@using System.Collections.Generic
+@using LIMS.Model
+@using Lims.Components.Model
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@rendermode @(new InteractiveServerRenderMode(prerender:false))
+@inject HttpClient Http
+@inject ProtectedSessionStorage _sessionStorage
+@inject AppSettings appSettings
+@inject Data.ApiData _apiData
+@inject IJSRuntime JSRuntime
+@inject Lims.Components.Data.NotificationService NotificationService
+@using Microsoft.AspNetCore.Components.Web
+
+@using Microsoft.EntityFrameworkCore
+@using Newtonsoft.Json
+@using Syncfusion.Blazor.RichTextEditor
+@using Syncfusion.Blazor.Grids
+@inject ExecutionClass exe
+@using Syncfusion.Blazor.DropDowns
+@using Lims.Components.Data
+@using AspChangeEvent = Microsoft.AspNetCore.Components.ChangeEventArgs
+
+<div class="page-header">
+    <div class="page-header-title">
+        <i class="fas fa-baby"></i>
+        <span>NewBorn Master</span>
+    </div>
+    <div class="page-header-accent"></div>
+</div>
+
+
+<div class="container p-3">
+    <div class="row mb-3">
+        <div class="col-md-6 test-selection-container">
+            <label class="form-label form-label-styled">
+                <i class="bi bi-ui-checks" style="margin-right:6px;"></i> Select Test
+            </label>
+
+            <SfAutoComplete TValue="string" 
+                                        TItem="Test_Master" 
+                                        Placeholder="Search and select a test..." 
+                                        Value="@searchTest"
+                                        DataSource="@tm" 
+                                        AllowFiltering="true"
+                                        FilterType="Syncfusion.Blazor.DropDowns.FilterType.Contains"
+                                        IgnoreAccent="true"
+                                        ShowPopupButton="true">
+                            <AutoCompleteEvents TItem="Test_Master" 
+                                               TValue="string" 
+                                               Filtering="OnAutoCompleteFilter" 
+                                               ValueChange="OnTestSelected">
+                            </AutoCompleteEvents>
+                <AutoCompleteTemplates TItem="Test_Master">
+                    <ItemTemplate>
+                        <div class="row">
+                            @{
+                                var dat = (context as Test_Master);
+                            }
+                            <div class="col-8 d-flex fw-semibold ">@dat.Name</div>
+                            <div class="col-auto d-flex float-end ms-auto fw-lighter">@dat.TCode</div>
+                        </div>
+
+
+                      @*   <div style="display:flex; justify-content:space-between; align-items:center; width:100%; padding:8px 12px;">
+                            <div style="display:flex; flex-direction:column;">
+                                <span style="font-weight:600;">@((context as Test_Master).Name)</span>
+                                <span style="font-size:0.85rem; color:#6c757d;">Code: @((context as Test_Master).TCode)</span>
+                            </div>
+                            <div style="font-size:0.85rem; color:#6c757d;">
+                                @(((context as Test_Master).PackCode > 0) ? $"Grp: {((context as Test_Master).PackCode)}" : string.Empty)
+                            </div>
+                        </div> *@
+                    </ItemTemplate>
+                </AutoCompleteTemplates>
+                <AutoCompleteFieldSettings Value="Name" Text="Name"></AutoCompleteFieldSettings>
+            </SfAutoComplete>
+        </div>
+    </div>
+
+    <EditForm Model="ntm">
+        <!-- Method & Comments -->
+        <div class="form-section-container">
+            <!-- Method Section -->
+            <div class="editor-wrapper">
+                <label class="form-label form-label-styled">
+                    <i class="bi bi-gear" style="margin-right:6px;"></i> Method
+                </label>
+                @if (exe != null)
+                {
+                    <SfRichTextEditor CssClass="form-control" @bind-Value="ntm.Method">
+                        <RichTextEditorToolbarSettings Items="@(exe.Tools)"></RichTextEditorToolbarSettings>
+                    </SfRichTextEditor>
+                }
+                else
+                {
+                    <textarea class="form-control" rows="4" @bind="ntm.Method"></textarea>
+                }
+            </div>
+
+            <!-- Comments Section -->
+            <div class="editor-wrapper">
+                <label class="form-label form-label-styled">
+                    <i class="bi bi-chat-dots" style="margin-right:6px;"></i> Comments
+                </label>
+                @if (exe != null)
+                {
+                    <SfRichTextEditor CssClass="form-control" @bind-Value="ntm.Comments">
+                        <RichTextEditorToolbarSettings Items="@(exe.Tools)"></RichTextEditorToolbarSettings>
+                    </SfRichTextEditor>
+                }
+                else
+                {
+                    <textarea class="form-control" rows="4" @bind="ntm.Comments"></textarea>
+                }
+            </div>
+        </div>
+
+        <!-- Interpretation & Disclaimer -->
+        <div class="form-section-container">
+            <!-- Interpretation -->
+            <div class="editor-wrapper">
+                <label class="form-label form-label-styled">
+                    <i class="bi bi-journal-text" style="margin-right:6px;"></i> Interpretation
+                </label>
+                @if (exe != null)
+                {
+                    <SfRichTextEditor CssClass="form-control" @bind-Value="ntm.Interpretation">
+                        <RichTextEditorToolbarSettings Items="@(exe.Tools)"></RichTextEditorToolbarSettings>
+                    </SfRichTextEditor>
+                }
+                else
+                {
+                    <textarea class="form-control" rows="4" @bind="ntm.Interpretation"></textarea>
+                }
+            </div>
+
+            <!-- Disclaimer -->
+            <div class="editor-wrapper">
+                <label class="form-label form-label-styled">
+                    <i class="bi bi-exclamation-triangle icon-disclaimer" style="margin-right:6px;"></i> Disclaimer
+                </label>
+                @if (exe != null)
+                {
+                    <SfRichTextEditor CssClass="form-control" @bind-Value="ntm.Disclaimer">
+                        <RichTextEditorToolbarSettings Items="@(exe.Tools)"></RichTextEditorToolbarSettings>
+                    </SfRichTextEditor>
+                }
+                else
+                {
+                    <textarea class="form-control" rows="4" @bind="ntm.Disclaimer"></textarea>
+                }
+            </div>
+        </div>
+
+        <!-- Normal & Abnormal -->
+        <div class="form-section-container" style="margin-bottom:0;">
+            <!-- Normal -->
+            <div class="editor-wrapper">
+                <label class="form-label form-label-styled">
+                    <i class="bi bi-check-circle icon-normal" style="margin-right:6px;"></i> Normal
+                </label>
+                @if (exe != null)
+                {
+                    <SfRichTextEditor CssClass="form-control" @bind-Value="ntm.Normal">
+                        <RichTextEditorToolbarSettings Items="@(exe.Tools)"></RichTextEditorToolbarSettings>
+                    </SfRichTextEditor>
+                }
+                else
+                {
+                    <textarea class="form-control" rows="4" @bind="ntm.Normal"></textarea>
+                }
+            </div>
+
+            <!-- Abnormal -->
+            <div class="editor-wrapper">
+                <label class="form-label form-label-styled">
+                    <i class="bi bi-exclamation-octagon icon-abnormal" style="margin-right:6px;"></i> Abnormal
+                </label>
+                @if (exe != null)
+                {
+                    <SfRichTextEditor CssClass="form-control" @bind-Value="ntm.Abnormal">
+                        <RichTextEditorToolbarSettings Items="@(exe.Tools)"></RichTextEditorToolbarSettings>
+                    </SfRichTextEditor>
+                }
+                else
+                {
+                    <textarea class="form-control" rows="4" @bind="ntm.Abnormal"></textarea>
+                }
+            </div>
+        </div>
+    </EditForm>
+
+    @if (showDetailsPanel)
+    {
+        <div class="details-panel">
+            <EditForm Model="@ntd1">
+                <DataAnnotationsValidator />
+                <div class="details-header">
+                    <i class="bi bi-flask"></i> Result Table Entry
+                </div>
+                <div class="row">
+                    <div class="col"><label><i class="bi bi-table me-1"></i>Table Title</label><input type="text" class="form-control" @bind="ntd1.TableTitle" /></div>
+                    <div class="col"><label><i class="bi bi-sliders me-1"></i>Parameters</label><input type="text" class="form-control" @bind="ntd1.Parameters" /></div>
+                    <div class="col"><label><i class="bi bi-info-circle me-1"></i>Details</label><input type="text" class="form-control" @bind="ntd1.Details" /></div>
+                    <div class="col"><label><i class="bi bi-gear-wide-connected me-1"></i>Method</label><input type="text" class="form-control" @bind="ntd1.Method" /></div>
+                    <div class="col"><label><i class="bi bi-eye me-1"></i>Observed Value</label><input type="text" class="form-control" @bind="ntd1.ObserverValue" /></div>
+
+                    <div class="col"><label><i class="bi bi-rulers me-1"></i>Range Type</label>
+                        <select @bind="ntd1.RangeType" class="form-control">
+                            <option value="-">Between</option>
+                            <option value=">">Less than</option>
+                            <option value=">=">Less than Equal to</option>
+                            <option value="<">More than</option>
+                            <option value="<=">More than Equal to</option>
+                        </select>
+                    </div>
+                    <div class="col"><label><i class="bi bi-arrow-down-right-circle me-1"></i>Range From</label><input type="number" class="form-control" @bind="ntd1.RangeFrom" /></div>
+                    <div class="col"><label><i class="bi bi-arrow-up-right-circle me-1"></i>Range To</label><input type="number" class="form-control" @bind="ntd1.RangeTo" /></div>
+                    <div class="col"><label><i class="bi bi-bullseye me-1"></i>Reference Range</label><input type="text" class="form-control" @bind="ntd1.ReferenceRange" /></div>
+                    <div class="col"><label><i class="bi bi-funnel me-1"></i>Unit</label><input type="text" class="form-control" @bind="ntd1.Unit" /></div>
+                    <div class="col"><label><i class="bi bi-clipboard-check me-1"></i>Result</label><input type="text" class="form-control" @bind="ntd1.Result" /></div>
+                    <div class="col"><label><i class="bi bi-collection me-1"></i>Group Title</label><input type="text" class="form-control" @bind="ntd1.GroupTitle" /></div>
+                    <div class="col"><label><i class="bi bi-toggles me-1"></i>Condition</label><input type="text" class="form-control" @bind="ntd1.Condition" /></div>
+                   
+                    <div class="row">
+                    <div class="col">
+                        <label><i class="bi bi-rulers me-1"></i>Alt. Range Type</label>
+                        <select @bind="ntd1.RangeType1" class="form-control">
+                            <option value="-">Between</option>
+                            <option value=">">Less than</option>
+                            <option value=">=">Less than Equal to</option>
+                            <option value="<">More than</option>
+                            <option value="<=">More than Equal to</option>
+                        </select>
+                    </div>
+                    <div class="col"><label><i class="bi bi-arrow-down-right-circle-fill me-1"></i>Alt. Range From</label><input type="number" class="form-control" @bind="ntd1.RangeFrom1" /></div>
+                    <div class="col"><label><i class="bi bi-arrow-up-right-circle-fill me-1"></i>Alt. Range To</label><input type="number" class="form-control" @bind="ntd1.RangeTo1" /></div>
+                    <div class="col"><label><i class="bi bi-sort-numeric-down me-1"></i>Order No</label><input type="number" class="form-control" @bind="ntd1.SLNo" /></div>
+                
+                    <div class="col details-actions-container" style="gap:10px; align-items:end;">
+                        <button type="button" class="btn-add" @onclick="AddTestDetail">
+                            <i class="bi bi-plus-circle"></i>
+                            <span>Add</span>
+                        </button>
+                        <div class="details-save-container">
+                            <button type="submit" @onclick="@SaveData" class="btn-save">
+                                <i class="bi bi-save"></i> Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                </div>
+            </EditForm>
+        </div>
+    }
+
+    <div class="row mt-3">
+        <div class="col">
+            <SfGrid @ref="grid" DataSource="@ntd" AllowPaging="true">
+                <GridColumns>
+                    <GridColumn Field="@nameof(NewBorn_Test_Details.SLNo)" HeaderText="SL No" Width="70"></GridColumn>
+                    <GridColumn Field="@nameof(NewBorn_Test_Details.TableTitle)" HeaderText="Table Title" Width="150"></GridColumn>
+                    <GridColumn Field="@nameof(NewBorn_Test_Details.Parameters)" HeaderText="Parameter" Width="150"></GridColumn>
+                    <GridColumn Field="@nameof(NewBorn_Test_Details.Unit)" HeaderText="Unit" Width="80"></GridColumn>
+                    <GridColumn Field="@nameof(NewBorn_Test_Details.ReferenceRange)" HeaderText="Reference" Width="120"></GridColumn>
+                    <GridColumn Field="@nameof(NewBorn_Test_Details.RangeType)" HeaderText="Range Type" Width="120"></GridColumn>
+                    <GridColumn Field="@nameof(NewBorn_Test_Details.RangeFrom)" HeaderText="From" Width="100"></GridColumn>
+                    <GridColumn Field="@nameof(NewBorn_Test_Details.RangeTo)" HeaderText="To" Width="100"></GridColumn>
+                    <GridColumn HeaderText="Edit" Width="90px">
+                        <Template>
+                            @{ var data = (context as NewBorn_Test_Details)!; }
+                            <button type="button" class="btn-edit" @onclick="@(() => ntd1 = ntd.FirstOrDefault(x => x.NTDID == data.NTDID) ?? new())">
+                                <i class="bi bi-pencil-square"></i>
+                                <span>Edit</span>
+                            </button>
+                        </Template>
+                    </GridColumn>
+                    <GridColumn HeaderText="Delete" Width="90px">
+                        <Template>
+                            @{ var data = (context as NewBorn_Test_Details)!; }
+                            <button type="button" class="btn-delete" @onclick="() => DeleteTestDetail(data.NTDID)">
+                                <i class="bi bi-trash"></i>
+                                <span>Delete</span>
+                            </button>
+                        </Template>
+                    </GridColumn>
+                </GridColumns>
+            </SfGrid>
+        </div>
+    </div>
+</div>
+
+@code {
+    // --- Component State ---
+    NewBorn_Test_Master ntm = new();
+    IList<NewBorn_Test_Details> ntd = new List<NewBorn_Test_Details>();
+    NewBorn_Test_Details ntd1 = new();
+    private SfGrid<NewBorn_Test_Details>? grid;
+    private bool showDetailsPanel = true;
+
+    // --- Test Search & Selection State ---
+    IList<Test_Master> tm = new List<Test_Master>();
+    private string searchTest = string.Empty;
+    private Test_Master? selectedTest;
+    private string token = string.Empty;
+    private bool isSaving = true;
+    private CancellationTokenSource _searchCancellationTokenSource = new();
+    // Remember last fetched test code to avoid duplicate GETs on re-render/clear
+    private int? _lastFetchedTCode = null;
+
+    // FIXED: Updated event handler for string-based AutoComplete
+    private async Task OnTestSelected(Syncfusion.Blazor.DropDowns.ChangeEventArgs<string, Test_Master> args)
+    {
+        // If an item was selected from the autocomplete list
+        // and it's different from the currently selected test
+        if (args.ItemData != null && args.ItemData.TCode != selectedTest?.TCode)
+        {
+            selectedTest = args.ItemData;
+            await SelectTestItem(args.ItemData);
+            // The searchTest value is now set inside SelectTestItem to ensure consistency
+            // searchTest = args.ItemData.Name; 
+            searchTest = args.ItemData.Name;
+            return;
+        }
+
+        // If the user cleared the input, the ItemData will be null and the value will be empty.
+        if (args.ItemData == null && string.IsNullOrWhiteSpace(args.Value))
+        {
+            await ClearSelection();
+            return;
+        }
+
+        // If the user is just typing without selecting, update the search text.
+        if (args.ItemData == null)
+        {
+            searchTest = args.Value ?? string.Empty;
+        }
+    }
+
+    // Reusable method to clear selection and reset UI/state
+    private async Task ClearSelection()
+    {
+        searchTest = string.Empty;
+        selectedTest = null;
+
+        // Reset model and details so editors show empty content
+        ntm = new NewBorn_Test_Master();
+        ntd = new List<NewBorn_Test_Details>();
+        ntd1 = new NewBorn_Test_Details();
+
+        // Hide details panel when nothing selected
+        showDetailsPanel = false;
+
+        // Clear last fetched marker so future selections will trigger a fresh GET
+        _lastFetchedTCode = null;
+
+        grid?.Refresh();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // IMPROVED: Debounced filtering using Task.Delay
+    private async Task OnAutoCompleteFilter(Syncfusion.Blazor.DropDowns.FilteringEventArgs args)
+    {
+        // Cancel any previous search
+        _searchCancellationTokenSource.Cancel();
+        _searchCancellationTokenSource = new CancellationTokenSource();
+
+        var cancellationToken = _searchCancellationTokenSource.Token;
+
+        await Task.Delay(300, cancellationToken);
+
+        if (cancellationToken.IsCancellationRequested) return;
+
+        await SearchTests(args.Text);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("X-Tenant-ID", appSettings.ClientId);
+
+            var tkn = await _sessionStorage.GetAsync<UserAuth>("claim");
+            if (tkn.Success && tkn.Value != null)
+            {
+                token = tkn.Value.token;
+                Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // IMPROVED: Added minimum character check
+    private async Task SearchTests(string searchText)
+    {
+        if (string.IsNullOrWhiteSpace(searchText) || searchText.Length < 2)
+        {
+            tm = new List<Test_Master>();
+            return;
+        }
+
+        try
+        {
+            // Use the searchText from arguments to avoid race conditions
+            var res = await Http.GetAsync($"{appSettings.BaseUrl}request/SearchTest?testname={Uri.EscapeDataString(searchText)}");
+            if (res.IsSuccessStatusCode)
+            {
+                var responseData = await res.Content.ReadAsStringAsync();
+                tm = JsonConvert.DeserializeObject<IList<Test_Master>>(responseData) ?? new List<Test_Master>();
+            }
+            else
+            {
+                tm = new List<Test_Master>();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", "Search error:", ex.Message);
+            tm = new List<Test_Master>();
+        }
+    }
+
+    public class NewBornMaster1
+    {
+        public NewBorn_Test_Master ntm { get; set; } = new NewBorn_Test_Master();
+        public IList<NewBorn_Test_Details> ntd { get; set; } = new List<NewBorn_Test_Details>();
+    }
+    int Tcode = 0;
+    // AUTO-FILL: Fetch existing test master data
+    private async Task SelectTestItem(Test_Master test)
+    {
+        if (test == null) return;
+        // Update UI state immediately for responsiveness
+        searchTest = test.Name;
+        selectedTest = test; // Ensure the selected test is updated
+        tm.Clear();
+        Tcode = test.TCode;
+        ntm = new NewBorn_Test_Master();
+        ntd = new List<NewBorn_Test_Details>();
+        ntd1 = new NewBorn_Test_Details();
+        showDetailsPanel = true;
+
+        // Only call the API when we have a valid TCode and it's not already fetched.
+        // This prevents accidental GETs on clears or harmless re-renders.
+        if (test.TCode > 0 && _lastFetchedTCode != test.TCode)
+        {
+            try
+            {
+                var res = await Http.GetAsync($"{appSettings.BaseUrl}Newborn/NewBornTestMaster?TCode={test.TCode}");
+
+                if (res.IsSuccessStatusCode)
+                {
+                    var tt = await res.Content.ReadAsStringAsync();
+                    var data = JsonConvert.DeserializeObject<NewBornMasterData>(tt);
+
+                    if (data != null)
+                    {
+                        ntm = data.ntm ?? new NewBorn_Test_Master();
+                        ntm.TCode = test.TCode;
+                        ntd = data.ntd ?? new List<NewBorn_Test_Details>();
+
+                    }
+                    else
+                    {
+                        ntm = new NewBorn_Test_Master { TCode = test.TCode };
+                        ntd = new List<NewBorn_Test_Details>();
+                    }
+
+                    // Mark as fetched so re-renders won't refetch
+                    _lastFetchedTCode = test.TCode;
+
+                    showDetailsPanel = true;
+                    grid?.Refresh();
+                }
+                else
+                {
+                    var msg = await res.Content.ReadAsStringAsync();
+                    await JSRuntime.InvokeVoidAsync("console.warn", "API returned non-success:", msg);
+                }
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("console.error", "Exception fetching test details:", ex.ToString());
+                ntm = new NewBorn_Test_Master { TCode = test.TCode };
+                ntd = new List<NewBorn_Test_Details>();
+                ntd1 = new NewBorn_Test_Details();
+                showDetailsPanel = true;
+            }
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task AddTestDetail()
+    {
+
+        ntd1.TableTitle=ntd1.TableTitle??"";
+        ntd1.Parameters=ntd1.Parameters??"";
+        ntd1.Details=ntd1.Details??"";
+        ntd1.Method=ntd1.Method??"";
+        ntd1.ObserverValue=ntd1.ObserverValue??"";
+        ntd1.MachineCode = ntd1.MachineCode ?? "";
+        ntd1.RangeType = ntd1.RangeType ?? "-";
+        ntd1.ReferenceRange=ntd1.ReferenceRange??"";
+        ntd1.Unit=ntd1.Unit?? "";
+        ntd1.Result=ntd1.Result??"";
+        ntd1.GroupTitle=ntd1.GroupTitle??"";
+        ntd1.Condition=ntd1.Condition??"";
+        ntd1.RangeType1 = ntd1.RangeType1 ?? "-";
+        ntd1.Abnormal = ntd1.Abnormal ?? "";
+        ntd1.Normal = ntd1.Normal ?? "";
+
+        
+
+        var existingItem = ntd.FirstOrDefault(x => x.NTDID != Guid.Empty && x.NTDID == ntd1.NTDID);
+
+        if (existingItem != null)
+        {
+            var index = ntd.IndexOf(existingItem);
+            ntd[index] = ntd1;
+        }
+        else
+        {
+            ntd1.NTDID = Guid.NewGuid();
+            ntd1.SLNo = ntd.Count + 1;
+            ntd1.TCode = Tcode; // Set TCode for new details
+            ntd.Add(ntd1);
+        }
+
+        ntd1 = new();
+        grid?.Refresh();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task DeleteTestDetail(Guid ntdid)
+    {
+        var itemToRemove = ntd.FirstOrDefault(x => x.NTDID == ntdid);
+        if (itemToRemove != null)
+        {
+            ntd.Remove(itemToRemove);
+            for (int i = 0; i < ntd.Count; i++)
+            {
+                ntd[i].SLNo = i + 1;
+            }
+            grid?.Refresh();
+            _ = NotificationService.ShowSuccess("Row deleted successfully!");
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task SaveData()
+    {
+        ntm.TCode = Tcode;
+        ntm.Method = ntm.Method ?? "";
+        ntm.Interpretation=ntm.Interpretation??"";
+        ntm.Comments=ntm.Comments??"";
+        ntm.Disclaimer=ntm.Disclaimer??"";
+        ntm.Normal=ntm.Normal??"";
+        ntm.Abnormal = ntm.Abnormal ?? "";
+        ntm.NBCode = Tcode; // Set NBCode to Tcode
+
+        isSaving = true;
+
+        var payload = new NewBornMasterData { ntm = this.ntm, ntd = this.ntd.ToList() };
+
+        Console.WriteLine($"NewBornMaster Save Payload: {JsonConvert.SerializeObject(payload)}");
+
+        var response = await Http.PostAsJsonAsync($"{appSettings.BaseUrl}NewBorn/NewBornMasterInsert", payload);
+
+
+
+        if (response.IsSuccessStatusCode)
+        {
+            ntm = new();
+            ntd.Clear();
+            searchTest = string.Empty;
+            await _sessionStorage.DeleteAsync("newBornData");
+            _ = NotificationService.ShowSuccess("Configuration saved successfully!");
+        }
+        else
+        {
+            var msg = response.Content.ReadAsStringAsync().Result;
+            Console.WriteLine($"Error: {msg}");
+            // Optionally show alert
+            _ = NotificationService.ShowError("Error Saving: " + msg);
+        }
+
+        isSaving = false;
+        await InvokeAsync(StateHasChanged);
+    }
+}

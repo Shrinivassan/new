@@ -1,0 +1,194 @@
+@rendermode @(new InteractiveServerRenderMode(prerender:false))
+@using LIMS.Model
+@using Lims.Components.Data
+@using Lims.Components.Model
+@using Newtonsoft.Json
+@using Syncfusion.Blazor.Buttons
+@inject ExecutionClass exe
+@inject AppSettings appSettings
+@inject HttpClient http
+@inject ProtectedSessionStorage sessionStorage
+
+<div style="position:fixed; top:16px; right:16px; z-index:2000; width:320px;">
+    @if (Notifications?.Any() == true)
+    {
+        @foreach (var n in Notifications.ToList())
+        {
+            <div class="toast show mb-2" role="alert" aria-live="assertive" aria-atomic="true"
+                 style="box-shadow:0 3px 8px rgba(0,0,0,0.15); border-radius:6px; overflow:hidden;">
+                <div style="display:flex; align-items:center; gap:8px; padding:8px 10px; background-color:@(GetBackgroundColor(n.Type)); color:#fff;">
+                    <strong style="flex:1; font-size:0.95rem;">@n.Message</strong>
+                    <button class="btn btn-sm btn-light" style="padding:4px 6px; font-size:0.8rem;" @onclick="() => RemoveNotification(n.Id)">x</button>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-3">
+            <textarea type="text" @bind="@pnr.EmailID" style="width:100%" />
+        </div>
+        <div class="col-auto">
+            <button type="button" class="btn btn-primary py-1 px-3 rounded rounded-3" @onclick="@(()=>SendEmail(@pnr.EmailID))">Send Email</button>
+        </div>
+        <div class="col-auto float-end ms-auto">
+            <button type="button" class="btn-success py-1 px-2" @onclick="@LoadReportAsync">Load Report</button>
+        </div>
+        <div class="col-auto float-end ms-auto">
+            <SfCheckBox @bind-Checked="@letterhead" ValueChange="@OnLetterheadChanged" TChecked="bool" Label="Show LetterHead"></SfCheckBox>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <SfPdfViewer2 @ref="pdfviewer"  EnableToolbar="true" Height="100vh" Width="100%"></SfPdfViewer2>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string Reportstring { get; set; } = string.Empty;
+    [Parameter]
+    public PreNatalRequest pnr { get; set; } = new();
+
+
+
+    ViewBills bills = new();
+    Branch_Master bm = new();
+    SfPdfViewer2 pdfviewer;
+    bool letterhead = false;
+    string token = "";
+    protected override async Task OnInitializedAsync()
+    {
+
+
+
+    }
+    protected override async Task OnAfterRenderAsync(bool first)
+    {
+        if (first)
+        {
+            await this.LoadReportAsync();
+            var userAuthResult = (await sessionStorage.GetAsync<UserAuth>("claim")).Value ?? new();
+            token = userAuthResult.token ?? "";
+            var brn = (await sessionStorage.GetAsync<IList<Branch_Master>>("branch")).Value ?? new List<Branch_Master>();
+            bm = brn.FirstOrDefault(x => x.IsMainBranch);
+        }
+    }
+    private async Task LoadReportAsync()
+    {
+        if (Reportstring.Length > 0)
+        {
+            var base64Pdf = "data:application/pdf;base64," + Reportstring;
+            if (pdfviewer != null)
+            {
+                await pdfviewer.LoadAsync(base64Pdf, null);
+
+                StateHasChanged();
+            }
+        }
+
+    }
+    private async Task SendEmail(string email)
+    {
+        try
+        {
+            http.DefaultRequestHeaders.Clear();
+            http.DefaultRequestHeaders.Add("X-Tenant-ID", appSettings.ClientId);
+            http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            var response = await http.GetAsync($"{appSettings.BaseUrl}request/BillDetails?rgid={Uri.EscapeDataString(pnr.RequestGUID.ToString())}");
+            if(response.IsSuccessStatusCode)
+            {
+                var tt = response.Content.ReadAsStringAsync().Result;
+                bills = JsonConvert.DeserializeObject<ViewBills>(tt);
+            }
+
+            byte[] report = Convert.FromBase64String(Reportstring);
+            var res = await exe.SendEmail(email, pnr.RequestSno+"_"+ pnr.PatientName, report, bills, bm);
+            if(res=="1")
+            {
+                Notify($"Email Send Successfully API returned", NotificationType.Success);
+            }
+        }catch(Exception ex)
+        {
+            var msg = ex.Message.ToString();
+        }
+    }
+
+    private void Notify(string message, NotificationType type = NotificationType.Info, int ms = 2500)
+    {
+        var entry = new NotificationEntry { Message = message, Type = type };
+        Notifications.Add(entry);
+        StateHasChanged();
+
+        // remove after timeout
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(ms);
+                await InvokeAsync(() => { RemoveNotification(entry.Id); });
+            }
+            catch { }
+        });
+    }
+    private enum NotificationType { Info, Success, Warning, Error }
+    private List<NotificationEntry> Notifications { get; set; } = new List<NotificationEntry>();
+    private class NotificationEntry
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public string Message { get; set; } = string.Empty;
+        public NotificationType Type { get; set; } = NotificationType.Info;
+        public DateTimeOffset Created { get; set; } = DateTimeOffset.UtcNow;
+    }
+    private void RemoveNotification(Guid id)
+    {
+        var n = Notifications.FirstOrDefault(x => x.Id == id);
+        if (n != null)
+        {
+            Notifications.Remove(n);
+            StateHasChanged();
+        }
+    }
+
+    private string GetBackgroundColor(NotificationType t)
+    {
+        return t switch
+        {
+            NotificationType.Success => "#28a745",
+            NotificationType.Warning => "#ffc107",
+            NotificationType.Error => "#dc3545",
+            _ => "#007bff",
+        };
+    }
+
+    private async Task OnLetterheadChanged(ChangeEventArgs<bool> e)
+    {
+        if(pnr!=null)
+        {
+            string reportname = "";
+            if(pnr.SkyCode=="PreNatal")
+            {
+                reportname = "PreNatalReport.rdlc";
+            }else if(pnr.SkyCode=="NBS")
+            {
+                reportname = "NewBornReport.rdlc";
+
+            }
+            var basestring = await exe.GetReport(pnr, (await sessionStorage.GetAsync<string>("MainBranch")).Value ?? "General", letterhead, reportname);
+            if (basestring.Length > 100)
+            {
+                Reportstring = basestring;
+                var base64Pdf = "data:application/pdf;base64," + basestring;
+                if (pdfviewer != null)
+                {
+                    await pdfviewer.LoadAsync(base64Pdf, null);
+
+                    StateHasChanged();
+                }
+            }
+        }
+    }
+}

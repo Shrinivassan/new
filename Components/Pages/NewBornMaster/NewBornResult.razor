@@ -1,0 +1,1194 @@
+@page "/result"
+@rendermode @(new InteractiveServerRenderMode(prerender:false))
+@using LIMS.Model
+@using Lims.Components.Data
+@using Lims.Components.Model
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.Popups
+@using Syncfusion.Blazor.RichTextEditor
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using Lims.Components.Pages.PreNatalMaster
+@using System.Runtime.ExceptionServices
+@inject Lims.Components.Data.NotificationService NotificationService
+@using System.Text.Json
+@using Newtonsoft.Json
+
+
+
+@inject HttpClient Http
+@inject AppSettings appSettings
+@inject ProtectedSessionStorage sessionStorage
+@inject Lims.Components.Data.NotificationService NotificationService
+
+<div class="page-header">
+    <div class="page-header-title">
+        <i class="fas fa-baby animate-pulse"></i>
+        <span>NewBorn Result Entry</span>
+    </div>
+    <div class="page-header-accent"></div>
+</div>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger d-flex justify-content-between align-items-center">
+        <div>@errorMessage</div>
+       
+    </div>
+}
+
+
+    
+        <div class="card mb-3">
+            <div class="card-body" tabindex="0">
+                @if (SelectedBill != null)
+                {
+                    <div class="card shadow-sm border-0 mb-3 rounded-3">
+                        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                <i class="bi bi-person-vcard me-2"></i> Patient / Bill Info
+                            </h6>
+
+
+
+                        </div>
+
+                        <div class="card-body">
+                            <!-- 4 x 2 grid -->
+                            <div class="row g-3">
+                                <div class="col-12 col-md-3">
+                                    <div class="d-flex align-items-start">
+                                        <i class="bi bi-receipt fs-4 text-primary me-2"></i>
+                                        <div>
+                                            <div class="fw-semibold small text-muted">Bill No</div>
+                                            <div>@SelectedBill.RequestSnoPrint</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+
+                                <div class="col-12 col-md-3">
+                                    <div class="d-flex align-items-start">
+                                        <i class="bi bi-calendar-event fs-4 text-primary me-2"></i>
+                                        <div>
+                                            <div class="fw-semibold small text-muted">Date</div>
+                                            <div>@SelectedBill.RequestDateTime.ToString("yyyy-MM-dd HH:mm")</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-12 col-md-3">
+                                    <div class="d-flex align-items-start">
+                                        <i class="bi bi-person-circle fs-4 text-primary me-2"></i>
+                                        <div>
+                                            <div class="fw-semibold small text-muted">Patient</div>
+                                            <div>@SelectedBill.PatientName</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-12 col-md-3">
+                                    <div class="d-flex align-items-start">
+                                        <i class="bi bi-hourglass-split fs-4 text-primary me-2"></i>
+                                        <div>
+                                            <div class="fw-semibold small text-muted">Age</div>
+                                            <div>@SelectedBill.Age</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Test Name -->
+                                <div class="col-12 col-md-3">
+                                    <div class="d-flex align-items-start">
+                                        <i class="bi bi-clipboard-data fs-4 text-primary me-2"></i>
+                                        <div>
+                                            <div class="fw-semibold small text-muted">Test Name</div>
+                                            <div>@SelectedBill.TestName</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- second row -->
+                                <div class="col-12 col-md-3">
+                                    <div class="d-flex align-items-start">
+                                        <i class="bi bi-gender-ambiguous fs-4 text-primary me-2"></i>
+                                        <div>
+                                            <div class="fw-semibold small text-muted">Gender</div>
+                                            <div>@SelectedBill.Gender</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                 @* <div class="col-12 col-md-3">
+                <div class="d-flex align-items-start">
+                    <i class="bi bi-telephone fs-4 text-primary me-2"></i>
+                    <div>
+                        <div class="fw-semibold small text-muted">Mobile</div>
+                        <div>@SelectedBill.MobileNo</div>
+                    </div>
+                </div>
+            </div>  *@
+<div class="text-end mb-3">
+    <button type="button" 
+            class="btn btn-sm fw-semibold text-white rounded-pill" 
+            style="background-color: #dc3545; border-color: #dc3545;"
+            @onclick="ReloadClicked">
+        <i class="bi bi-arrow-clockwise me-1"></i> Reload
+    </button>
+    <button type="button"
+            @onclick="@GetMachineResultsAsync"
+            style="background: linear-gradient(135deg, #0dcaf0, #0a58ca); color: #fff; border: none; padding: 10px 18px; font-size: 14px; font-weight: 600; border-radius: 8px; margin-right: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); cursor: pointer; transition: all 0.3s ease;"
+            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 14px rgba(0,0,0,0.25)';"
+            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 10px rgba(0,0,0,0.15)';">
+        Get Machine Results
+    </button>
+</div>
+
+
+
+                            </div>
+                        </div>
+                    </div>
+
+                }
+
+
+@if (nrd.nrm != null)
+{
+   
+   <EditForm Model="@nrd.nrm">
+        <div class="card mt-3">
+            <div class="card-body">
+                <h5 class="card-title">Result Master Details</h5>
+                <div class="d-flex align-items-end gap-3 mb-3">
+                    <!-- Collected -->
+                    <div class="flex-fill">
+                        <label class="form-label fw-semibold mb-1">
+                            <i class="bi bi-collection me-2 text-primary"></i>Collected
+                        </label>
+                        <InputDate Type="InputDateType.DateTimeLocal"
+                                   class="form-control"
+                                   @bind-Value="nrd.nrm.CollectedDateTime" />
+                    </div>
+
+                    <!-- Received -->
+                    <div class="flex-fill">
+                        <label class="form-label fw-semibold mb-1">
+                            <i class="bi bi-inbox-arrow-down me-2 text-success"></i>Received
+                        </label>
+                        <InputDate Type="InputDateType.DateTimeLocal"
+                                   class="form-control"
+                                   @bind-Value="nrd.nrm.ReceivedDateTime" />
+                    </div>
+
+                    <!-- Result Date -->
+                    <div class="flex-fill">
+                        <label class="form-label fw-semibold mb-1">
+                            <i class="bi bi-calendar-check me-2 text-info"></i>Result Date
+                        </label>
+                        <InputDate Type="InputDateType.DateTimeLocal"
+                                   class="form-control"
+                                   @bind-Value="nrd.nrm.ResultDateTime" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+<div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Result Table Details</h5>
+
+                        <SfGrid @ref="grd1" DataSource="@nrd.nrd" AllowPaging="false">
+
+                            <GridSelectionSettings Mode="Syncfusion.Blazor.Grids.SelectionMode.Both"></GridSelectionSettings>
+                            <GridEditSettings AllowEditing="true" AllowAdding="true" AllowDeleting="true" Mode="EditMode.Batch"
+                                ShowConfirmDialog="false"> </GridEditSettings>
+                            <GridEvents OnCellEdit="@OnCellEdit" CellSelected="@OnCellSelAsync"
+                                CellSaved="@CellSaveHandlerAsync" TValue="Newborn_Result_Details"></GridEvents>
+
+                            <GridColumns>
+                                <GridColumn Field=@nameof(Newborn_Result_Details.Parameters) HeaderText="Parameters"
+                                    IsPrimaryKey="true" ValidationRules="@(new ValidationRules { Required = true })">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(Newborn_Result_Details.ObserverValue) HeaderText="Observed">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(Newborn_Result_Details.ReferenceRange) HeaderText="Reference Range">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(Newborn_Result_Details.Unit) HeaderText="Unit"></GridColumn>
+                                @* <GridColumn Field=@nameof(Newborn_Result_Details.MachineCode) HeaderText="MachineCode"></GridColumn> *@
+                                <GridColumn Field=@nameof(Newborn_Result_Details.Result) HeaderText="Result" Width="150">
+                                    <EditTemplate>
+                                        @{
+                                            var item = (Newborn_Result_Details)context;
+                                            <select class="form-control form-select" @bind="item.Result" style="padding: 6px 9px; border: 1.5px solid #dde1e7; border-radius: 5px; font-size: 13px;">
+                                                <option value="">-- Select Result --</option>
+                                                <option value="Normal">Normal</option>
+                                                <option value="Abnormal">Abnormal</option>
+                                            </select>
+                                        }
+                                    </EditTemplate>
+                                    <Template>
+                                        @{
+                                            var item = (Newborn_Result_Details)context;
+                                            var result = item.Result;
+                                            <span>
+                                                @(string.IsNullOrEmpty(result) ? "-- Not Set --" : result)
+                                            </span>
+                                        }
+                                    </Template>
+                                </GridColumn>
+                            </GridColumns>
+                        </SfGrid>
+
+                        <div class="d-flex gap-2 justify-content-end mt-2">
+                     
+
+                        </div>
+
+                    </div>
+                </div>
+               
+                @if (nrd.nrm != null)
+                {
+                    <EditForm Model="nrd.nrm">
+                            <div class="row">
+
+                                <!-- Method & Comments Editors -->
+                                <div style="display: flex; flex-wrap: wrap; gap: 20px; width: 100%; margin-bottom: 20px;">
+                                    <!-- Method Editor -->
+                                    <div style="flex: 1; min-width: 500px;">
+                                        <label style="font-weight: 500; display: block; margin-bottom: 4px;">Method</label>
+                                        <SfRichTextEditor  CssClass="form-control" Enabled="true" @bind-Value="nrd.nrm.Method">
+                                            <RichTextEditorToolbarSettings Items="@(exe?.Tools ?? new List<ToolbarItemModel>())">
+                                            </RichTextEditorToolbarSettings>
+                                        </SfRichTextEditor>
+                                    </div>
+
+
+                                    <!-- Comments Editor -->
+                                    <div style="flex: 1; min-width: 500px;">
+                                        <label style="font-weight: 500; display: block; margin-bottom: 4px;">Comments</label>
+                                        <SfRichTextEditor  CssClass="form-control" Enabled="true" @bind-Value="nrd.nrm.Comments">
+                                            <RichTextEditorToolbarSettings Items="@(exe?.Tools ?? new List<ToolbarItemModel>())">
+                                            </RichTextEditorToolbarSettings>
+                                        </SfRichTextEditor>
+                                    </div>
+                                </div>
+                                <!-- Abnormal / Normal Buttons -->
+                                <div class="mb-3 d-flex justify-content-end align-items-center flex-wrap">
+                                    <button class="btn btn-warning me-2 mb-2"
+                                            style="width: 90px; height: 35px; font-size: 14px; padding: 4px 8px;"
+                                            @onclick="ShowAbnormalClicked">
+                                        Abnormal
+                                    </button>
+
+                                    <button class="btn btn-success me-2 mb-2"
+                                            style="width: 90px; height: 35px; font-size: 14px; padding: 4px 8px;" @onclick="ShowNormalClicked">
+                                        Normal
+                                    </button>
+                                </div>
+
+
+                                <!-- Interpretation & Disclaimer Editors -->
+                                <div style="display: flex; flex-wrap: wrap; gap: 20px; width: 100%; margin-bottom: 20px;">
+                                    <!-- Interpretation Editor -->
+                                    <div style="flex: 1; min-width: 500px;">
+                                        <label style="font-weight: 500; display: block; margin-bottom: 4px;">Interpretation</label>
+                                        <SfRichTextEditor  CssClass="form-control" Enabled="true"
+                                                          @bind-Value="nrd.nrm.Interpretation">
+                                            <RichTextEditorToolbarSettings Items="@(exe?.Tools ?? new List<ToolbarItemModel>())">
+                                            </RichTextEditorToolbarSettings>
+                                        </SfRichTextEditor>
+                                    </div>
+
+                                    <!-- Disclaimer Editor -->
+                                    <div style="flex: 1; min-width: 500px;">
+                                        <label style="font-weight: 500; display: block; margin-bottom: 4px;">Disclaimer</label>
+                                        <SfRichTextEditor  CssClass="form-control" Enabled="true" @bind-Value="nrd.nrm.Disclaimer">
+                                            <RichTextEditorToolbarSettings Items="@(exe?.Tools ?? new List<ToolbarItemModel>())">
+                                            </RichTextEditorToolbarSettings>
+                                        </SfRichTextEditor>
+                                    </div>
+                                </div>
+
+
+                            </div>
+                        </EditForm>
+                }
+
+        <!-- File Upload & Attachments -->
+        <div class="row mt-3">
+            <div class="col-md-3">
+                <label class="form-label fw-bold" style="font-size:0.8rem;"><i class="bi bi-paperclip me-1"></i> Upload Files</label>
+                <InputFile OnChange="@(e => UploadFile(e, 1))" class="form-control form-control-sm mb-1"
+                    style="font-size:0.75rem; padding:2px 4px; height:28px;" />
+                <InputFile OnChange="@(e => UploadFile(e, 2))" class="form-control form-control-sm"
+                    style="font-size:0.75rem; padding:2px 4px; height:28px;" />
+            </div>
+            <div style="flex: 0 0 33.3333%; padding-top: 0.25rem; padding-bottom: 0.25rem; border-bottom: 1px solid #6c757d; display: flex; flex-direction: column; margin-left: auto;">
+                <strong style="margin-bottom: 0.5rem;">Attachments</strong>
+
+                @if (nrd?.nrm != null && !string.IsNullOrEmpty(nrd?.nrm.Filepath1))
+                {
+                    <div style="display: flex; align-items: center; gap: 0.5rem; max-width: 200px; overflow: hidden;">
+                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px;">
+                            @SplitFileName(nrd?.nrm.Filepath1).Result
+                        </span>
+                        <button
+                            style="font-size: 0.875rem; color: #0d6efd; background: none; border: none; cursor: pointer;"
+                            title="Download" @onclick="@(() => DownloadFile(nrd?.nrm.Filepath1 ?? ""))">
+                            <i class="bi bi-file-earmark-arrow-down"></i>
+                        </button>
+                        <button
+                            style="font-size: 0.875rem; color: #dc3545; background: none; border: none; cursor: pointer;"
+                            title="Delete" @onclick="@(() => DeleteFile(nrd?.nrm.Filepath1 ?? "", 1))">
+                            <i class="bi bi-trash3"></i>
+                        </button>
+                    </div>
+                }
+            </div>
+
+            @if (nrd?.nrm != null && !string.IsNullOrEmpty(nrd?.nrm.Filepath2))
+            {
+                <div class="row">
+                    <div class="col-4 justify-content-end ms-auto">
+                        <div class="d-flex align-items-center">
+                            <span class="me-2">@SplitFileName(nrd?.nrm.Filepath2).Result</span>
+                            <button class="btn btn-sm text-primary" title="Download"
+                                @onclick="@(() => DownloadFile(nrd?.nrm.Filepath2 ?? ""))">
+                                <i class="bi bi-file-earmark-arrow-down"></i>
+                            </button>
+                            <button class="btn btn-sm text-danger" title="Delete"
+                                @onclick="@(() => DeleteFile(nrd?.nrm.Filepath2 ?? "", 2))">
+                                <i class="bi bi-trash3"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    
+
+
+
+
+
+
+        </div> <!-- End card-body (from line 33) -->
+        <div class="card-footer mt-3">
+            <div class="row">
+                <div class="col">
+                    <div class="row">
+                        <div class="col">
+                            <span>@ent1</span> <br />
+                            <small>Result Entered By</small>
+                        </div>
+                        <div class="col">
+                            <span>@app1</span> <br />
+                            <small>Approved By</small>
+                        </div>
+                        <div class="col">
+                            <span>@auth1</span> <br />
+                            <small>Authorized By</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-auto d-flex justify-content-end gap-2">
+                    <button class="btn btn-primary" @onclick="SaveResultsAsync"
+                        disabled="@( (isauthorized || isapproved || isentered) == false || user?.UserCode == 0 )"
+                        title="@( user?.UserCode == 0 ? "User not loaded" : (isauthorized ? "Authorize" : isapproved ? "Approve" : "Save") )">
+                        <i class="bi bi-save me-1"></i>
+                        @{
+                            string btnsave = isauthorized == true ? "Authorize" : isapproved == true ? "Approve" : "Save";
+                        }
+                        <span>@btnsave</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div> <!-- End card (from line 32) -->
+
+<SfDialog Width="600px" IsModal="true" @bind-Visible="isMachineResultDialogVisible" ShowCloseIcon="true">
+    <DialogTemplates>
+        <Header>Machine Results</Header>
+        <Content>
+            @if (machineResultsList != null && machineResultsList.Count > 0)
+            {
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm">
+                        <thead>
+                            <tr>
+                                <th>Parameter Name</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in machineResultsList)
+                            {
+                                <tr>
+                                    <td>@item.ParameterName</td>
+                                    <td>@item.ParameterValue</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center p-3">No results found.</div>
+            }
+        </Content>
+    </DialogTemplates>
+    <DialogButtons>
+        <DialogButton Content="Clear" OnClick="@ClearMachineResults" />
+        <DialogButton Content="Add Result" IsPrimary="true" OnClick="@AddMachineResultsToGrid" />
+    </DialogButtons>
+</SfDialog>
+
+<SfDialog Visible="@isReportViewVisible" Width="90%" Height="500px" IsModal="true" ShowCloseIcon="true">
+    <DialogTemplates>
+        <Content>
+            <ReportViewer Reportstring="@reportFileString" pnr="@(exe.MapNewBornToPreNatal(SelectedBill))"></ReportViewer>
+        </Content>
+    </DialogTemplates>
+</SfDialog>
+
+<style>
+.reload-btn {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+}
+
+.get-machine-btn {
+    background: linear-gradient(135deg, #0dcaf0, #0a58ca);
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 8px;
+    float: right;
+    margin-right: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.get-machine-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 14px rgba(0,0,0,0.25);
+}
+</style>
+
+@code {
+    [Inject]
+    private ExecutionClass? exe { get; set; }
+
+
+    [Parameter]
+    public NewBornRequest? SelectedBill { get; set; }
+
+
+    // Local modal state for viewing table/row details
+    private bool showDetailModal = false;
+    private string selectedTableTitle = string.Empty;
+
+
+
+    NewBornResultData nrd = new NewBornResultData() { nrm = new NewBorn_Result_Master(), nrd = new List<Newborn_Result_Details>() };
+
+    private async Task ShowAbnormalClicked()
+    {
+        nrd.nrm.Interpretation = nrd.nrm.Abnormal ?? "";
+
+    }
+
+    private async Task ShowNormalClicked()
+    {
+        nrd.nrm.Interpretation = nrd.nrm.Normal ?? "";
+    }
+
+    private User_Master user = new User_Master();
+    private IList<User_Master> usermaster = new List<User_Master>();
+    string ent1 = "";
+    string ent2 = "";
+    string app1 = "";
+    string app2 = "";
+    string auth1 = "";
+    string auth2 = "";
+
+    bool isentered = false;
+    bool isapproved = false;
+    bool isauthorized = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        if (!string.IsNullOrEmpty(appSettings?.ClientId) && !Http.DefaultRequestHeaders.Contains("X-Tenant-ID"))
+            Http.DefaultRequestHeaders.Add("X-Tenant-ID", appSettings.ClientId);
+
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            user = (await sessionStorage.GetAsync<User_Master>("UserDetails")).Value ?? new User_Master();
+            var rights = (await sessionStorage.GetAsync<List<User_Rights>>("UserRights")).Value ?? new List<User_Rights>();
+            isentered = rights.Where(x => x.Department == "Lab" && x.ModuleName == "Result Entry").Select(x =>x.ToAdd).FirstOrDefault();
+            isapproved = rights.Where(x => x.Department == "Lab" && x.ModuleName == "Authorize Lab Results").Select(x =>x.ToAdd).FirstOrDefault();
+            isauthorized = rights.Where(x => x.Department == "Lab" && x.ModuleName == "Authorize Lab Results 2").Select(x => x.ToAdd).FirstOrDefault();
+
+            this.UserMasterAsync();
+
+            StateHasChanged();
+        }
+    }
+
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await this.LoadAsync();
+    }
+
+
+
+    private async Task ReloadClicked()
+    {
+        try
+        {
+            Guid nbid = nrd.nrm.NBID == Guid.Empty ? Guid.NewGuid() : nrd.nrm.NBID;
+            var res = await Http.GetAsync($"{appSettings.BaseUrl}Newborn/NewBornReload?rid={Uri.EscapeDataString(SelectedBill.RequestGUID.ToString())}");
+            if (res.IsSuccessStatusCode)
+            {
+                nrd = await res.Content.ReadFromJsonAsync<NewBornResultData>() ?? new NewBornResultData();
+
+                // Ensure nrd.nrd is initialized if null
+                if (nrd.nrd == null)
+                {
+                    nrd.nrd = new List<Newborn_Result_Details>();
+                }
+                nrd.nrm.NBID = nbid;
+                nrd.nrd.ToList().ForEach(x => x.NBID = nbid);
+
+                nrd.nrm.CollectedDateTime = nrd.nrm.CollectedDateTime == null ? DateTime.Now : nrd.nrm.CollectedDateTime;
+                nrd.nrm.ReceivedDateTime = nrd.nrm.ReceivedDateTime == null ? DateTime.Now : nrd.nrm.ReceivedDateTime;
+                nrd.nrm.ResultDateTime = nrd.nrm.ResultDateTime == null ? DateTime.Now : nrd.nrm.ResultDateTime;
+
+                // Load assigned machine codes and populate table from master data
+                if (SelectedBill.TCode != 0)
+                {
+                    try
+                    {
+                        var masterRes = await Http.GetAsync($"{appSettings.BaseUrl}Newborn/NewBornTestMaster?TCode={SelectedBill.TCode}");
+                        if (masterRes.IsSuccessStatusCode)
+                        {
+                            var masterData = await masterRes.Content.ReadFromJsonAsync<NewBornMasterData>();
+                            if (masterData?.ntd != null)
+                            {
+                                assignedMachineCodes = masterData.ntd.Where(x => !string.IsNullOrEmpty(x.MachineCode)).Select(x => x.MachineCode).ToList();
+                                
+                                // If nrd.nrd is empty or needs to be populated from master data
+                                if (nrd.nrd == null || nrd.nrd.Count == 0)
+                                {
+                                    nrd.nrd = new List<Newborn_Result_Details>();
+                                    // Populate table with master data
+                                    foreach (var masterDetail in masterData.ntd)
+                                    {
+                                        nrd.nrd.Add(new Newborn_Result_Details
+                                        {
+                                            NBDetailsID = Guid.NewGuid(),
+                                            NBID = nbid,
+                                            TCode = SelectedBill.TCode,
+                                            SLNo = masterDetail.SLNo,
+                                            TableTitle = masterDetail.TableTitle,
+                                            Parameters = masterDetail.Parameters,
+                                            Details = masterDetail.Details,
+                                            Method = masterDetail.Method,
+                                            ObserverValue = masterDetail.ObserverValue ?? "",
+                                            MachineCode = masterDetail.MachineCode,
+                                            RangeType = masterDetail.RangeType,
+                                            RangeFrom = masterDetail.RangeFrom,
+                                            RangeTo = masterDetail.RangeTo,
+                                            ReferenceRange = masterDetail.ReferenceRange,
+                                            Unit = masterDetail.Unit,
+                                            Result = masterDetail.Result ?? "",
+                                            GroupTitle = masterDetail.GroupTitle,
+                                            Condition = masterDetail.Condition,
+                                            RangeType1 = masterDetail.RangeType1,
+                                            RangeFrom1 = masterDetail.RangeFrom1,
+                                            RangeTo1 = masterDetail.RangeTo1,
+                                            Abnormal = masterDetail.Abnormal,
+                                            Normal = masterDetail.Normal
+                                        });
+                                    }
+                                }
+                                else
+                                {
+                                    // Filter existing data to only include rows with matching MachineCode or empty MachineCode
+                                    nrd.nrd = nrd.nrd.Where(x => string.IsNullOrEmpty(x.MachineCode) || assignedMachineCodes.Contains(x.MachineCode, StringComparer.OrdinalIgnoreCase)).ToList();
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log or handle the error - endpoint may not exist
+                        Console.WriteLine($"Error loading NewBornTestMaster data on reload: {ex.Message}");
+                    }
+                }
+
+                // Refresh the grid to display updated values
+                if (grd1 != null)
+                {
+                    await grd1.Refresh();
+                }
+                await NotificationService.ShowSuccess("Data reloaded successfully!");
+                errorMessage = null;
+            }
+            else
+            {
+                var tt = await res.Content.ReadAsStringAsync();
+                errorMessage = $"Error reloading data: {tt}";
+                await NotificationService.ShowError(errorMessage);
+            }
+            StateHasChanged();
+        }catch(Exception ex)
+        {
+            errorMessage = $"Error reloading data: {ex.Message}";
+        }
+    }
+
+
+
+
+
+    private SfGrid<Newborn_Result_Details> grd1;
+
+    IList<string> assignedMachineCodes = new List<string>();
+
+    private async Task OnCellEdit(CellEditArgs<Newborn_Result_Details> args)
+    {
+
+        StateHasChanged();
+    }
+
+    private async Task OnCellSelAsync(CellSelectEventArgs<Newborn_Result_Details> args)
+    {
+        if (grd1 == null) return;
+        var CellIndexes = await grd1.GetSelectedRowCellIndexesAsync();
+        //get the row and cell index
+        var CurrentEditRowIndex = (int)CellIndexes[0].Item1;
+        var CurrentEditCellIndex = (int)CellIndexes[0].Item2;
+
+        //get the available fields
+        var fields = await grd1.GetColumnFieldNamesAsync();
+        // edit the selected cell using the cell index and column name
+        await grd1.EditCellAsync(CurrentEditRowIndex, fields[CurrentEditCellIndex]);
+
+    }
+    public async Task CellSaveHandlerAsync(CellSavedArgs<Newborn_Result_Details> args)
+    {
+        try
+        {
+
+
+
+            switch (args.Column.Field)
+            {
+                case "ObserverValue":
+                    nrd.nrd.Where(x => x.NBDetailsID == args.Data.NBDetailsID).FirstOrDefault().ObserverValue = args.Value?.ToString() ?? "";
+                    break;
+                case "Result":
+                    nrd.nrd.FirstOrDefault(x => x.NBDetailsID == args.Data.NBDetailsID).Result = args.Value?.ToString() ?? "";
+                    break;
+                case "Parameters":
+                    nrd.nrd.FirstOrDefault(x => x.NBDetailsID == args.Data.NBDetailsID).Parameters = args.Value?.ToString() ?? "";
+                    break;
+                case "ReferenceRange":
+                    nrd.nrd.FirstOrDefault(x => x.NBDetailsID == args.Data.NBDetailsID).ReferenceRange = args.Value?.ToString() ?? "";
+                    break;
+                case "Unit":
+                    nrd.nrd.FirstOrDefault(x => x.NBDetailsID == args.Data.NBDetailsID).Unit = args.Value?.ToString() ?? "";
+                    break;
+                case "CutOff":
+                    nrd.nrd.FirstOrDefault(x => x.NBDetailsID == args.Data.NBDetailsID).CutOff = double.TryParse(args.Value?.ToString(), out double cutoff) ? cutoff.ToString() : "0.0";
+                    break;
+                case "RiskValue":
+                    nrd.nrd.FirstOrDefault(x => x.NBDetailsID == args.Data.NBDetailsID).RiskValue = double.TryParse(args.Value?.ToString(), out double riskValue) ? riskValue.ToString() : "0.0";
+                    break;
+                case "MachineCode":
+                    nrd.nrd.FirstOrDefault(x => x.NBDetailsID == args.Data.NBDetailsID).MachineCode = args.Value?.ToString() ?? "";
+                    break;
+            }
+
+
+
+
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving cell: {ex.Message}";
+
+        }
+    }
+
+
+
+    private async Task UserMasterAsync()
+    {
+        var res = await Http.GetAsync($"{appSettings.BaseUrl}masters/usermasters");
+        if (res.IsSuccessStatusCode)
+        {
+            usermaster = await res.Content.ReadFromJsonAsync<IList<User_Master>>();
+
+            if (usermaster != null && usermaster.Count > 0 && nrd?.nrm != null)
+            {
+                ent1 = usermaster.Where(x => x.UserCode == nrd.nrm.EnteredBy).Select(x => x.Name).FirstOrDefault() ?? "";
+                ent2 = usermaster.Where(x => x.UserCode == nrd.nrm.EnteredBy).Select(x => x.Description).FirstOrDefault() ?? "";
+                app1 = usermaster.Where(x => x.UserCode == nrd.nrm.ApprovedBy).Select(x => x.Name).FirstOrDefault() ?? "";
+                app2 = usermaster.Where(x => x.UserCode == nrd.nrm.ApprovedBy).Select(x => x.Description).FirstOrDefault() ?? "";
+                auth1 = usermaster.Where(x => x.UserCode == nrd.nrm.AuthorizedBy).Select(x => x.Name).FirstOrDefault() ?? "";
+                auth2 = usermaster.Where(x => x.UserCode == nrd.nrm.AuthorizedBy).Select(x => x.Description).FirstOrDefault() ?? "";
+            }
+        }
+        StateHasChanged();
+    }
+
+    string uploadkey = "";
+    bool isReportFileVisible = false;
+    string reportFileBase64 = "";
+
+    private async Task UploadFile(InputFileChangeEventArgs e, int uploadno)
+    {
+        if (SelectedBill == null) return;
+        string client = (await sessionStorage.GetAsync<string>("MainBranch")).Value ?? "General";
+        var file = e.File;
+        var content = new MultipartFormDataContent();
+        var streamContent = new StreamContent(file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024));
+        streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+        content.Add(streamContent, "file", (SelectedBill.RequestSnoPrint?.Replace("/", "") ?? "NB") + "_" + file.Name);
+
+        var response = await Http.PostAsync($"{appSettings.BaseUrl}files/upload?client={client}", content);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var tt = await response.Content.ReadFromJsonAsync<JsonElement>();
+            uploadkey = tt.GetProperty("key").GetString();
+            switch (uploadno)
+            {
+                case 1: nrd.nrm.Filepath1 = uploadkey; break;
+                case 2: nrd.nrm.Filepath2 = uploadkey; break;
+            }
+            await NotificationService.ShowSuccess("File uploaded successfully!");
+            StateHasChanged();
+        }
+        else
+        {
+            Console.WriteLine($"Upload failed: {response.StatusCode}");
+        }
+    }
+
+    private async Task DownloadFile(string key)
+    {
+        try
+        {
+            string client = (await sessionStorage.GetAsync<string>("MainBranch")).Value ?? "General";
+            var result = await Http.GetFromJsonAsync<FileDownloadResult>($"{appSettings.BaseUrl}files/download/{key}?client={client}");
+
+            if (result != null)
+            {
+                reportFileBase64 = Convert.ToBase64String(result.Base64);
+                isReportFileVisible = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error downloading file: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteFile(string key, int uploadno)
+    {
+        if (string.IsNullOrEmpty(key)) return;
+        string client = (await sessionStorage.GetAsync<string>("MainBranch")).Value ?? "General";
+        var encodedKey = Uri.EscapeDataString(key);
+        var response = await Http.DeleteAsync($"{appSettings.BaseUrl}files/delete?client={client}&key={encodedKey}");
+
+        if (response.IsSuccessStatusCode)
+        {
+            switch (uploadno)
+            {
+                case 1: nrd.nrm.Filepath1 = ""; break;
+                case 2: nrd.nrm.Filepath2 = ""; break;
+            }
+            await NotificationService.ShowSuccess("File deleted successfully!");
+        }
+        else
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"Delete failed: {response.StatusCode} - {error}");
+        }
+        StateHasChanged();
+    }
+
+    private async Task<string> SplitFileName(string filename)
+    {
+        try
+        {
+            string[] sp = filename.Split("_");
+            return sp.Length > 2 ? sp[1] + "_" + sp[2] : filename;
+        }
+        catch { return filename; }
+    }
+
+
+
+
+
+
+    private async Task SaveResultsAsync()
+    {
+        // Ensure nrd and nrm are not null
+        if (nrd == null || nrd.nrm == null)
+        {
+            errorMessage = "No result data to save. Please load data first.";
+            return;
+        }
+
+        // Ensure SelectedBill and RequestGUID are set
+        if (SelectedBill == null || SelectedBill.RequestGUID == Guid.Empty)
+        {
+            errorMessage = "No bill selected. Cannot save results.";
+            return;
+        }
+
+        // Set the RequestGUID from SelectedBill
+        nrd.nrm.RequestGUID = SelectedBill.RequestGUID;
+        nrd.nrm.TCode = SelectedBill.TCode;
+
+        // Ensure string properties are not null
+        nrd.nrm.Interpretation = nrd.nrm.Interpretation ?? "";
+        nrd.nrm.Method = nrd.nrm.Method ?? "";
+        nrd.nrm.Comments = nrd.nrm.Comments ?? "";
+        nrd.nrm.Disclaimer = nrd.nrm.Disclaimer ?? "";
+        nrd.nrm.Filepath1 = nrd.nrm.Filepath1 ?? "";
+        nrd.nrm.Filepath2 = nrd.nrm.Filepath2 ?? "";
+        nrd.nrm.Filepath3 = nrd.nrm.Filepath3 ?? "";
+        nrd.nrm.Abnormal = nrd.nrm.Abnormal ?? "";
+        nrd.nrm.Normal = nrd.nrm.Normal ?? "";
+
+        // Ensure all result details have MachineCode set (required by API)
+        if (nrd.nrd != null && nrd.nrd.Count > 0)
+        {
+            foreach (var item in nrd.nrd)
+            {
+                item.MachineCode = item.MachineCode ?? "N/A";
+            }
+        }
+
+        bool issaved = false;
+
+        if (isauthorized == true)
+        {
+            if (nrd.nrm.AuthorizedBy == 0 || nrd.nrm.AuthorizedBy == user.UserCode)
+            {
+                issaved = true; nrd.nrm.AuthorizedBy = nrd.nrm.AuthorizedBy == 0 ? user.UserCode : nrd.nrm.AuthorizedBy;
+            }
+            else
+            {
+                issaved = false;
+            }
+        }
+
+        if (isapproved == true)
+        {
+            if ((nrd.nrm.ApprovedBy == 0 || nrd.nrm.ApprovedBy == user.UserCode) && nrd.nrm.AuthorizedBy == 0)
+            {
+                issaved = true; nrd.nrm.ApprovedBy = nrd.nrm.ApprovedBy == 0 ? user.UserCode : nrd.nrm.ApprovedBy;
+            }
+            else if (isauthorized == false)
+            {
+                issaved = false;
+            }
+        }
+
+        if (isentered == true)
+        {
+            if ((nrd.nrm.EnteredBy == 0 || nrd.nrm.EnteredBy == user.UserCode) && nrd.nrm.ApprovedBy == 0 && nrd.nrm.AuthorizedBy == 0)
+            {
+                issaved = true; nrd.nrm.EnteredBy = nrd.nrm.EnteredBy == 0 ? user.UserCode : nrd.nrm.EnteredBy;
+            }
+            else if (isapproved == false && isauthorized == false)
+            {
+                issaved = false;
+            }
+        }
+
+        if (issaved == false)
+        {
+            errorMessage = "You do not have rights to save the record.";
+            await NotificationService.ShowError("You do not have rights to save the record.");
+            return;
+        }
+        else
+        {
+            try
+            {
+                var res = await Http.PostAsJsonAsync($"{appSettings.BaseUrl}Newborn/NewBornResultinsert", nrd);
+                
+                if (res.IsSuccessStatusCode)
+                {
+                    errorMessage = null;
+                    await NotificationService.ShowSuccess("Result saved successfully!");
+                    nrd = new NewBornResultData() { nrm = new NewBorn_Result_Master(), nrd = new List<Newborn_Result_Details>() };
+                }
+                else
+                {
+                    var responseContent = await res.Content.ReadAsStringAsync();
+                    errorMessage = $"Error saving results: {res.StatusCode} - {responseContent}";
+                    await NotificationService.ShowError(errorMessage);
+                    Console.WriteLine($"Save Error - Status: {res.StatusCode}, Response: {responseContent}");
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Error saving results: {ex.Message}";
+                await NotificationService.ShowError(errorMessage);
+                Console.WriteLine($"Save Exception: {ex}");
+            }
+        }
+    }
+
+
+    private string? errorMessage = null;
+
+
+    public async Task LoadAsync()
+    {
+        var res = await Http.GetAsync($"{appSettings.BaseUrl}Newborn/NewBornGet?rid={(Convert.ToString(SelectedBill.RequestGUID))}");
+        if(res.IsSuccessStatusCode)
+        {
+            nrd = await res.Content.ReadFromJsonAsync<NewBornResultData>() ?? new NewBornResultData();
+
+            // Ensure nrd.nrd is initialized if null
+            if (nrd.nrd == null)
+            {
+                nrd.nrd = new List<Newborn_Result_Details>();
+            }
+
+            // Ensure nrm is initialized if null
+            if (nrd.nrm == null)
+            {
+                nrd.nrm = new NewBorn_Result_Master();
+            }
+
+            nrd.nrm.CollectedDateTime = nrd.nrm.CollectedDateTime == null ? DateTime.Now : nrd.nrm.CollectedDateTime;
+            nrd.nrm.ReceivedDateTime = nrd.nrm.ReceivedDateTime == null ? DateTime.Now : nrd.nrm.ReceivedDateTime;
+            nrd.nrm.ResultDateTime = nrd.nrm.ResultDateTime == null ? DateTime.Now : nrd.nrm.ResultDateTime;
+
+            // Load assigned machine codes and populate table from master data
+            if (SelectedBill.TCode != 0)
+            {
+                try
+                {
+                    var masterRes = await Http.GetAsync($"{appSettings.BaseUrl}Newborn/NewBornTestMaster?TCode={SelectedBill.TCode}");
+                    if (masterRes.IsSuccessStatusCode)
+                    {
+                        var masterData = await masterRes.Content.ReadFromJsonAsync<NewBornMasterData>();
+                        if (masterData?.ntd != null)
+                        {
+                            assignedMachineCodes = masterData.ntd.Where(x => !string.IsNullOrEmpty(x.MachineCode)).Select(x => x.MachineCode).ToList();
+                            
+                            // If nrd.nrd is empty or needs to be populated from master data
+                            if (nrd.nrd == null || nrd.nrd.Count == 0)
+                            {
+                                nrd.nrd = new List<Newborn_Result_Details>();
+                                // Populate table with master data
+                                foreach (var masterDetail in masterData.ntd)
+                                {
+                                    nrd.nrd.Add(new Newborn_Result_Details
+                                    {
+                                        NBDetailsID = Guid.NewGuid(),
+                                        NBID = nrd.nrm?.NBID ?? Guid.Empty,
+                                        TCode = SelectedBill.TCode,
+                                        SLNo = masterDetail.SLNo,
+                                        TableTitle = masterDetail.TableTitle,
+                                        Parameters = masterDetail.Parameters,
+                                        Details = masterDetail.Details,
+                                        Method = masterDetail.Method,
+                                        ObserverValue = masterDetail.ObserverValue ?? "",
+                                        MachineCode = masterDetail.MachineCode,
+                                        RangeType = masterDetail.RangeType,
+                                        RangeFrom = masterDetail.RangeFrom,
+                                        RangeTo = masterDetail.RangeTo,
+                                        ReferenceRange = masterDetail.ReferenceRange,
+                                        Unit = masterDetail.Unit,
+                                        Result = masterDetail.Result ?? "",
+                                        GroupTitle = masterDetail.GroupTitle,
+                                        Condition = masterDetail.Condition,
+                                        RangeType1 = masterDetail.RangeType1,
+                                        RangeFrom1 = masterDetail.RangeFrom1,
+                                        RangeTo1 = masterDetail.RangeTo1,
+                                        Abnormal = masterDetail.Abnormal,
+                                        Normal = masterDetail.Normal
+                                    });
+                                }
+                            }
+                            else
+                            {
+                                // Filter existing data to only include rows with matching MachineCode or empty MachineCode
+                                nrd.nrd = nrd.nrd.Where(x => string.IsNullOrEmpty(x.MachineCode) || assignedMachineCodes.Contains(x.MachineCode, StringComparer.OrdinalIgnoreCase)).ToList();
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log or handle the error - endpoint may not exist
+                    Console.WriteLine($"Error loading NewBornTestMaster data: {ex.Message}");
+                }
+            }
+
+        }else
+        {
+            var tt = res.Content.ReadAsStringAsync();
+            var tt1 = tt;
+        }
+        StateHasChanged();
+    }
+
+    private bool isMachineResultDialogVisible = false;
+    private List<MachineResultItem> machineResultsList = new();
+
+    private async Task GetMachineResultsAsync()
+    {
+        errorMessage = null;
+        if (SelectedBill == null || SelectedBill.RequestGUID == Guid.Empty)
+        {
+            errorMessage = "No bill selected for machine results.";
+            return;
+        }
+
+        try
+        {
+            var url = $"{appSettings.BaseUrl}MachineInterface/GetResultbyid?rguid={SelectedBill.RequestGUID}";
+            if (!Http.DefaultRequestHeaders.Contains("X-Tenant-ID"))
+                Http.DefaultRequestHeaders.Add("X-Tenant-ID", appSettings.ClientId);
+            var res = await Http.GetAsync(url);
+            
+            if (res.IsSuccessStatusCode)
+            {
+                machineResultsList = await res.Content.ReadFromJsonAsync<List<MachineResultItem>>() ?? new();
+                // Filter machine results to only include those with assigned machine codes
+                machineResultsList = machineResultsList.Where(x => assignedMachineCodes.Contains(x.ParameterName, StringComparer.OrdinalIgnoreCase)).ToList();
+                
+                if (machineResultsList != null && machineResultsList.Count > 0)
+                {
+                    isMachineResultDialogVisible = true;
+                    StateHasChanged();
+                }
+                else
+                {
+                    errorMessage = "No machine results found for this request.";
+                }
+            }
+            else
+            {
+                errorMessage = $"Failed to get machine results: {res.ReasonPhrase}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error fetching machine results: {ex.Message}";
+        }
+    }
+
+    private async Task AddMachineResultsToGrid()
+    {
+        if (machineResultsList != null && machineResultsList.Count > 0 && nrd?.nrd != null)
+        {
+            bool updated = false;
+            foreach (var item in machineResultsList)
+            {
+                // Try matching MachineCode first
+                var row = nrd.nrd.FirstOrDefault(x => string.Equals(x.MachineCode, item.ParameterName, StringComparison.OrdinalIgnoreCase));
+                
+                // Fallback to matching Parameters
+                 if (row == null)
+                {
+                    row = nrd.nrd.FirstOrDefault(x => string.Equals(x.Parameters, item.ParameterName, StringComparison.OrdinalIgnoreCase));
+                }
+
+                if (row != null)
+                {
+                    // Machine code values should only be added to ObserverValue, not Result
+                    row.ObserverValue = item.ParameterValue;
+                    updated = true;
+                }
+            }
+            
+            if (updated)
+            {
+                 if(grd1 != null) await grd1.Refresh();
+            }
+        }
+        isMachineResultDialogVisible = false;
+        StateHasChanged();
+    }
+
+    private void ClearMachineResults()
+    {
+        machineResultsList.Clear();
+        StateHasChanged();
+    }
+
+    private bool isReportViewVisible = false;
+    private string reportFileString = "";
+
+    private async Task GetNewBornReport()
+    {
+        try
+        {
+            if (SelectedBill == null || SelectedBill.RequestGUID == Guid.Empty)
+            {
+                errorMessage = "No bill selected to generate report.";
+                return;
+            }
+
+            bool letterhead = (await sessionStorage.GetAsync<bool>("IsLetterHead")).Value;
+            var basestring = await exe.GetReport<NewBornRequest>(SelectedBill, (await sessionStorage.GetAsync<string>("MainBranch")).Value ?? "General", letterhead, "NewBornReport.rdlc");
+            
+            if (!string.IsNullOrEmpty(basestring))
+            {
+                reportFileString = basestring;
+                isReportViewVisible = true;
+                StateHasChanged();
+            }
+            else
+            {
+                errorMessage = "Failed to generate report.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error generating report: {ex.Message}";
+            Console.WriteLine($"Report generation error: {ex}");
+        }
+    }
+
+    public class MachineResultItem
+    {
+        public string? SampleNo { get; set; }
+        public string? ParameterName { get; set; }
+        public string? ParameterValue { get; set; }
+        public bool IsUpdated { get; set; }
+    }
+
+   
+
+
+}

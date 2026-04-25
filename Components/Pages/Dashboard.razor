@@ -1,0 +1,664 @@
+@page "/dashboard"
+
+@inject HttpClient http
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject ProtectedSessionStorage _sessionStorage
+@inject IJSRuntime JSRuntime
+@using Lims.Components.Model
+@using LIMS.Model
+@using Newtonsoft.Json
+@using System.Net.Http.Headers
+@inject LIMS.Model.AppSettings AppSettings
+@rendermode InteractiveServer
+
+<PageTitle>Lab Analytics Dashboard</PageTitle>
+
+<div class="dashboard-wrap">
+    <div class="dash-header">
+        <div>
+            <h1><i class="fas fa-flask"></i> Lab Analytics Dashboard</h1>
+            <p>Real-time overview of Samples, Tests & Revenue</p>
+        </div>
+        <div class="header-actions" style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
+            <div class="quick-filters">
+                <button class="filter-btn @(activeFilter == "Today" ? "active" : "")" @onclick="@(() => SetQuickFilter("Today"))">Today</button>
+                <button class="filter-btn @(activeFilter == "7Days" ? "active" : "")" @onclick="@(() => SetQuickFilter("7Days"))">7 Days</button>
+                <button class="filter-btn @(activeFilter == "ThisMonth" ? "active" : "")" @onclick="@(() => SetQuickFilter("ThisMonth"))">This Month</button>
+                <button class="filter-btn @(activeFilter == "Custom" ? "active" : "")" @onclick="@(() => SetQuickFilter("Custom"))">Custom</button>
+            </div>
+
+            <div style="display: flex; gap: 8px; align-items: center; @(activeFilter != "Custom" ? "opacity: 0.6; pointer-events: none; transition: 0.3s;" : "transition: 0.3s;")">
+                <input type="date" class="premium-input" @bind="startDate" />
+                <span style="color: #64748b; font-weight: 600;">to</span>
+                <input type="date" class="premium-input" @bind="endDate" />
+                <button @onclick="RefreshData"><i class="fas fa-search"></i> Check</button>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="stats-grid">
+            <div class="stat-box skeleton" style="height: 120px;"></div>
+            <div class="stat-box skeleton" style="height: 120px;"></div>
+            <div class="stat-box skeleton" style="height: 120px;"></div>
+            <div class="stat-box skeleton" style="height: 120px;"></div>
+            <div class="stat-box skeleton" style="height: 120px;"></div>
+            <div class="stat-box skeleton" style="height: 120px;"></div>
+        </div>
+        <div class="charts-grid">
+            <div class="chart-card skeleton" style="height: 380px;"></div>
+            <div class="chart-card skeleton" style="height: 380px;"></div>
+        </div>
+    }
+    else
+    {
+        <!-- Lab Summary Stats Row 1 -->
+        <div class="stats-grid">
+            <div class="stat-box animated-card delay-1">
+                <div class="stat-info">
+                    <span class="stat-label">Total Patients</span>
+                    <span class="stat-val">@TotalPatients.ToString("N0")</span>
+                    <span class="stat-sub">Registered in period</span>
+                </div>
+                <div class="stat-icon icon-patients">
+                    <i class="fas fa-user-injured"></i>
+                </div>
+            </div>
+
+            <div class="stat-box animated-card delay-2">
+                <div class="stat-info">
+                    <span class="stat-label">Total Tests Ordered</span>
+                    <span class="stat-val">@TotalTestsOrdered.ToString("N0")</span>
+                    <span class="stat-sub">Lab requests received</span>
+                </div>
+                <div class="stat-icon icon-tests">
+                    <i class="fas fa-vials"></i>
+                </div>
+            </div>
+
+            <div class="stat-box animated-card delay-3">
+                <div class="stat-info">
+                    <span class="stat-label">Reports Delivered</span>
+                    <span class="stat-val">@TotalReportsDelivered.ToString("N0")</span>
+                    <span class="stat-sub">Completed &amp; dispatched</span>
+                </div>
+                <div class="stat-icon icon-reports">
+                    <i class="fas fa-file-medical-alt"></i>
+                </div>
+            </div>
+
+            <div class="stat-box animated-card delay-4">
+                <div class="stat-info">
+                    <span class="stat-label">Total Revenue</span>
+                    <span class="stat-val">₹ @TotalRevenue.ToString("N0")</span>
+                    <span class="stat-sub">Gross billed amount</span>
+                </div>
+                <div class="stat-icon icon-revenue">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+            </div>
+
+            <div class="stat-box animated-card delay-5">
+                <div class="stat-info">
+                    <span class="stat-label">Amount Collected</span>
+                    <span class="stat-val">₹ @TotalPaid.ToString("N0")</span>
+                    <span class="stat-sub">Cash + Online received</span>
+                </div>
+                <div class="stat-icon icon-paid">
+                    <i class="fas fa-wallet"></i>
+                </div>
+            </div>
+
+            <div class="stat-box animated-card delay-6">
+                <div class="stat-info">
+                    <span class="stat-label">Pending Balance</span>
+                    <span class="stat-val">₹ @TotalBalance.ToString("N0")</span>
+                    <span class="stat-sub">Dues to be collected</span>
+                </div>
+                <div class="stat-icon icon-balance">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="charts-grid">
+            <!-- Patients by Referral Doughnut -->
+            <div class="chart-card animated-card delay-2">
+                <div class="chart-header">
+                    <div class="chart-title"><i class="fas fa-hospital-alt" style="color:#6366f1;margin-right:6px;"></i>Patients by Referral Source</div>
+                    <div class="chart-subtitle">Top referral hospitals & clinics</div>
+                </div>
+                <div class="doughnut-wrap">
+                    <canvas id="patientDoughnutChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Revenue vs Collected Bar Chart -->
+            <div class="chart-card animated-card delay-3">
+                <div class="chart-header">
+                    <div class="chart-title"><i class="fas fa-chart-bar" style="color:#6366f1;margin-right:6px;"></i>Revenue vs Collected by Source</div>
+                    <div class="chart-subtitle">Billing & collection comparison</div>
+                </div>
+                <div class="bar-wrap">
+                    <canvas id="revenueBarChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Daily Payment Trend - Full Width -->
+        <div class="table-card animated-card delay-4" style="margin-bottom: 32px;">
+            <div class="chart-header">
+                <div class="chart-title"><i class="fas fa-wave-square" style="color:#6366f1;margin-right:6px;"></i>Daily Collection Trend</div>
+                <div class="chart-subtitle">Amount collected per day over selected period</div>
+            </div>
+            <div class="line-wrap" style="height: 300px; position: relative;">
+                <canvas id="dailyPaymentChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Top Tests Ordered -->
+        <div class="table-card animated-card delay-4" style="margin-bottom: 32px;">
+            <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <div class="chart-title"><i class="fas fa-flask" style="color:#6366f1;margin-right:6px;"></i>Top Tests Ordered</div>
+                    <div class="chart-subtitle">Most frequently requested lab investigations</div>
+                </div>
+            </div>
+            <div class="table-responsive" style="overflow-x: auto;">
+                <table class="premium-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Test Name</th>
+                            <th>Orders</th>
+                            <th>Revenue (₹)</th>
+                            <th>Collected (₹)</th>
+                            <th>Balance (₹)</th>
+                            <th>Collection Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{int testRank = 1;}
+                        @foreach (var t in TopTests)
+                        {
+                            var rate = t.Revenue > 0 ? (t.Collected / t.Revenue) * 100 : 0;
+                            <tr>
+                                <td><span class="rank-badge">@testRank</span></td>
+                                <td><div class="hosp-name" style="font-weight:600;">@t.TestName</div></td>
+                                <td><span class="count-badge">@t.OrderCount.ToString("N0")</span></td>
+                                <td class="amount-cell">@t.Revenue.ToString("N0")</td>
+                                <td class="amount-cell" style="color:#6366f1;">@t.Collected.ToString("N0")</td>
+                                <td class="amount-cell" style="color:#ef4444;">@t.Balance.ToString("N0")</td>
+                                <td>
+                                    @if (rate >= 90)
+                                    {
+                                        <span class="badge-status badge-good">@rate.ToString("0")% Excellent</span>
+                                    }
+                                    else if (rate >= 60)
+                                    {
+                                        <span class="badge-status badge-warn">@rate.ToString("0")% Follow-up</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge-status badge-danger">@rate.ToString("0")% Critical</span>
+                                    }
+                                </td>
+                            </tr>
+                            testRank++;
+                        }
+                        @if (TopTests.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="7" style="text-align:center;color:#94a3b8;padding:24px;">No test data available for the selected period</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Referral Source Breakdown Table -->
+        <div class="table-card animated-card delay-4">
+            <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <div class="chart-title"><i class="fas fa-hospital" style="color:#6366f1;margin-right:6px;"></i>Referral Source Breakdown</div>
+                    <div class="chart-subtitle">Detailed patient & billing metrics per referring hospital/clinic</div>
+                </div>
+                <button class="export-btn" @onclick="ExportData"><i class="fas fa-file-csv"></i> Export CSV</button>
+            </div>
+            <div class="table-responsive" style="overflow-x: auto;">
+                <table class="premium-table">
+                    <thead>
+                        <tr>
+                            <th>Hospital / Clinic</th>
+                            <th>Patients</th>
+                            <th>Tests</th>
+                            <th>Revenue (₹)</th>
+                            <th>Collected (₹)</th>
+                            <th>Balance (₹)</th>
+                            <th>Collection Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var h in TopHospitals)
+                        {
+                            var rate = h.Revenue > 0 ? (h.Collected / h.Revenue) * 100 : 0;
+                            <tr>
+                                <td>
+                                    <div class="hosp-name" style="font-weight: 600;">@h.HospitalName</div>
+                                </td>
+                                <td>@h.PatientCount.ToString("N0")</td>
+                                <td>@h.TestCount.ToString("N0")</td>
+                                <td class="amount-cell">@h.Revenue.ToString("N0")</td>
+                                <td class="amount-cell" style="color: #6366f1;">@h.Collected.ToString("N0")</td>
+                                <td class="amount-cell" style="color: #ef4444;">@h.Balance.ToString("N0")</td>
+                                <td>
+                                    @if (rate >= 90)
+                                    {
+                                        <span class="badge-status badge-good">@rate.ToString("0")% Excellent</span>
+                                    }
+                                    else if (rate >= 60)
+                                    {
+                                        <span class="badge-status badge-warn">@rate.ToString("0")% Follow-up</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge-status badge-danger">@rate.ToString("0")% Critical</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        @if (TopHospitals.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="7" style="text-align: center; color: #94a3b8; padding: 24px;">No data available for the selected period</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Inject] private NavigationManager NavManager { get; set; }
+
+    private bool isLoading = true;
+    private List<ViewBills> AllBills = new();
+
+    // Aggregated Stats
+    private int TotalPatients = 0;
+    private int TotalTestsOrdered = 0;
+    private int TotalReportsDelivered = 0;
+    private double TotalRevenue = 0;
+    private double TotalPaid = 0;
+    private double TotalBalance = 0;
+    private string token = "";
+    private int branchID = 0;
+
+    public class HospitalStat
+    {
+        public string HospitalName { get; set; }
+        public int PatientCount { get; set; }
+        public int TestCount { get; set; }
+        public double Revenue { get; set; }
+        public double Collected { get; set; }
+        public double Balance { get; set; }
+    }
+
+    public class TestStat
+    {
+        public string TestName { get; set; }
+        public int OrderCount { get; set; }
+        public double Revenue { get; set; }
+        public double Collected { get; set; }
+        public double Balance { get; set; }
+    }
+
+    private List<HospitalStat> TopHospitals = new();
+    private List<TestStat> TopTests = new();
+
+    private DateTime startDate = DateTime.Now.Date.AddDays(-30);
+    private DateTime endDate = DateTime.Now.Date;
+    private string activeFilter = "Custom";
+
+    private async Task SetQuickFilter(string filter)
+    {
+        activeFilter = filter;
+        if (filter == "Today")
+        {
+            startDate = DateTime.Now.Date;
+            endDate = DateTime.Now.Date;
+        }
+        else if (filter == "7Days")
+        {
+            startDate = DateTime.Now.Date.AddDays(-7);
+            endDate = DateTime.Now.Date;
+        }
+        else if (filter == "ThisMonth")
+        {
+            startDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            endDate = DateTime.Now.Date;
+        }
+
+        if (filter != "Custom")
+        {
+            await RefreshData();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!http.DefaultRequestHeaders.Contains("X-Tenant-ID"))
+        {
+            http.DefaultRequestHeaders.Add("X-Tenant-ID", AppSettings.ClientId);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var tkn = await _sessionStorage.GetAsync<UserAuth>("claim");
+            if (tkn.Success && tkn.Value != null && !string.IsNullOrEmpty(tkn.Value.token))
+            {
+                token = tkn.Value.token;
+                try
+                {
+                    var json = System.Text.Json.JsonSerializer.Serialize(tkn.Value);
+                    var doc = System.Text.Json.JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("BranchCode", out var branchCodeProp))
+                    {
+                        branchID = branchCodeProp.GetInt32();
+                    }
+                }
+                catch { }
+                await LoadDashboardDataAsync();
+            }
+            else
+            {
+                isLoading = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadDashboardDataAsync();
+    }
+
+    private async Task ExportData()
+    {
+        var csv = "Hospital/Clinic, Patients, Tests, Revenue, Collected, Balance\n";
+        foreach (var h in TopHospitals)
+        {
+            var cleanedName = h.HospitalName?.Replace("\"", "\"\"") ?? "";
+            csv += $"\"{cleanedName}\",{h.PatientCount},{h.TestCount},{h.Revenue},{h.Collected},{h.Balance}\n";
+        }
+        var bytes = System.Text.Encoding.UTF8.GetBytes(csv);
+        var base64 = Convert.ToBase64String(bytes);
+        await JSRuntime.InvokeVoidAsync("eval", $"var a = document.createElement('a'); a.href = 'data:text/csv;base64,{base64}'; a.download = 'Lab_Analytics.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a);");
+    }
+
+    private async Task LoadDashboardDataAsync()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            string sd = startDate.ToString("yyyy-MM-dd") + " 12:00:00 AM";
+            string ed = endDate.ToString("yyyy-MM-dd") + " 11:59:59 PM";
+
+            var request = new HttpRequestMessage(HttpMethod.Get,
+                $"{AppSettings.BaseUrl}request/ViewBills?DCode={branchID}&fromdate={Uri.EscapeDataString(sd)}&todate={Uri.EscapeDataString(ed)}");
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+
+            var res = await http.SendAsync(request);
+
+            if (res.IsSuccessStatusCode)
+            {
+                var content = await res.Content.ReadAsStringAsync();
+                var bills = JsonConvert.DeserializeObject<List<ViewBills>>(content);
+
+                if (bills != null)
+                {
+                    AllBills = bills.Where(x => !x.Deleted).ToList();
+
+                    TotalPatients = AllBills.Select(b => b.RequestSno).Distinct().Count();
+                    TotalTestsOrdered = AllBills.Count;
+                    TotalReportsDelivered = AllBills.Where(b => b.PaidAmount > 0).Count();
+                    TotalRevenue = AllBills.Sum(b => b.RequestAmount);
+                    TotalPaid = AllBills.Sum(b => b.PaidAmount);
+                    TotalBalance = AllBills.Sum(b => b.Balance);
+
+                    // Group by referral source
+                    var grouped = AllBills
+                        .GroupBy(b => !string.IsNullOrEmpty(b.DOCTOR) ? b.DOCTOR : (!string.IsNullOrEmpty(b.CUSTCode) ? b.CUSTCode : "Direct Walk-in"))
+                        .Select(g => new HospitalStat
+                        {
+                            HospitalName = g.Key,
+                            PatientCount = g.Select(x => x.RequestSno).Distinct().Count(),
+                            TestCount = g.Count(),
+                            Revenue = g.Sum(x => x.TotalAmount),
+                            Collected = g.Sum(x => x.PaidAmount),
+                            Balance = g.Sum(x => x.Balance)
+                        })
+                        .OrderByDescending(x => x.PatientCount)
+                        .ToList();
+
+                    TopHospitals = grouped;
+
+                    // Group by test name
+                    var testGrouped = AllBills
+                        .GroupBy(b => !string.IsNullOrEmpty(b.TestShortName) ? b.TestShortName : "Unknown Test")
+                        .Select(g => new TestStat
+                        {
+                            TestName = g.Key,
+                            OrderCount = g.Count(),
+                            Revenue = g.Sum(x => x.TotalAmount),
+                            Collected = g.Sum(x => x.PaidAmount),
+                            Balance = g.Sum(x => x.Balance)
+                        })
+                        .OrderByDescending(x => x.OrderCount)
+                        .Take(10)
+                        .ToList();
+
+                    TopTests = testGrouped;
+
+                    isLoading = false;
+                    StateHasChanged();
+
+                    await Task.Delay(300);
+                    await RenderCharts();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading dashboard: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RenderCharts()
+    {
+        try
+        {
+            var doughnutCanvas = await JSRuntime.InvokeAsync<bool>("window.blazorChartInterop.canvasExists", "patientDoughnutChart");
+            var barCanvas = await JSRuntime.InvokeAsync<bool>("window.blazorChartInterop.canvasExists", "revenueBarChart");
+            var lineCanvas = await JSRuntime.InvokeAsync<bool>("window.blazorChartInterop.canvasExists", "dailyPaymentChart");
+
+            if (!doughnutCanvas || !barCanvas || !lineCanvas)
+            {
+                await Task.Delay(100);
+            }
+
+            var chartData = TopHospitals.Take(6).ToList();
+            var labels = chartData.Select(h => h.HospitalName).ToList();
+            var patients = chartData.Select(h => (double)h.PatientCount).ToList();
+            var revenue = chartData.Select(h => h.Revenue).ToList();
+            var collected = chartData.Select(h => h.Collected).ToList();
+
+            await JSRuntime.InvokeVoidAsync("window.blazorChartInterop.renderHospitalDoughnut", "patientDoughnutChart", labels, patients);
+            await JSRuntime.InvokeVoidAsync("window.blazorChartInterop.renderHospitalBar", "revenueBarChart", labels, revenue, collected);
+
+            var dailyData = AllBills
+                .GroupBy(b => b.RequestDatetime.Date)
+                .Select(g => new {
+                    Date = g.Key,
+                    TotalPaid = g.Sum(x => x.PaidAmount)
+                })
+                .OrderBy(x => x.Date)
+                .ToList();
+
+            var dateLabels = dailyData.Select(x => x.Date.ToString("dd MMM")).ToList();
+            var datePayments = dailyData.Select(x => (double)x.TotalPaid).ToList();
+
+            await JSRuntime.InvokeVoidAsync("window.blazorChartInterop.renderSmoothLine", "dailyPaymentChart", dateLabels, datePayments);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error rendering charts: {ex.Message}");
+        }
+    }
+}
+
+<style>
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 28px;
+    }
+
+    .stat-box {
+        background: white;
+        border-radius: 16px;
+        padding: 20px 22px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        border: 1px solid #f1f5f9;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .stat-box:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 30px rgba(0,0,0,0.1);
+    }
+
+    .stat-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .stat-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .stat-val {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: #1e293b;
+        line-height: 1.1;
+    }
+
+    .stat-sub {
+        font-size: 0.74rem;
+        color: #94a3b8;
+        margin-top: 2px;
+    }
+
+    .stat-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        flex-shrink: 0;
+    }
+
+    .icon-patients  { background: linear-gradient(135deg, #6366f1, #818cf8); color: white; }
+    .icon-tests     { background: linear-gradient(135deg, #0ea5e9, #38bdf8); color: white; }
+    .icon-reports   { background: linear-gradient(135deg, #10b981, #34d399); color: white; }
+    .icon-revenue   { background: linear-gradient(135deg, #f59e0b, #fbbf24); color: white; }
+    .icon-paid      { background: linear-gradient(135deg, #8b5cf6, #a78bfa); color: white; }
+    .icon-balance   { background: linear-gradient(135deg, #ef4444, #f87171); color: white; }
+
+    .rank-badge {
+        background: #ede9fe;
+        color: #7c3aed;
+        font-weight: 700;
+        font-size: 0.8rem;
+        padding: 3px 9px;
+        border-radius: 20px;
+    }
+
+    .count-badge {
+        background: #dbeafe;
+        color: #1d4ed8;
+        font-weight: 700;
+        font-size: 0.82rem;
+        padding: 3px 10px;
+        border-radius: 20px;
+    }
+
+    .badge-danger {
+        background: #fee2e2;
+        color: #dc2626;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.78rem;
+        font-weight: 600;
+    }
+
+    .export-btn {
+        background: #10b981 !important;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.9rem;
+    }
+
+    .export-btn:hover {
+        background: #059669 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    @@media (max-width: 1024px) {
+        .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @@media (max-width: 640px) {
+        .stats-grid { grid-template-columns: 1fr; }
+    }
+</style>

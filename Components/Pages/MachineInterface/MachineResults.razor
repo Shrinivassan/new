@@ -1,0 +1,453 @@
+﻿@page "/machineresults"
+@rendermode InteractiveServer
+@using BirdAPI.Components.Model
+@using LIMS.Model
+@using Newtonsoft.Json
+
+
+@inject IJSRuntime JS
+@inject HttpClient http
+@inject AppSettings appSettings
+<h3>Machine Results</h3>
+
+
+<div style="margin-top:20px; max-width:100%">
+    <div>
+        <p style="font-size:16px;">Machine  <span style="color:#44544A;"> / Machine Result</span></p>
+    </div>
+    <div class="container mainSession m-3">
+        <div class="row mb-3">
+            <div class="col-auto">
+                <div class="position-relative d-inline-block">
+                    <div class="d-inline-flex" @onclick="ToggleDateDropdown" style="cursor:pointer;">
+                        <div style="background-color:#839d8d; padding:8px; color:#fff; border-top-left-radius: 5px; border-bottom-left-radius: 5px;">
+                            <i class="bi bi-calendar4"></i>
+                        </div>
+                        <div style="background-color:#eff5f2; padding:8px; border-top-right-radius: 5px; border-bottom-right-radius: 5px; font-size:16px; font-weight:400; color:#44544A;">
+                            <span>@GetDateRangeLabel()</span>
+                        </div>
+                    </div>
+
+                    @if (showDropdownDateTime)
+                    {
+                        <div class="dropdown-menu show p-2" style="display:block; position:absolute; z-index:999; width:250px;">
+                            <ul class="list-unstyled">
+                                <li @onclick="@(() => SetRange(DateTime.Today, DateTime.Today, "today"))" class="p-2">Today<br /><small>@DateTime.Today.ToString("dd MMM, yyyy")</small></li>
+                                <li @onclick="@(() => SetRange(DateTime.Today.AddDays(-1), DateTime.Today.AddDays(-1), "yesterday"))" class="p-2">Yesterday<br /><small>@DateTime.Today.AddDays(-1).ToString("dd MMM, yyyy")</small></li>
+                                <li @onclick="@(() => SetRange(DateTime.Today.AddDays(-6), DateTime.Today, "7days"))" class="p-2">Last 7 days<br /><small>@DateTime.Today.AddDays(-6).ToString("dd MMM, yyyy") - @DateTime.Today.ToString("dd MMM, yyyy")</small></li>
+                                <li @onclick="@(() => SetRange(DateTime.Today.AddMonths(-1).AddDays(1 - DateTime.Today.Day), DateTime.Today, "30days"))" class="p-2">Last 1 month<br /><small>@DateTime.Today.AddMonths(-1).ToString("dd MMM, yyyy") - @DateTime.Today.ToString("dd MMM, yyyy")</small></li>
+                                <li @onclick="@(() => SetRange(DateTime.Today.AddMonths(-6), DateTime.Today, "6months"))" class="p-2">6 months<br /><small>@DateTime.Today.AddMonths(-6).ToString("dd MMM, yyyy") - @DateTime.Today.ToString("dd MMM, yyyy")</small></li>
+                                <li class="p-2 border-top " @onclick="ShowCustomPicker">Custom<br /><small>Select a date or a custom range</small></li>
+                            </ul>
+                        </div>
+                    }
+
+                    @if (showCustomDateTime)
+                    {
+                        <div style="position: absolute; z-index: 999; background: white; padding: 10px; width: max-content;">
+                            <!-- datePicker -->
+                            <style>
+                                #daterange {
+                                    display: none;
+                                }
+
+                                #dateDisplay {
+                                    font-weight: bold;
+                                    margin-top: 10px;
+                                }
+
+                                .daterangepicker td.active {
+                                    background-color: #1F515B !important;
+                                    color: #fff !important;
+                                }
+
+                                .daterangepicker td.in-range {
+                                    background-color: #EFF5F2;
+                                }
+
+                                .daterangepicker .drp-buttons .btn {
+                                    background-color: #37BD69 !important;
+                                    color: #fff !important;
+                                    border-radius: 5px;
+                                    padding: 5px 10px;
+                                    font-weight: 600;
+                                    border: none;
+                                }
+
+                                .cancelBtn {
+                                    display: none !important;
+                                }
+
+                                .monthselect {
+                                    width: 100%;
+                                    height: 40px;
+                                    border-radius: 5px;
+                                    padding: 0 10px;
+                                    font-size: 16px;
+                                    border: 1px solid #ccc;
+                                }
+
+                                .yearselect {
+                                    width: 100%;
+                                    height: 40px;
+                                    border-radius: 5px;
+                                    padding: 0 10px;
+                                    font-size: 16px;
+                                    border: 1px solid #ccc;
+                                }
+
+                                .daterangepicker {
+                                    top: 237px !important;
+                                    left: 294px !important;
+                                }
+                            </style>
+                            <!-- Hidden input -->
+                            <input type="text" id="daterange" />
+
+                            <script>
+                                $(function () {
+                                   // Initialize but don't open immediately
+                                   $('#daterange').daterangepicker({
+                                      showDropdowns: true,   // 👈 Enables year/month dropdowns
+                                      maxDate: moment(),     // 👈 Optional: restricts future selection
+                                      autoUpdateInput: false,
+                                      locale: {
+                                         format: 'DD MMM YYYY'
+                                      }
+                                   });
+
+
+                                   // Open when button is clicked
+                                   $('#openPicker').on('click', function () {
+                                      $('#daterange').click();
+                                   });
+
+                                   // Apply and show selected range
+                                   $('#daterange').on('apply.daterangepicker', function (ev, picker) {
+                                      const rangeText = picker.startDate.format('DD MMM YYYY') + ' - ' + picker.endDate.format('DD MMM YYYY');
+                                      $('#dateDisplay').text('Selected: ' + rangeText);
+                                   });
+
+
+                                });
+
+
+
+
+                            </script>
+                            <script>
+                                    function setupDateRange(dotNetHelper) {
+                                    $('#daterange').on('apply.daterangepicker', function (ev, picker) {
+                                        const start = picker.startDate.format('YYYY-MM-DD'); // Format for .NET parsing
+                                        const end = picker.endDate.format('YYYY-MM-DD');
+
+                                        // Update visible text if needed
+                                        const rangeText = picker.startDate.format('DD MMM YYYY') + ' - ' + picker.endDate.format('DD MMM YYYY');
+                                        $('#dateDisplay').text('Selected: ' + rangeText);
+
+                                        // Call Blazor's C# method
+                                        dotNetHelper.invokeMethodAsync('SetDateRange', start, end);
+                                    });
+                                }
+                            </script>
+
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="col-auto float-end ms-auto">
+
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0 p-1" style="border-top-left-radius: 5px;border-bottom-left-radius: 5px;"><i class="bi bi-search"></i></span>
+                    <input type="text"
+       class="form-control border-start-0 p-1"
+       style="border-top-right-radius: 5px;border-bottom-right-radius: 5px;"
+       placeholder="Search"
+                           @oninput="@((e)=>OnSearchChanges(e.Value?.ToString()))" />
+                </div>
+
+            </div>
+        </div>
+
+        <div class="row py-1">
+            <div class="col-8" style="height:calc(100vh - 226px); overflow-y:scroll;">
+                <table class="table table-responsive">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Machine Code</th>
+                            <th>Sample Date</th>
+                            <th>Sample ID</th>
+                            <th>Action</th>
+
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (bdmr != null && bdmr.Count > 0)
+                        {
+
+                            @foreach (var it in bdmr)
+                            {
+                                <tr @onclick="@(() => ShowResult(it))" style="cursor:pointer;">
+                                    <td>@it.MCCode</td>
+                                    <td>@it.SampleDate</td>
+                                    <td>@it.SampleNo</td>
+                                    <td>
+                                        <button class="LoadBtn" type="button" @onclick="@(() => UploadResult(it))">Load Result</button>
+                                    </td>
+
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="4" class="text-center">No results found</td>
+                            </tr>
+
+                        }
+                    </tbody>
+                </table>
+
+
+            </div>
+            <div class="col-3" style="height:calc(100vh - 226px); overflow-y:scroll;">
+               
+                    <table class="table-sm table-responsive">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Parameter</th>
+                                <th>Value</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @if (bdmr2 != null && bdmr2.Count > 0)
+                        {
+                            @foreach (var it in bdmr2)
+                            {
+                                <tr>
+                                    <td class="tableStyle">@it.ParameterName</td>
+                                    <td class="tableStyle">@it.ParameterValue</td>
+                                    <td class="tableStyle">
+                                        <InputCheckbox @bind-Value="@it.IsUpdated"></InputCheckbox>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="2" class="text-center">No Data found</td>
+                            </tr>
+
+                        }
+                        </tbody>
+                    </table>
+                
+
+            </div>
+        </div>
+        <div class="row">
+        </div>
+    </div>
+</div>
+
+@code {
+    string sid = "";
+    DateTime fd = DateTime.Now;
+    DateTime td = DateTime.Now;
+
+    IList<BiDirectionalMachineResults> bdmr1 = new List<BiDirectionalMachineResults>();
+    IList<BiDirectionalMachineResults> bdmr = new List<BiDirectionalMachineResults>();
+    IList<BiDirectionalMachineResults> bdmr2 = new List<BiDirectionalMachineResults>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        http.DefaultRequestHeaders.Clear();
+        http.DefaultRequestHeaders.Add("X-Tenant-ID", appSettings.ClientId);
+    }
+    private async Task LoadBDMRAsync()
+    {
+        //await JS.InvokeVoidAsync("showLoader");
+
+        string sd = fd.ToString("yyyy-MM-dd") + " 12:00:00 AM";
+        string ed = td.ToString("yyyy-MM-dd") + " 11:59:59 PM";
+        var res = await http.GetAsync($"{appSettings.BaseUrl}MachineInterface/getresult?fdate={Uri.EscapeDataString(sd)}&tdate={Uri.EscapeDataString(ed)}");
+        if (res.IsSuccessStatusCode)
+        {
+            var tt = res.Content.ReadAsStringAsync().Result;
+            bdmr1 = JsonConvert.DeserializeObject<IList<BiDirectionalMachineResults>>(tt);
+            bdmr = bdmr1.GroupBy(x => new { x.MCCode, x.SampleNo }).Select(g => g.FirstOrDefault()).ToList();
+            StateHasChanged();
+        }
+        else
+        {
+            var ms = res.Content.ReadAsStringAsync().Result;
+        }
+
+        // await JS.InvokeVoidAsync("hideLoader");
+    }
+    private string searchText = "";
+
+    // private IList<BiDirectionalMachineResults> bdmr =>
+    // string.IsNullOrWhiteSpace(searchText)
+    //      ? bdmr1
+    //      : bdmr1.Where(x =>
+    //             (int.TryParse(searchText, out var mcCode) && x.MCCode == mcCode) ||
+    //             (x.SampleNo?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false)
+    //        ).GroupBy(x => new { x.MCCode, x.SampleDate, x.SampleNo })  // distinct by these 3
+    // .Select(g => g.First())                                    // pick one from each group
+    // .ToList();
+
+
+    private async Task LoadResult()
+    {
+        if (sid.Length > 0)
+        {
+            var res = await http.GetAsync($"{appSettings.BaseUrl}MachineInterface/uploadresult?sid={sid}");
+            if (res.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("showToast", "alert", res.Content.ReadAsStringAsync().Result);
+            }
+            else
+            {
+                var tt = res.Content.ReadAsStringAsync();
+                await JS.InvokeVoidAsync("showToast", "alert", res.Content.ReadAsStringAsync().Result);
+            }
+        }
+    }
+
+    private async Task UploadResult(BiDirectionalMachineResults args)
+    {
+        sid = args.SampleNo;
+        this.LoadResult();
+    }
+    private async Task ShowResult(BiDirectionalMachineResults args)
+    {
+        bdmr2 = bdmr1.Where(x => x.SampleNo == args.SampleNo && x.MCCode==args.MCCode).Distinct().ToList();
+    }
+
+
+    // DatePicker
+
+    private bool showDropdownDateTime = false;
+    private bool showCustomDateTime = false;
+    string selectedDateRangeId = "today";
+
+    private void ToggleDateDropdown()
+    {
+
+        showDropdownDateTime = !showDropdownDateTime;
+        showCustomDateTime = false;
+    }
+
+    private string GetDateRangeLabel()
+    {
+
+        string fromDate = fd.ToString("dd MMM, yyyy");
+        string toDate = td.ToString("dd MMM, yyyy");
+
+
+        return selectedDateRangeId switch
+        {
+            "today" => $"Today - {toDate}",
+            "yesterday" => $"Yesterday - {toDate}",
+            "7days" => $"Last 7 Days - {fromDate} - {toDate}",
+            "30days" => $"Last 1 month - {fromDate} - {toDate}",
+            "6months" => $"6 Months - {fromDate} - {toDate}",
+            "custom" => $"Custom - {fromDate} - {toDate}",
+            _ => $"{fromDate} - {toDate}"
+        };
+    }
+
+    private void SetRange(DateTime from, DateTime to, String range)
+    {
+
+        fd = from;
+        td = to;
+        LoadBDMRAsync();
+        showDropdownDateTime = false;
+        OnRangeChanged(range);
+        StateHasChanged();
+
+    }
+
+    private async void OnRangeChanged(string range)
+    {
+
+        selectedDateRangeId = range;
+
+        switch (range)
+        {
+            case "today":
+                fd = td = DateTime.Today;
+                break;
+            case "yesterday":
+                fd = td = DateTime.Today.AddDays(-1);
+                break;
+            case "7days":
+                td = DateTime.Today;
+                fd = td.AddDays(-6);
+                break;
+            case "30days":
+                td = DateTime.Today;
+                fd = DateTime.Today.AddMonths(-1);
+                break;
+            case "6months":
+                td = DateTime.Today;
+                fd = DateTime.Today.AddMonths(-6);
+                break;
+            case "custom":
+
+                break;
+        }
+
+    }
+
+    private async void ShowCustomPicker()
+    {
+
+        showDropdownDateTime = false;
+        showCustomDateTime = true;
+        selectedDateRangeId = "custom";
+        // Wait for the calendar to render
+        await Task.Delay(100);
+
+        await JS.InvokeVoidAsync("setupDateRange", DotNetObjectReference.Create(this));
+        await JS.InvokeVoidAsync("triggerDateRangeClick");
+
+    }
+
+    [JSInvokable]
+    public async Task SetDateRange(string start, string end)
+    {
+        fd = DateTime.Parse(start);
+        td = DateTime.Parse(end);
+        selectedDateRangeId = "custom";
+        showCustomDateTime = false;
+
+        await LoadBDMRAsync();
+        StateHasChanged();
+    }
+    private async Task OnSearchChanges(string args)
+    {
+       if(args!=null && args.Length>0){
+        var biDirectionals = bdmr1.Where(x => x.SampleNo.Contains(args)).ToList();
+        if (biDirectionals != null && biDirectionals.Count > 0)
+        {
+            bdmr = biDirectionals.GroupBy(x => new { x.MCCode, x.SampleNo }).Select(g => g.FirstOrDefault()).ToList();
+        }
+        else
+        {
+            bdmr = bdmr1.GroupBy(x => new { x.MCCode, x.SampleNo }).Select(g => g.FirstOrDefault()).ToList();
+        }
+        }
+        else
+        {
+            bdmr = bdmr1.GroupBy(x => new { x.MCCode, x.SampleNo }).Select(g => g.FirstOrDefault()).ToList();
+        }
+    }
+    //DatePicker End
+
+}

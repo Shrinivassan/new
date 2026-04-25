@@ -1,0 +1,189 @@
+@* @page "/test-requisition-details"
+@using Lims.Components.Data
+@using LIMS.Model
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject ProtectedSessionStorage _sessionStorage
+
+<PageTitle>Test Requisition Details</PageTitle>
+
+<div class="details-container" style="overflow-x: auto;">
+    <h2>Test Requisition Details</h2>
+
+    @if (requisitions != null && requisitions.Any())
+    {
+        <table class="table table-bordered table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>No.</th>
+                    <th>Patient Name</th>
+                    <th>DOB</th>
+                    <th>Weight</th>
+                    <th>Height</th>
+                    <th>Smoking</th>
+                    <th>Passive Smoking</th>
+                    <th>Address</th>
+                    <th>Mobile</th>
+                    <th>Email</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{ var i = 1; }
+                @foreach (var requisition in requisitions)
+                {
+                    <tr @onclick="() => ToggleDetails(requisition)" style="cursor: pointer;">
+                        <td>@(i++)</td>
+                        <td>@requisition.PatientName</td> 
+                        <td>@(requisition.DateOfBirth?.ToShortDateString() ?? "N/A")</td>
+                        <td>@(requisition.Weight?.ToString("F1") ?? "N/A") kg</td>
+                        <td>@(requisition.Height?.ToString("F0") ?? "N/A") cm</td>
+                        <td>@(requisition.Smoking ?? "N/A")</td>
+                        <td>@(requisition.PassiveSmoking ?? "N/A")</td>
+                        <td>@requisition.PatientAddress</td>
+                        <td>@requisition.PatientMobile</td>
+                        <td>@requisition.PatientEmail</td>
+                    </tr>
+                    @if (selectedRequisition == requisition)
+                    {
+                        <tr>
+                            <td colspan="10">
+                                <div class="p-3 bg-light border rounded">
+                                    <h5 class="mb-3">Additional Details</h5>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p><strong>Physician Name:</strong> @requisition.PhysicianName</p>
+                                            <p><strong>Hospital:</strong> @requisition.Hospital</p>
+                                            <p><strong>Physician Address:</strong> @requisition.PhysicianAddress</p>
+                                            <p><strong>Physician Mobile:</strong> @requisition.PhysicianMobile</p>
+                                            <p><strong>Physician Email:</strong> @requisition.PhysicianEmail</p>
+                                            <p><strong>Sonographer:</strong> @requisition.SonographerName</p>
+                                            <p><strong>FMF Code:</strong> @requisition.FMFCode</p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p><strong>LMP:</strong> @(requisition.LMP?.ToShortDateString() ?? "N/A")</p>
+                                            <p><strong>EDD:</strong> @(requisition.EDD?.ToShortDateString() ?? "N/A")</p>
+                                            <p><strong>Conception:</strong> @(requisition.ConceptionType.ToString() ?? "N/A")</p>
+                                            <p><strong>Ethnicity:</strong> @(FormatEthnicity(requisition))</p>
+                                            <p><strong>Parity:</strong> @(FormatParity(requisition))</p>
+                                            <p><strong>Prev. T21:</strong> @(requisition.PreviousT21.ToString() ?? "Unknown")</p>
+                                            <p><strong>Prev. T18:</strong> @(requisition.PreviousT18.ToString() ?? "Unknown")</p>
+                                            <p><strong>Prev. T13:</strong> @(requisition.PreviousT13.ToString() ?? "Unknown")</p>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-md-6">
+                                            <strong>1st Tri. Screening:</strong>
+                                            @{var firstTriScreenings = GetFirstTrimesterScreenings(requisition);}
+                                            @if (firstTriScreenings.Any())
+                                            {
+                                                @foreach (var screening in firstTriScreenings)
+                                                {
+                                                    <div>- @screening</div>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <div class="text-muted">None selected</div>
+                                            }
+                                        </div>
+                                        <div class="col-md-6">
+                                            <strong>2nd Tri. Screening:</strong>
+                                            @{var secondTriScreenings = GetSecondTrimesterScreenings(requisition);}
+                                            @if (secondTriScreenings.Any())
+                                            {
+                                                @foreach (var screening in secondTriScreenings)
+                                                {
+                                                    <div>- @screening</div>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <div class="text-muted">None selected</div>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <p class="text-muted">No requisition details found.</p>
+    }
+</div>
+
+@code {
+    private List<PrenatalScreeningRequest>? requisitions;
+    private PrenatalScreeningRequest? selectedRequisition;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var result = await _sessionStorage.GetAsync<List<PrenatalScreeningRequest>>("requisitionDetails");
+            if (result.Success && result.Value != null)
+            {
+                requisitions = result.Value;
+            }
+            else
+            {
+                requisitions = new List<PrenatalScreeningRequest>(); // Initialize to an empty list if not found or error
+            }
+            StateHasChanged();
+        }
+    }
+
+    private void ToggleDetails(PrenatalScreeningRequest requisition)
+    {
+        if (selectedRequisition == requisition)
+        {
+            selectedRequisition = null; // Collapse if the same row is clicked
+        }
+        else
+        {
+            selectedRequisition = requisition; // Expand the new row
+        }
+    }
+
+    private string FormatEthnicity(PrenatalScreeningRequest req)
+    {
+        if (req.Ethnicities != null && req.Ethnicities.Any())
+        {
+            return string.Join(", ", req.Ethnicities.Select(e => e.ToString()));
+        }
+        return "N/A";
+    }
+
+    private string FormatParity(PrenatalScreeningRequest req)
+    {
+        var parity = new List<string>();
+        if (req.Gravida) parity.Add("G");
+        if (req.Para) parity.Add("P");
+        if (req.Abortion) parity.Add("A");
+        if (req.Live) parity.Add("L");
+        return parity.Any() ? string.Join(", ", parity) : "N/A";
+    }
+
+    private List<string> GetFirstTrimesterScreenings(PrenatalScreeningRequest req)
+    {
+        var screenings = new List<string>();
+        if (req.CombinedScreening) screenings.Add("Combined");
+        if (req.EarlyBiochemistry) screenings.Add("Early Biochemistry");
+        if (req.DoubleMarker) screenings.Add("Double Marker");
+        if (req.QuadrupleScreening) screenings.Add("1st Tri Quad");
+        return screenings;
+    }
+
+    private List<string> GetSecondTrimesterScreenings(PrenatalScreeningRequest req)
+    {
+        var screenings = new List<string>();
+        if (req.AFPTest) screenings.Add("AFP");
+        if (req.TripleMarker) screenings.Add("Triple");
+        if (req.QuadrupleMarker) screenings.Add("Quad");
+        if (req.IntegratedScreening) screenings.Add("Integrated");
+        return screenings;
+    }
+} *@

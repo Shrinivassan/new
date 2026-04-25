@@ -1,0 +1,1506 @@
+@page "/result-search"
+@inject HttpClient http
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject ProtectedSessionStorage _sessionStorage
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+@using Lims.Components.Model
+@using LIMS.Model
+@using Newtonsoft.Json
+@using System.Net.Http.Headers
+@inject LIMS.Model.AppSettings AppSettings
+@rendermode InteractiveServer
+
+<PageTitle>Result Search - LIMS</PageTitle>
+
+<div class="rs-container">
+    <!-- Modern Page Header -->
+    <div class="lab-header-section">
+        <div class="lab-header-top">
+            <div class="lab-breadcrumb">
+                <i class="fas fa-home"></i> <span>Lab</span> 
+                <i class="fas fa-chevron-right separator"></i> 
+                <span class="active">Result Search</span>
+            </div>
+        </div>
+        
+      
+    </div>
+
+    <!-- Styles for Modern Header -->
+    <style>
+        .lab-header-section {
+            border-radius: 10px;
+            padding: 8px 14px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            margin-bottom: 10px;
+            border: 1px solid #eef2f6;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Subtle background pattern/gradient */
+        .lab-header-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 300px;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(67, 97, 238, 0.03));
+            pointer-events: none;
+        }
+
+        .lab-header-top {
+            margin-bottom: 0;
+        }
+
+        .lab-breadcrumb {
+            font-size: 13px;
+            color: #6c757d;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+        }
+
+        .lab-breadcrumb i.fa-home {
+            color: #4361ee;
+            margin-right: 6px;
+            font-size: 14px;
+        }
+
+        .lab-breadcrumb .separator {
+            font-size: 9px;
+            margin: 0 10px;
+            color: #ced4da;
+        }
+
+        .lab-breadcrumb .active {
+            color: #2b2b2b;
+            font-weight: 600;
+        }
+
+        .lab-header-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .lab-header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .lab-icon-box {
+            background: linear-gradient(135deg, #4361ee 0%, #3f37c9 100%);
+            color: #ffffff;
+            width: 56px;
+            height: 56px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            box-shadow: 0 8px 16px rgba(67, 97, 238, 0.25);
+        }
+
+        .lab-page-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1a1d20;
+            margin: 0 0 4px 0;
+            letter-spacing: -0.3px;
+        }
+
+        .lab-page-subtitle {
+            font-size: 14px;
+            color: #6c757d;
+            margin: 0;
+        }
+
+        .lab-header-right {
+            display: flex;
+            align-items: center;
+        }
+
+        .lab-action-group {
+            display: flex;
+            gap: 12px;
+        }
+
+        .lab-entry-badge {
+            display: flex;
+            align-items: center;
+            background-color: #f8f9fc;
+            border: 1px solid #e3e6f0;
+            border-radius: 8px;
+            padding: 8px 16px;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .lab-entry-badge:hover {
+            border-color: #4361ee;
+            background-color: #f0f4ff;
+        }
+
+        .lab-entry-badge i {
+            color: #4361ee;
+            font-size: 14px;
+        }
+
+        .lab-entry-badge .lbl {
+            font-size: 13px;
+            color: #495057;
+            font-weight: 600;
+        }
+
+        .lab-select-minimal {
+            background: transparent;
+            border: none;
+            color: #2b2b2b;
+            font-weight: 700;
+            font-size: 14px;
+            padding: 0;
+            outline: none;
+            cursor: pointer;
+            width: 105px;
+        }
+        
+        .lab-select-minimal:focus {
+            outline: none;
+        }
+
+        @@media (max-width: 768px) {
+            .lab-header-main {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 20px;
+            }
+            .lab-header-right {
+                width: 100%;
+            }
+            .lab-entry-badge {
+                width: 100%;
+                justify-content: space-between;
+            }
+            .lab-select-minimal {
+                text-align: right;
+                width: auto;
+            }
+        }
+    </style>
+
+    <!-- Compact Filter Card -->
+    <style>
+        /* ===== MODERN PREMIUM FILTER CARD ===== */
+        .cfc-card {
+            background: #fff;
+            border: 1px solid #e7ebf4;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+            margin-bottom: 12px;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .cfc-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px;
+            background: linear-gradient(to right, #f8faff, #ffffff);
+            border-bottom: 1px solid #f0f3f8;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+        }
+
+        .cfc-header::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 25%;
+            height: 50%;
+            width: 4px;
+            background: #4361ee;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .cfc-header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .cfc-header-left i {
+            font-size: 12px;
+            color: #4361ee;
+            background: rgba(67, 97, 238, 0.08);
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cfc-header-left span {
+            font-size: 12.5px;
+            font-weight: 750;
+            color: #1e2a4a;
+            letter-spacing: 0.3px;
+        }
+
+        .cfc-header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .cfc-clear-btn {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            color: #ef4444;
+            font-size: 10.5px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s;
+        }
+
+        .cfc-clear-btn:hover {
+            background: #fef2f2;
+            border-color: #fee2e2;
+        }
+
+        .cfc-chevron {
+            color: #94a3b8;
+            font-size: 11px;
+            background: #f8fafc;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.25s;
+        }
+
+        .cfc-chevron.up {
+            transform: rotate(180deg);
+            background: #eef2ff;
+            color: #4361ee;
+        }
+
+        /* Body */
+        .cfc-body {
+            padding: 12px 18px;
+            display: block;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s;
+            max-height: 800px;
+            opacity: 1;
+            background: #fff;
+        }
+
+        .cfc-body.closed {
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Grouping Sections */
+        .cfc-section {
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #f1f4f9;
+        }
+
+        .cfc-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .cfc-section-title {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            margin-bottom: 6px;
+        }
+
+        .cfc-section-title i {
+            font-size: 10px;
+            color: #94a3b8;
+        }
+
+        .cfc-section-title span {
+            font-size: 10px;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        /* Filter grid rows */
+        .cfc-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 14px;
+            align-items: flex-end;
+        }
+
+        /* Individual field */
+        .cfc-field {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .cfc-label {
+            font-size: 10.5px;
+            font-weight: 600;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .cfc-label i {
+            color: #94a3b8;
+            font-size: 10px;
+            opacity: 0.7;
+        }
+
+        .cfc-input,
+        .cfc-select {
+            height: 28px;
+            padding: 0 10px;
+            font-size: 11.5px;
+            border: 1.5px solid #edf2f7;
+            border-radius: 8px;
+            background: #f8fafc;
+            color: #2d3748;
+            outline: none;
+            transition: all 0.2s;
+            width: 100%;
+            box-sizing: border-box;
+            font-weight: 500;
+        }
+
+        .cfc-input:hover,
+        .cfc-select:hover {
+            border-color: #cbd5e0;
+            background: #fff;
+        }
+
+        .cfc-input:focus,
+        .cfc-select:focus {
+            border-color: #4361ee;
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+        }
+
+        /* Pill radio group */
+        .cfc-pill-group {
+            display: flex;
+            gap: 6px;
+            background: #f1f4f9;
+            padding: 3px;
+            border-radius: 10px;
+            width: fit-content;
+        }
+
+        .cfc-pill {
+            display: flex;
+        }
+
+        .cfc-pill input[type=radio] {
+            display: none;
+        }
+
+        .cfc-pill-label {
+            font-size: 10.5px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 7px;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            line-height: 1;
+        }
+
+        .cfc-pill input[type=radio]:checked + .cfc-pill-label {
+            background: #fff;
+            color: #4361ee;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Status Pills - Special styling */
+        .cfc-status-group {
+            background: #f8fafc;
+            border: 1px solid #edf2f7;
+            padding: 3px;
+        }
+
+        .cfc-status-pill input[type=radio][value=Pending]:checked + .cfc-pill-label {
+            background: #fff7ed;
+            color: #ea580c;
+        }
+
+        .cfc-status-pill input[type=radio][value=Finished]:checked + .cfc-pill-label {
+            background: #f0fdf4;
+            color: #16a34a;
+        }
+
+        /* Checkbox style */
+        .cfc-check {
+            display: flex;
+            align-items: center;
+        }
+
+        .cfc-check input[type=checkbox] {
+            display: none;
+        }
+
+        .cfc-check-label {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 10.5px;
+            font-weight: 650;
+            color: #64748b;
+            cursor: pointer;
+            padding: 4px 10px;
+            background: #f8fafc;
+            border: 1.5px solid #edf2f7;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .cfc-check-label i {
+            font-size: 9px;
+            color: #94a3b8;
+        }
+
+        .cfc-check input[type=checkbox]:checked + .cfc-check-label {
+            border-color: #4361ee;
+            background: #f0f3ff;
+            color: #4361ee;
+        }
+
+        .cfc-check input[type=checkbox]:checked + .cfc-check-label i {
+            color: #4361ee;
+        }
+
+        /* Footer Action Area */
+        .cfc-footer {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 0 20px 12px 20px;
+            margin-top: -6px;
+            background: #fff;
+        }
+
+        .cfc-view-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #4361ee;
+            color: #fff;
+            border: none;
+            border-radius: 9px;
+            padding: 6px 18px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.25);
+        }
+
+        .cfc-view-btn:hover:not(:disabled) {
+            background: #3651d4;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(67, 97, 238, 0.35);
+        }
+
+        .cfc-view-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .cfc-view-btn:disabled {
+            background: #cbd5e0;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        .cfc-spinner {
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: cfc-spin 0.7s linear infinite;
+        }
+
+        @@keyframes cfc-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Widths */
+        .cfc-w-20 { flex: 0 0 calc(20% - 13px); }
+        .cfc-w-15 { flex: 0 0 calc(15% - 14px); }
+        .cfc-w-25 { flex: 0 0 calc(25% - 12px); }
+        .cfc-w-12 { flex: 0 0 calc(12.5% - 14px); }
+        .cfc-w-auto { flex: 1; }
+
+        @@media (max-width: 1200px) {
+            .cfc-w-20, .cfc-w-15, .cfc-w-25, .cfc-w-12 {
+                flex: 0 0 calc(33.33% - 12px);
+            }
+        }
+        @@media (max-width: 768px) {
+            .cfc-w-20, .cfc-w-15, .cfc-w-25, .cfc-w-12 {
+                flex: 0 0 calc(50% - 8px);
+            }
+        }
+
+    </style>
+
+    <div class="cfc-card">
+        <!-- Header -->
+        <div class="cfc-header" @onclick="ToggleFilter">
+            <div class="cfc-header-left">
+                <i class="fas fa-search"></i>
+                <span>SEARCH FILTERS</span>
+            </div>
+            <div class="cfc-header-right">
+                @if (isFilterOpen)
+                {
+                    <button class="cfc-clear-btn" @onclick="ClearFilters" @onclick:stopPropagation="true">
+                        <i class="fas fa-undo"></i> Reset
+                    </button>
+                }
+                <div class="cfc-chevron @(isFilterOpen ? "up" : "")">
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div class="cfc-body @(isFilterOpen ? "" : "closed")">
+            
+            <!-- Section 1: Timeline & Identifiers -->
+            <div class="cfc-section">
+                <div class="cfc-section-title">
+                    <i class="fas fa-history"></i>
+                    <span>Timeline & Case Info</span>
+                </div>
+                <div class="cfc-row">
+                    <div class="cfc-field cfc-w-15">
+                        <span class="cfc-label"><i class="far fa-calendar-alt"></i> From Date</span>
+                        <input type="date" class="cfc-input" @bind="fromDate" />
+                    </div>
+                    <div class="cfc-field cfc-w-15">
+                        <span class="cfc-label"><i class="far fa-calendar-alt"></i> To Date</span>
+                        <input type="date" class="cfc-input" @bind="toDate" />
+                    </div>
+                    <div class="cfc-field cfc-w-15">
+                        <span class="cfc-label"><i class="fas fa-hashtag"></i> Case No (SID)</span>
+                        <div style="display: flex; gap: 5px;">
+                            <input type="text" class="cfc-input" placeholder="Start" @bind="sidFrom" />
+                            <input type="text" class="cfc-input" placeholder="End" @bind="sidTo" />
+                        </div>
+                    </div>
+                    <div class="cfc-field cfc-w-15">
+                        <span class="cfc-label"><i class="fas fa-microscope"></i> Pathology No</span>
+                        <input type="text" class="cfc-input" placeholder="Path No" @bind="pathologyNo" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 2: Patient Info -->
+            <div class="cfc-section">
+                <div class="cfc-section-title">
+                    <i class="fas fa-user-injured"></i>
+                    <span>Patient Details</span>
+                </div>
+                <div class="cfc-row">
+                    <div class="cfc-field cfc-w-25">
+                        <span class="cfc-label"><i class="far fa-user"></i> Patient Name</span>
+                        <input type="text" class="cfc-input" placeholder="Search by name..." @bind="patientSearch" />
+                    </div>
+                    <div class="cfc-field cfc-w-20">
+                        <span class="cfc-label"><i class="fas fa-mobile-alt"></i> Mobile Number</span>
+                        <input type="text" class="cfc-input" placeholder="Search by mobile..." @bind="mobileSearch" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 3: Clinical Information -->
+            <div class="cfc-section">
+                <div class="cfc-section-title">
+                    <i class="fas fa-hospital-alt"></i>
+                    <span>Clinical Filters</span>
+                </div>
+                <div class="cfc-row">
+                    <div class="cfc-field cfc-w-20">
+                        <span class="cfc-label"><i class="fas fa-sitemap"></i> Branch</span>
+                        <select class="cfc-select" @bind="branchID">
+                            @foreach (var b in branches)
+                            {
+                                <option value="@b.BHCode">@b.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="cfc-field cfc-w-20">
+                        <span class="cfc-label"><i class="fas fa-layer-group"></i> Department</span>
+                        <select class="cfc-select" @bind="selectedDepartment">
+                            <option value="">All Departments</option>
+                        </select>
+                    </div>
+                    <div class="cfc-field cfc-w-20">
+                        <span class="cfc-label"><i class="fas fa-notes-medical"></i> Test Name</span>
+                        <input type="text" class="cfc-input" placeholder="Filter by test..." @bind="testNameSearch" />
+                    </div>
+                    <div class="cfc-field cfc-w-20">
+                        <span class="cfc-label"><i class="fas fa-user-md"></i> Referred By</span>
+                        <select class="cfc-select" @bind="selectedDoctorCode">
+                            <option value="0">All Doctors</option>
+                            @foreach (var dr in doctors)
+                            {
+                                <option value="@dr.DCode">@dr.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 4: Advanced Options -->
+            <div class="cfc-section" style="background: #fbfcfe; margin: 0 -18px; padding: 10px 18px;">
+                <div class="cfc-row" style="align-items: center; gap: 24px;">
+                    <div class="cfc-field">
+                        <span class="cfc-label">Main Dept</span>
+                        <div class="cfc-pill-group">
+                            <label class="cfc-pill">
+                                <input type="radio" name="mainDept" value="Lab" @onchange="@(() => mainDept = "Lab")" checked="@(mainDept == "Lab")" />
+                                <span class="cfc-pill-label">Lab</span>
+                            </label>
+                            <label class="cfc-pill">
+                                <input type="radio" name="mainDept" value="Scan" @onchange="@(() => mainDept = "Scan")" checked="@(mainDept == "Scan")" />
+                                <span class="cfc-pill-label">Scan</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="cfc-field">
+                        <span class="cfc-label">Type</span>
+                        <div class="cfc-pill-group">
+                            <label class="cfc-pill">
+                                <input type="radio" name="reportType" value="Lab" @onchange="@(() => reportType = "Lab")" checked="@(reportType == "Lab")" />
+                                <span class="cfc-pill-label">Lab</span>
+                            </label>
+                            <label class="cfc-pill">
+                                <input type="radio" name="reportType" value="Culture" @onchange="@(() => reportType = "Culture")" checked="@(reportType == "Culture")" />
+                                <span class="cfc-pill-label">Culture</span>
+                            </label>
+                            <label class="cfc-pill">
+                                <input type="radio" name="reportType" value="Scan" @onchange="@(() => reportType = "Scan")" checked="@(reportType == "Scan")" />
+                                <span class="cfc-pill-label">Scan</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="cfc-field">
+                        <span class="cfc-label">Status</span>
+                        <div class="cfc-pill-group cfc-status-group">
+                            <label class="cfc-pill cfc-status-pill">
+                                <input type="radio" name="status" value="Pending" @onchange="@(() => resultStatus = "Pending")" checked="@(resultStatus == "Pending")" />
+                                <span class="cfc-pill-label">Pending</span>
+                            </label>
+                            <label class="cfc-pill cfc-status-pill">
+                                <input type="radio" name="status" value="Finished" @onchange="@(() => resultStatus = "Finished")" checked="@(resultStatus == "Finished")" />
+                                <span class="cfc-pill-label">Finished</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="cfc-field" style="margin-left: auto;">
+                        <div class="cfc-row" style="gap: 12px;">
+                            <label class="cfc-check">
+                                <input type="checkbox" @bind="showAllTestInEntry" />
+                                <span class="cfc-check-label"><i class="fas fa-tasks"></i> All Tests</span>
+                            </label>
+                            <label class="cfc-check">
+                                <input type="checkbox" @bind="showTAT" />
+                                <span class="cfc-check-label"><i class="far fa-clock"></i> TAT</span>
+                            </label>
+                        </div>
+                    </div>
+            <!-- Footer inside Body for proper collapse -->
+            <div class="cfc-footer">
+                <button class="cfc-view-btn" @onclick="SearchResults" disabled="@isLoading">
+                    @if (isLoading)
+                    {
+                        <span class="cfc-spinner"></span>
+                        <span>Processing...</span>
+                    }
+                    else
+                    {
+                        <i class="fas fa-search"></i>
+                        <span>Apply Filters</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+    </div>
+</div>
+
+
+    <!-- Main Content Area -->
+    <div class="rs-content-area @(selectedRowIndex >= 0 ? "has-selection" : "")">
+        <!-- Results Table -->
+        <div class="rs-results-panel">
+            <div class="rs-panel-card">
+                <div class="rs-panel-header">
+                    <div class="rs-panel-title">
+                        <i class="fas fa-list-alt"></i> Results
+                    </div>
+                    <span class="rs-count-badge">Count : @filteredResults.Count</span>
+                </div>
+                <div class="rs-table-wrap">
+                    <table class="rs-table">
+                        <thead>
+                            <tr>
+                                <th>Sno</th>
+                                <th>Case No</th>
+                                <th>Date</th>
+                                <th>REG</th>
+                                <th>Patient Name</th>
+                                <th>Referred By</th>
+                                <th>Status</th>
+                                <th>Pathology No</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (filteredResults.Any())
+                            {
+                                @for (int i = 0; i < filteredResults.Count; i++)
+                                {
+                                    var item = filteredResults[i];
+                                    var idx = i;
+                                    var isSelected = selectedRowIndex == idx;
+                                    <tr class="@(isSelected ? "rs-row-selected" : "")" @onclick="@(() => SelectRow(idx, item))" @ondblclick="@(() => NavigateToEntry(item))" style="cursor: pointer;" title="Double-click to enter results">
+                                        <td>@(idx + 1)</td>
+                                        <td class="rs-td-bold">@item.RequestSNo</td>
+                                        <td>@item.RequestDateTime.ToString("dd/MM/yyyy")</td>
+                                        <td class="rs-td-reg">@item.CustCode</td>
+                                        <td class="rs-td-name">@item.Name</td>
+                                        <td>@item.Doctor</td>
+                                         <td>
+                                            @{
+                                                var displayStatus = GetRecordStatus(item);
+                                                var statusClass = displayStatus.ToLower() switch {
+                                                    "pending" => "rs-status-pending",
+                                                    "finished" => "rs-status-finished",
+                                                    "partial" => "rs-status-partial",
+                                                    _ => "rs-status-pending"
+                                                };
+                                            }
+                                            <span class="rs-status @statusClass">@displayStatus</span>
+                                        </td>
+                                        <td>@item.BillNoPrint</td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="8" class="rs-empty">
+                                        <div class="rs-empty-state">
+                                            <i class="fas fa-flask"></i>
+                                            <p>@(isLoading ? "Loading results..." : "No results found. Adjust filters and click View.")</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side Panel -->
+        @if (selectedRowIndex >= 0 && selectedRowIndex < filteredResults.Count)
+        {
+            <div class="rs-side-panel">
+                <!-- Test Details -->
+                <div class="rs-panel-card rs-test-card">
+                    <div class="rs-panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="rs-panel-title">
+                            <i class="fas fa-vials"></i> Test Details
+                        </div>
+                  
+                    </div>
+                    <div class="rs-table-wrap rs-test-table-wrap">
+                        <table class="rs-table rs-test-table">
+                            <thead>
+                                <tr>
+                                    <th class="rs-col-sel">Sel</th>
+                                    <th>Test Name</th>
+                                    <th class="rs-col-status">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (isLoadingTests)
+                                {
+                                    <tr>
+                                        <td colspan="3" class="rs-empty-sm">
+                                            <span class="rs-spinner" style="display:inline-block;margin-right:8px;"></span>
+                                            Loading tests...
+                                        </td>
+                                    </tr>
+                                }
+                                else if (selectedTestDetails.Any())
+                                {
+                                    @foreach (var test in selectedTestDetails)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <input type="checkbox" class="rs-test-check" @bind="test.IsSelected" />
+                                            </td>
+                                            <td class="rs-td-testname">@test.TestName</td>
+                                            <td>
+                                                <span class="rs-status @(test.IsPending ? "rs-status-pending" : "rs-status-finished")">
+                                                    @(test.IsPending ? "Pending" : "Finished")
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="3" class="rs-empty-sm">Select a row to view tests</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Statement Links -->
+                <!-- <div class="rs-panel-card rs-statement-card">
+                    <div class="rs-panel-header">
+                        <div class="rs-panel-title">
+                            <i class="fas fa-file-alt"></i> Statement
+                        </div>
+                    </div>
+                    <div class="rs-statement-links">
+                        <button class="rs-statement-btn" @onclick="PrintRegister">
+                            <span class="rs-stmt-num">1</span> Print Register
+                        </button>
+                        <button class="rs-statement-btn" @onclick="PendingScanCases">
+                            <span class="rs-stmt-num">2</span> Pending Scan Cases
+                        </button>
+                        <button class="rs-statement-btn" @onclick="PrintOutsourceList">
+                            <span class="rs-stmt-num">3</span> Print Outsource List
+                        </button>
+                        <button class="rs-statement-btn" @onclick="PrintSummary">
+                            <span class="rs-stmt-num">4</span> Print Summary
+                        </button>
+                        <button class="rs-statement-btn" @onclick="PrintUserWiseSummary">
+                            <span class="rs-stmt-num">5</span> Print User Wise Summary
+                        </button>
+                    </div>
+                </div> -->
+            </div>
+        }
+    </div>
+
+    <!-- Bottom Action Bar -->
+    <!-- <div class="rs-bottom-bar">
+        <div class="rs-bottom-left">
+            <div class="rs-field-inline">
+                <label class="rs-label-sm">Authorized User</label>
+                <select class="rs-select rs-select-sm" @bind="authorizedUser">
+                    <option value="">Select Authorized User</option>
+                    @foreach (var user in authorizedUsers)
+                    {
+                        <option value="@user.UserCode">@user.Name</option>
+                    }
+                </select>
+            </div>
+
+            <label class="rs-checkbox">
+                <input type="checkbox" @bind="isInterimReport" />
+                <span class="rs-check-mark"></span>
+                Interim Report
+            </label>
+
+            <div class="rs-field-inline">
+                <label class="rs-label-sm">Page Setup</label>
+                <select class="rs-select rs-select-sm" @bind="pageSetup">
+                    <option value="General">General</option>
+                    <option value="A4">A4</option>
+                    <option value="A5">A5</option>
+                    <option value="Letter">Letter</option>
+                </select>
+            </div>
+
+            <label class="rs-checkbox">
+                <input type="checkbox" @bind="printInLetterHead" />
+                <span class="rs-check-mark"></span>
+                Print in Letter Head
+            </label>
+
+            <label class="rs-checkbox">
+                <input type="checkbox" @bind="printWhiteSheet" />
+                <span class="rs-check-mark"></span>
+                Print White Sheet
+            </label>
+        </div>
+
+        <div class="rs-bottom-right">
+            <button class="rs-btn rs-btn-outline" @onclick="PreviewResult">
+                <i class="fas fa-eye"></i> Preview Result
+            </button>
+            <button class="rs-btn rs-btn-primary" @onclick="PrintResult">
+                <i class="fas fa-print"></i> Print Result
+            </button>
+        </div>
+    </div> -->
+</div>
+
+@code {
+    // Session key for persisting filter state
+    private const string FilterStateKey = "ResultSearch_FilterState";
+
+    // Data class to hold all filter state for serialization
+    private class FilterState
+    {
+        public DateTime FromDate { get; set; }
+        public DateTime ToDate { get; set; }
+        public string SidFrom { get; set; } = "";
+        public string SidTo { get; set; } = "";
+        public string MainDept { get; set; } = "Lab";
+        public string PatientSearch { get; set; } = "";
+        public string MobileSearch { get; set; } = "";
+        public string SelectedDepartment { get; set; } = "";
+        public string TestNameSearch { get; set; } = "";
+        public string ReportType { get; set; } = "Lab";
+        public string ReferredBySearch { get; set; } = "";
+        public string PathologyNo { get; set; } = "";
+        public string ResultStatus { get; set; } = "Pending";
+        public bool ShowAllTestInEntry { get; set; }
+        public bool ShowTAT { get; set; }
+        public int BranchID { get; set; }
+        public bool IsFilterOpen { get; set; } = true;
+        public bool HasResults { get; set; }
+    }
+
+    // Auth & Branch
+    private string token = "";
+    private int branchID = 0;
+    private List<Branch_Master> branches = new();
+
+    // Filters
+    private bool isFilterOpen = true;
+    private DateTime fromDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+    private DateTime toDate = DateTime.Now;
+    private string sidFrom = "";
+    private string sidTo = "";
+    private string mainDept = "Lab";
+    private string patientSearch = "";
+    private string mobileSearch = "";
+    private string selectedDepartment = "";
+    private string testNameSearch = "";
+    private string reportType = "Lab";
+    private string referredBySearch = "";
+    private int selectedDoctorCode = 0;
+    private List<Doctor_Master> doctors = new();
+    private string pathologyNo = "";
+    private string resultStatus = "Pending";
+    private bool showAllTestInEntry = false;
+    private bool showTAT = false;
+    private string entryType = "ResultEntry";
+
+    // Bottom bar
+    private int authorizedUser = 0;
+    private bool isInterimReport = false;
+    private string pageSetup = "General";
+    private bool printInLetterHead = true;
+    private bool printWhiteSheet = false;
+    private List<User_Master> authorizedUsers = new();
+
+    // State
+    private bool isLoading = false;
+    private int selectedRowIndex = -1;
+    private List<ViewResultSearch> allResults = new();
+    private List<ViewResultSearch> filteredResults = new();
+    private List<TestDetailItem> selectedTestDetails = new();
+
+    // Local model for test details
+    public class TestDetailItem
+    {
+        public string TestName { get; set; } = "";
+        public bool IsPending { get; set; }
+        public bool IsSelected { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!http.DefaultRequestHeaders.Contains("X-Tenant-ID"))
+        {
+            http.DefaultRequestHeaders.Add("X-Tenant-ID", AppSettings.ClientId);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var tkn = await _sessionStorage.GetAsync<UserAuth>("claim");
+            if (tkn.Success && tkn.Value != null && !string.IsNullOrEmpty(tkn.Value.token))
+            {
+                token = tkn.Value.token;
+                try
+                {
+                    var json = System.Text.Json.JsonSerializer.Serialize(tkn.Value);
+                    var doc = System.Text.Json.JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("BranchCode", out var branchCodeProp))
+                    {
+                        branchID = branchCodeProp.GetInt32();
+                    }
+                }
+                catch { }
+
+                await LoadBranchesAsync();
+                await LoadAuthorizedUsersAsync();
+                await LoadDoctorsAsync();
+
+                // Restore filter state if user navigated back from result entry
+                await RestoreFilterStateAsync();
+
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task RestoreFilterStateAsync()
+    {
+        try
+        {
+            var saved = await _sessionStorage.GetAsync<FilterState>(FilterStateKey);
+            if (saved.Success && saved.Value != null)
+            {
+                var s = saved.Value;
+                fromDate = s.FromDate;
+                toDate = s.ToDate;
+                sidFrom = s.SidFrom;
+                sidTo = s.SidTo;
+                mainDept = s.MainDept;
+                patientSearch = s.PatientSearch;
+                mobileSearch = s.MobileSearch;
+                selectedDepartment = s.SelectedDepartment;
+                testNameSearch = s.TestNameSearch;
+                reportType = s.ReportType;
+                referredBySearch = s.ReferredBySearch;
+                pathologyNo = s.PathologyNo;
+                resultStatus = s.ResultStatus;
+                showAllTestInEntry = s.ShowAllTestInEntry;
+                showTAT = s.ShowTAT;
+                isFilterOpen = s.IsFilterOpen;
+
+                // Override branchID from saved state only if the branches list has it
+                if (branches.Any(b => b.BHCode == s.BranchID))
+                    branchID = s.BranchID;
+
+                // If there were results before navigation, reload them automatically
+                if (s.HasResults)
+                    await SearchResults();
+
+                // Clear the saved state so it doesn't restore again on fresh visit
+                await _sessionStorage.DeleteAsync(FilterStateKey);
+            }
+        }
+        catch { }
+    }
+
+    private async Task SaveFilterStateAsync()
+    {
+        try
+        {
+            var state = new FilterState
+            {
+                FromDate = fromDate,
+                ToDate = toDate,
+                SidFrom = sidFrom,
+                SidTo = sidTo,
+                MainDept = mainDept,
+                PatientSearch = patientSearch,
+                MobileSearch = mobileSearch,
+                SelectedDepartment = selectedDepartment,
+                TestNameSearch = testNameSearch,
+                ReportType = reportType,
+                ReferredBySearch = referredBySearch,
+                PathologyNo = pathologyNo,
+                ResultStatus = resultStatus,
+                ShowAllTestInEntry = showAllTestInEntry,
+                ShowTAT = showTAT,
+                BranchID = branchID,
+                IsFilterOpen = isFilterOpen,
+                HasResults = filteredResults.Any()
+            };
+            await _sessionStorage.SetAsync(FilterStateKey, state);
+        }
+        catch { }
+    }
+
+    private async Task LoadBranchesAsync()
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{AppSettings.BaseUrl}request/branches");
+            if (!string.IsNullOrEmpty(token))
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var res = await http.SendAsync(request);
+            if (res.IsSuccessStatusCode)
+            {
+                branches = await res.Content.ReadFromJsonAsync<List<Branch_Master>>() ?? new();
+                if (!branches.Any(b => b.BHCode == 0))
+                    branches.Insert(0, new Branch_Master { BHCode = 0, Name = "All Branches" });
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading branches: {ex.Message}");
+        }
+    }
+
+    private async Task LoadAuthorizedUsersAsync()
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{AppSettings.BaseUrl}request/users");
+            if (!string.IsNullOrEmpty(token))
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var res = await http.SendAsync(request);
+            if (res.IsSuccessStatusCode)
+            {
+                authorizedUsers = await res.Content.ReadFromJsonAsync<List<User_Master>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading users: {ex.Message}");
+        }
+    }
+
+    private async Task LoadDoctorsAsync()
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{AppSettings.BaseUrl}request/doctors");
+            if (!string.IsNullOrEmpty(token))
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var res = await http.SendAsync(request);
+            if (res.IsSuccessStatusCode)
+            {
+                doctors = await res.Content.ReadFromJsonAsync<List<Doctor_Master>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading doctors: {ex.Message}");
+        }
+    }
+
+    private async Task SearchResults()
+    {
+        try
+        {
+            isLoading = true;
+            selectedRowIndex = -1;
+            selectedTestDetails.Clear();
+            StateHasChanged();
+
+            string sd = fromDate.ToString("yyyy-MM-dd") + " 00:00:00";
+            string ed = toDate.ToString("yyyy-MM-dd") + " 23:59:59";
+
+            string apiUrl = $"{AppSettings.BaseUrl}request/ViewResultSearch?DCode={branchID}" +
+                            $"&fromdate={Uri.EscapeDataString(sd)}" +
+                            $"&todate={Uri.EscapeDataString(ed)}";
+
+            if (selectedDoctorCode != 0)
+            {
+                apiUrl += $"&refcode={selectedDoctorCode}";
+            }
+
+            // Status, MainDept, and Type are handled client-side in ApplyFilters 
+            // to avoid backend parameter mismatch issues that might cause 0 results.
+
+            var request = new HttpRequestMessage(HttpMethod.Get, apiUrl);
+
+            if (!string.IsNullOrEmpty(token))
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var res = await http.SendAsync(request);
+            if (res.IsSuccessStatusCode)
+            {
+                var content = await res.Content.ReadAsStringAsync();
+                var bills = JsonConvert.DeserializeObject<List<ViewResultSearch>>(content);
+
+                if (bills != null)
+                {
+                    allResults = bills.ToList();
+                    ApplyFilters();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error searching results: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        var filtered = allResults.AsEnumerable();
+
+        // Main Dept filter
+        if (mainDept == "Lab")
+            filtered = filtered.Where(x => x.IsLab);
+        else if (mainDept == "Scan")
+            filtered = filtered.Where(x => x.IsScan);
+
+        // Report Type filter
+        if (reportType == "Lab")
+            filtered = filtered.Where(x => x.IsLab && !x.IsCulture);
+        else if (reportType == "Culture")
+            filtered = filtered.Where(x => x.IsCulture);
+        else if (reportType == "Scan")
+            filtered = filtered.Where(x => x.IsScan);
+
+        // SID range filter
+        if (!string.IsNullOrEmpty(sidFrom) && int.TryParse(sidFrom, out int sFrom))
+            filtered = filtered.Where(x => x.RequestSNo >= sFrom);
+        if (!string.IsNullOrEmpty(sidTo) && int.TryParse(sidTo, out int sTo))
+            filtered = filtered.Where(x => x.RequestSNo <= sTo);
+
+        // Patient name filter
+        if (!string.IsNullOrWhiteSpace(patientSearch))
+            filtered = filtered.Where(x => (x.Name ?? "").ToLower().Contains(patientSearch.ToLower()));
+
+        // Mobile filter
+        if (!string.IsNullOrWhiteSpace(mobileSearch))
+            filtered = filtered.Where(x => (x.Mobile ?? "").Contains(mobileSearch));
+
+        // Referred By filter
+        if (!string.IsNullOrWhiteSpace(referredBySearch))
+            filtered = filtered.Where(x => (x.Doctor ?? "").ToLower().Contains(referredBySearch.ToLower()));
+
+        // Pathology No filter
+        if (!string.IsNullOrWhiteSpace(pathologyNo))
+            filtered = filtered.Where(x => (x.BillNoPrint ?? "").Contains(pathologyNo));
+
+        // Test name filter
+        if (!string.IsNullOrWhiteSpace(testNameSearch))
+            filtered = filtered.Where(x => (x.TestShortName ?? "").ToLower().Contains(testNameSearch.ToLower()));
+
+        // Status filter - Ensure strict separation
+        if (resultStatus == "Pending")
+            filtered = filtered.Where(x => IsRecordPending(x));
+        else if (resultStatus == "Finished")
+            filtered = filtered.Where(x => IsRecordFinished(x) && !IsRecordPending(x));
+
+        filteredResults = filtered
+            .OrderByDescending(x => x.RequestDateTime)
+            .ThenByDescending(x => x.RequestSNo)
+            .ToList();
+    }
+
+    private bool IsRecordPending(ViewResultSearch item)
+    {
+        // Use ResultStatus string: empty or "0" or "false" means pending
+        return string.IsNullOrWhiteSpace(item.ResultStatus) || 
+               item.ResultStatus == "0" || 
+               item.ResultStatus.ToLower() == "false";
+    }
+
+    private bool IsRecordFinished(ViewResultSearch item)
+    {
+        // anything not "0", not empty, and not "false" is considered finished
+        return !IsRecordPending(item);
+    }
+
+    private string GetRecordStatus(ViewResultSearch item)
+    {
+        bool pending = IsRecordPending(item);
+        if (pending) return "Pending";
+        return "Finished";
+    }
+
+    private bool isLoadingTests = false;
+
+    private async Task SelectRow(int index, ViewResultSearch item)
+    {
+        selectedRowIndex = index;
+        selectedTestDetails.Clear();
+        isLoadingTests = true;
+        StateHasChanged();
+
+        try
+        {
+            // Call EditBill API to get request details with TCode
+            var request = new HttpRequestMessage(HttpMethod.Get,
+                $"{AppSettings.BaseUrl}request/EditBill?rid={item.RequestGUID}");
+            if (!string.IsNullOrEmpty(token))
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var res = await http.SendAsync(request);
+            if (res.IsSuccessStatusCode)
+            {
+                var content = await res.Content.ReadAsStringAsync();
+                var billData = JsonConvert.DeserializeObject<BillRequest>(content);
+
+                if (billData?.Request_Details != null && billData.Request_Details.Count > 0)
+                {
+                    // Get test codes to fetch test names
+                    var testCodes = billData.Request_Details.Select(d => d.TCode).ToList();
+                    var codesString = string.Join(",", testCodes);
+
+                    // Fetch test names from API
+                    var testRequest = new HttpRequestMessage(HttpMethod.Get,
+                        $"{AppSettings.BaseUrl}request/testlistbytcode?tcode={Uri.EscapeDataString(codesString)}");
+                    if (!string.IsNullOrEmpty(token))
+                        testRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+                    var testRes = await http.SendAsync(testRequest);
+                    var testList = new List<Test_Master>();
+
+                    if (testRes.IsSuccessStatusCode)
+                    {
+                        var testContent = await testRes.Content.ReadAsStringAsync();
+                        testList = JsonConvert.DeserializeObject<List<Test_Master>>(testContent) ?? new();
+                    }
+
+                    // Build test detail items with actual name and status
+                    foreach (var detail in billData.Request_Details)
+                    {
+                        var testName = testList.FirstOrDefault(t => t.TCode == detail.TCode)?.Name ?? $"Test #{detail.TCode}";
+                        var isPending = !detail.ResultStatus;
+
+                        selectedTestDetails.Add(new TestDetailItem
+                        {
+                            TestName = testName,
+                            IsPending = isPending,
+                            IsSelected = true
+                        });
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading test details: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingTests = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ClearFilters()
+    {
+        fromDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+        toDate = DateTime.Now;
+        sidFrom = "";
+        sidTo = "";
+        mainDept = "Lab";
+        patientSearch = "";
+        mobileSearch = "";
+        selectedDepartment = "";
+        testNameSearch = "";
+        reportType = "Lab";
+        referredBySearch = "";
+        pathologyNo = "";
+        resultStatus = "Pending";
+        showAllTestInEntry = false;
+        showTAT = false;
+        selectedRowIndex = -1;
+        filteredResults.Clear();
+        selectedTestDetails.Clear();
+        allResults.Clear();
+        StateHasChanged();
+    }
+
+    private void ToggleFilter()
+    {
+        isFilterOpen = !isFilterOpen;
+    }
+
+    private int GetActiveFilterCount()
+    {
+        int count = 0;
+        if (branchID != 0) count++;
+        if (!string.IsNullOrWhiteSpace(sidFrom)) count++;
+        if (!string.IsNullOrWhiteSpace(sidTo)) count++;
+        if (!string.IsNullOrWhiteSpace(patientSearch)) count++;
+        if (!string.IsNullOrWhiteSpace(mobileSearch)) count++;
+        if (!string.IsNullOrWhiteSpace(selectedDepartment)) count++;
+        if (!string.IsNullOrWhiteSpace(testNameSearch)) count++;
+        if (!string.IsNullOrWhiteSpace(referredBySearch)) count++;
+        if (!string.IsNullOrWhiteSpace(pathologyNo)) count++;
+        if (showAllTestInEntry) count++;
+        if (showTAT) count++;
+        return count;
+    }
+
+   
+
+    private string PathologyNo
+    {
+        get
+        {
+            if (selectedRowIndex >= 0 && selectedRowIndex < filteredResults.Count)
+                return filteredResults[selectedRowIndex].BillNoPrint ?? "";
+            return "";
+        }
+    }
+
+    private async Task NavigateToEntry(ViewResultSearch item)
+    {
+        // Save filter state before leaving so we can restore on return
+        await SaveFilterStateAsync();
+
+        if (reportType == "Culture")
+        {
+            NavigationManager.NavigateTo($"/culture-result-entry?requestGuid={item.RequestGUID}&custcode={item.CustCode}");
+        }
+        else if (reportType == "Lab")
+        {
+            NavigationManager.NavigateTo($"/result-entry?requestGuid={item.RequestGUID}&custcode={item.CustCode}");
+        }
+    }
+}

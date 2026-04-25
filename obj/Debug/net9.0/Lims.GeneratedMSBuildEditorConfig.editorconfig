@@ -1,0 +1,187 @@
+is_global = true
+build_property.TargetFramework = net9.0
+build_property.TargetFrameworkIdentifier = .NETCoreApp
+build_property.TargetFrameworkVersion = v9.0
+build_property.TargetPlatformMinVersion = 
+build_property.UsingMicrosoftNETSdkWeb = true
+build_property.ProjectTypeGuids = 
+build_property.InvariantGlobalization = 
+build_property.PlatformNeutralAssembly = 
+build_property.EnforceExtendedAnalyzerRules = 
+build_property._SupportedPlatformList = Linux,macOS,Windows
+build_property.RootNamespace = Lims
+build_property.RootNamespace = Lims
+build_property.ProjectDir = C:\Users\iScanSoft1\source\repos\=\LIMS-main\Lims\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 
+build_property.RazorLangVersion = 9.0
+build_property.SupportLocalizedComponentNames = 
+build_property.GenerateRazorMetadataSourceChecksumAttributes = 
+build_property.MSBuildProjectDirectory = C:\Users\iScanSoft1\source\repos\=\LIMS-main\Lims
+build_property._RazorSourceGeneratorDebug = 
+build_property.EffectiveAnalysisLevelStyle = 9.0
+build_property.EnableCodeStyleSeverity = 
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/App.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xBcHAucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Layout/LoginLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcTG9naW5MYXlvdXQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/NavToggle.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xOYXZUb2dnbGUucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Counter.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xDb3VudGVyLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Error.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xFcnJvci5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Home.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xIb21lLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Logout.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xMb2dvdXQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/MachineInterface/MachineResults.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xNYWNoaW5lSW50ZXJmYWNlXE1hY2hpbmVSZXN1bHRzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Master/PatientDetailsMasterComponent.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xNYXN0ZXJcUGF0aWVudERldGFpbHNNYXN0ZXJDb21wb25lbnQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/ReportViewer.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xSZXBvcnRWaWV3ZXIucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/UserLogin.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xVc2VyTG9naW4ucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Weather.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xXZWF0aGVyLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Routes.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xSb3V0ZXMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Shared/ToastComponent.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcVG9hc3RDb21wb25lbnQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Shared/ToastNotifications.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcVG9hc3ROb3RpZmljYXRpb25zLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/_Imports.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xfSW1wb3J0cy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Layout/MainLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcTWFpbkxheW91dC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = b-xjde6dc20o
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Layout/NavMenu.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcTmF2TWVudS5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = b-nwxqqcx3y3
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Billing/Billing.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xCaWxsaW5nXEJpbGxpbmcucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = b-rmmwmmkpc6
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Billing/Duecollection/Duecollection.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xCaWxsaW5nXER1ZWNvbGxlY3Rpb25cRHVlY29sbGVjdGlvbi5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = b-vxkj3o043l
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Billing/OrderBooking/OrderBooking.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xCaWxsaW5nXE9yZGVyQm9va2luZ1xPcmRlckJvb2tpbmcucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = b-70t8frppc3
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Billing/Receipt.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xCaWxsaW5nXFJlY2VpcHQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = b-vc8v1640ss
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Billing/Referral/Referral.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xCaWxsaW5nXFJlZmVycmFsXFJlZmVycmFsLnJhem9y
+build_metadata.AdditionalFiles.CssScope = b-d1ulo0sxa6
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Billing/TestRequisitionDetails.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xCaWxsaW5nXFRlc3RSZXF1aXNpdGlvbkRldGFpbHMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = b-5c5a6eybhe
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Billing/TestRequisitionForm.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xCaWxsaW5nXFRlc3RSZXF1aXNpdGlvbkZvcm0ucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = b-cj6ilzp4hf
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Billing/ViewBills/ViewBilling.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xCaWxsaW5nXFZpZXdCaWxsc1xWaWV3QmlsbGluZy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = b-pquzksp1kj
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Dashboard.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xEYXNoYm9hcmQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = b-3l7zvskah7
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Lab/CultureResultEntry.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xMYWJcQ3VsdHVyZVJlc3VsdEVudHJ5LnJhem9y
+build_metadata.AdditionalFiles.CssScope = b-irf6hjjzyd
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Lab/Lab.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xMYWJcTGFiLnJhem9y
+build_metadata.AdditionalFiles.CssScope = b-u1ns43s1iq
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Lab/ResultEntry.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xMYWJcUmVzdWx0RW50cnkucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = b-c70d1hydn5
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Lab/ResultSearch.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xMYWJcUmVzdWx0U2VhcmNoLnJhem9y
+build_metadata.AdditionalFiles.CssScope = b-gg2sjbmuar
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Lab/Sample Collection/SampleCollection.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xMYWJcU2FtcGxlIENvbGxlY3Rpb25cU2FtcGxlQ29sbGVjdGlvbi5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = b-sy1tajedel
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/Login.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xMb2dpbi5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = b-8be06v29d9
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/NewBornMaster/Genetic.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xOZXdCb3JuTWFzdGVyXEdlbmV0aWMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = b-avkuld5ozi
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/NewBornMaster/NewBornList.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xOZXdCb3JuTWFzdGVyXE5ld0Jvcm5MaXN0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = b-y14ktywimx
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/NewBornMaster/NewBornMaster.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xOZXdCb3JuTWFzdGVyXE5ld0Jvcm5NYXN0ZXIucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = b-gl3x2e5tmt
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/NewBornMaster/NewBornResult.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xOZXdCb3JuTWFzdGVyXE5ld0Jvcm5SZXN1bHQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = b-zix67k5xgy
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/PreNatalMaster/Genetic.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQcmVOYXRhbE1hc3RlclxHZW5ldGljLnJhem9y
+build_metadata.AdditionalFiles.CssScope = b-bpcxjk39cs
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/PreNatalMaster/PreNatalList.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQcmVOYXRhbE1hc3RlclxQcmVOYXRhbExpc3QucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = b-vza96grn0j
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/PreNatalMaster/PreNatalMaster.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQcmVOYXRhbE1hc3RlclxQcmVOYXRhbE1hc3Rlci5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = b-8c54xrqa9g
+
+[C:/Users/iScanSoft1/source/repos/=/LIMS-main/Lims/Components/Pages/PreNatalMaster/PreNatalResults.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQcmVOYXRhbE1hc3RlclxQcmVOYXRhbFJlc3VsdHMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = b-3nokwwmr0z

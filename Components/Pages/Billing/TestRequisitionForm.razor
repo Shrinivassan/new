@@ -1,0 +1,1192 @@
+@page "/test-requisition"
+@rendermode InteractiveServer
+
+@using Lims.Components.Data
+@using LIMS.Model
+@using Lims.Components.Model
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Newtonsoft.Json
+@using Syncfusion.Blazor.Inputs
+@using System.ComponentModel.DataAnnotations
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using System.Security.Claims
+@using System.Linq
+@using System.Threading
+
+@inject ApiData ApiData
+@inject LIMS.Model.AppSettings appSettings
+@inject HttpClient http
+@inject ProtectedSessionStorage _sessionStorage
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+<PageTitle>Prenatal Screening Requisition</PageTitle>
+
+<div class="prenatal-form-container">
+    <div class="d-flex justify-content-start mb-2">
+        <button class="btn btn-sm btn-outline-secondary d-flex align-items-center" @onclick='() => NavigationManager.NavigateTo("/billing")' style="border-radius: 6px; padding: 4px 12px; font-size: 13px;">
+            <i class="bi bi-arrow-left me-2" style="font-size: 16px;"></i>
+            Back to Billing
+        </button>
+    </div>
+
+    <EditForm Model="@requestForm" OnValidSubmit="SubmitForm">
+        @* <DataAnnotationsValidator /> *@
+
+        <!-- Form Header -->
+        <div class="form-header">
+            <div class="header-left">
+                <h1>PRENATAL SCREENING REQUISITION FORM</h1>
+                @* <p class="form-instruction">
+                    Important: This form has to be completely filled up for us to process the sample.<br>
+                    By providing all information correctly, the most accurate patient - specific risk can be calculated.
+                </p> *@
+            </div>
+            @* <div class="header-right">
+                <div class="company-logo">
+                    <h2>METAOMICS</h2>
+                    <p class="tagline">Health First, It Matters</p>
+                </div>
+            </div> *@
+        </div>
+
+        <ValidationSummary class="validation-summary" />
+
+        <!-- Main Form Content -->
+        <div class="form-content">
+            <!-- Left Column -->
+            <div class="left-column">
+                <!-- Patient Information -->
+                <div class="form-section">
+                    <h3>Patient Information:</h3>
+                    <div class="form-row">
+                        <label>Name:</label>
+                        <div style="position: relative; flex-grow: 1;">
+                            <input @bind="patientName"
+                                   @oninput="OnPatientInputChanged"
+                                   @onkeydown="HandlePatientKeyDown"
+                                   class="form-input"
+                                   placeholder="Search for patient..."
+                                   autocomplete="off" style="width: 100%;" />
+                            @if (patientSearchResults.Any())
+                            {
+                                <ul class="autocomplete-results">
+                                    @for (int i = 0; i < patientSearchResults.Count; i++)
+                                    {
+                                        var patient = patientSearchResults[i];
+                                        var index = i;
+                                        <li class="@(index == selectedPatientIndex ? "active" : "")" @onclick="async () => await SelectPatient(patient)">
+                                            <span>@patient.Name</span>
+                                            @if (!string.IsNullOrWhiteSpace(patient.Mobile))
+                                            {
+                                                <span> - @patient.Mobile</span>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(patient.CUSTCode))
+                                            {
+                                                <span> (@patient.CUSTCode)</span>
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label>Date of Birth:</label>
+                        <InputDate @bind-Value="dateOfBirth" class="form-input" />
+                    </div>
+                    <div class="form-row-group">
+                        <div class="form-row">
+                            <label>Patient Current Weight:</label>
+                            <InputNumber @bind-Value="requestForm.Weight" class="form-input" />
+                            <span class="unit">Kg</span>
+                        </div>
+                        <div class="form-row">
+                            <label>Height:</label>
+                            <InputNumber @bind-Value="requestForm.Height" class="form-input" />
+                            <span class="unit">Cm</span>
+                        </div>
+                    </div>
+                    <div class="form-row-group">
+                        <div class="checkbox-group">
+                            <label>Smoking:</label>
+                            <div class="checkbox-options">
+                                <label><InputCheckbox @bind-Value="requestForm.Smoking" /> Yes</label>
+                                <label><InputCheckbox @bind-Value="smokingNo" /> No</label>
+                            </div>
+                        </div>
+                        <div class="checkbox-group">
+                            <label>Passive Smoking:</label>
+                            <div class="checkbox-options">
+                                <label><InputCheckbox @bind-Value="requestForm.PassiveSmoking" /> Yes</label>
+                                <label><InputCheckbox @bind-Value="passiveSmokingNo" /> No</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label>Address:</label>
+                        <InputTextArea @bind-Value="patientAddress" class="form-textarea" rows="3" />
+                    </div>
+                    <div class="form-row-group">
+                        <div class="form-row">
+                            <label>Mobile:</label>
+                            <InputText @bind-Value="patientMobile" class="form-input" />
+                        </div>
+                        <div class="form-row">
+                            <label>Email ID:</label>
+                            <InputText @bind-Value="patientEmail" class="form-input" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Patient Conception Details -->
+                <div class="form-section">
+                    <h3>Patient Conception Details:</h3>
+                    <div class="form-row">
+                        <label>Ethnicity:</label>
+                        <div class="checkbox-group-horizontal">
+                            <label><InputCheckbox @bind-Value="ethnicityIndian" /> Indian</label>
+                            <label><InputCheckbox @bind-Value="ethnicityCaucasian" /> Caucasian</label>
+                            <label><InputCheckbox @bind-Value="ethnicityAsian" /> Asian</label>
+                            <label><InputCheckbox @bind-Value="ethnicityAfrican" /> African</label>
+                            <label><InputCheckbox @bind-Value="ethnicityOthers" /> Others</label>
+                        </div>
+                    </div>
+                    <div class="form-row-group">
+                        <div class="form-row">
+                            <label>LMP:</label>
+                            <InputText @bind-Value="requestForm.LMP" class="form-input" />
+                            <span class="note">Certain/Uncertain/Unknown</span>
+                        </div>
+                        <div class="form-row">
+                            <label>EDD:</label>
+                            <InputText @bind-Value="requestForm.EDD" class="form-input" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="checkbox-group-horizontal">
+                            <label><InputCheckbox @bind-Value="requestForm.IsNatural" /> Natural</label>
+                            <label><InputCheckbox @bind-Value="requestForm.IsAssisted" /> Assisted</label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label>If Assisted Reproduction:</label>
+                        <div class="checkbox-group-horizontal">
+                            <label><InputCheckbox @bind-Value="requestForm.IsSelfEgg" /> Self Egg</label>
+                            <label><InputCheckbox @bind-Value="requestForm.DonotEgg" /> Donor Egg</label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label>Procedure Type:</label>
+                        <InputText @bind-Value="requestForm.ProcedureType" class="form-input" />
+                    </div>
+                    <div class="form-row-group">
+                        <div class="form-row">
+                            <label>Donor Age:</label>
+                            <InputText @bind-Value="requestForm.DonorAge" class="form-input" />
+                        </div>
+                        <div class="form-row">
+                            <label>(or) DOB:</label>
+                            <InputDate @bind-Value="requestForm.DonorDOB" class="form-input" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label>Extraction Date:</label>
+                        <InputDate @bind-Value="requestForm.ExtractionDate" class="form-input" />
+                    </div>
+                    <div class="form-row">
+                        <label>Transfer Date:</label>
+                        <InputDate @bind-Value="requestForm.TransferDate" class="form-input" />
+                    </div>
+                    <div class="form-row">
+                        <label>Date of Ultrasound:</label>
+                        <InputDate @bind-Value="requestForm.DateOfUltraSound" class="form-input" />
+                    </div>
+                    <div class="form-row">
+                        <label>Present Pregnancy:</label>
+                        <div class="checkbox-group-horizontal">
+                            <label><InputCheckbox @bind-Value="requestForm.IsSingle" /> Single</label>
+                            <label><InputCheckbox @bind-Value="requestForm.IsTwin" /> Twin</label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label>Chorionicity:</label>
+                        <div class="checkbox-group-horizontal">
+                            <label><InputCheckbox @bind-Value="chorionicityDCDA" /> DCDA</label>
+                            <label><InputCheckbox @bind-Value="chorionicityMCDA" /> MCDA</label>
+                            <label><InputCheckbox @bind-Value="chorionicityMCMA" /> MCMA</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div class="right-column">
+                <!-- Ordering Physician Details -->
+                <div class="form-section">
+                    <h3>Ordering Physician Details:</h3>
+                    <div class="form-row">
+                        <label>Name:</label>
+                        <div style="position: relative; flex-grow: 1;">
+                            <input @bind="physicianName"
+                                   @oninput="OnPhysicianInputChanged"
+                                   @onkeydown="HandlePhysicianKeyDown"
+                                   class="form-input"
+                                   placeholder="Search for physician..."
+                                   autocomplete="off" style="width: 100%;" />
+                            @if (physicianSearchResults.Any())
+                            {
+                                <ul class="autocomplete-results">
+                                    @for (int i = 0; i < physicianSearchResults.Count; i++)
+                                    {
+                                        var physician = physicianSearchResults[i];
+                                        var index = i;
+                                        <li class="@(index == selectedPhysicianIndex ? "active" : "")" @onclick="async () => await SelectPhysician(physician)">
+                                            @physician.DoctorFullName
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label>Hospital:</label>
+                        <InputText @bind-Value="hospital" class="form-input" />
+                    </div>
+                    <div class="form-row">
+                        <label>Address:</label>
+                        <InputTextArea @bind-Value="physicianAddress" class="form-textarea" rows="3" />
+                    </div>
+                    <div class="form-row">
+                        <label>Mobile:</label>
+                        <InputText @bind-Value="physicianMobile" class="form-input" />
+                    </div>
+                    <div class="form-row">
+                        <label>Email ID:</label>
+                        <InputText @bind-Value="physicianEmail" class="form-input" />
+                    </div>
+                    <div class="form-row">
+                        <label>Sonographer Name:</label>
+                        <InputText @bind-Value="sonographerName" class="form-input" />
+                    </div>
+                    <div class="form-row">
+                        <label>FMF Code:</label>
+                        <InputText @bind-Value="fmfCode" class="form-input" />
+                    </div>
+                </div>
+
+                <!-- Clinical Information -->
+                <div class="form-section">
+                    <h3>Clinical Information:</h3>
+                    <div class="form-row">
+                        <label>Parity History:</label>
+                        <div class="checkbox-group-horizontal">
+                            <label><InputCheckbox @bind-Value="gravida" /> Gravida</label>
+                            <label><InputCheckbox @bind-Value="para" /> Para</label>
+                            <label><InputCheckbox @bind-Value="abortion" /> Abortion</label>
+                            <label><InputCheckbox @bind-Value="live" /> Live</label>
+                        </div>
+                    </div>
+
+                    <div class="clinical-history">
+                        <div class="history-row">
+                            <label>Previous T21(Down's):</label>
+                            <div class="checkbox-options">
+                                <label><InputCheckbox @bind-Value="requestForm.T21" /> Yes</label>
+                                <label><InputCheckbox @bind-Value="previousT21No" /> No</label>
+                            </div>
+                        </div>
+                        <div class="history-row">
+                            <label>Previous T18(Edward's):</label>
+                            <div class="checkbox-options">
+                                <label><InputCheckbox @bind-Value="requestForm.T18" /> Yes</label>
+                                <label><InputCheckbox @bind-Value="previousT18No" /> No</label>
+                            </div>
+                        </div>
+                        <div class="history-row">
+                            <label>Previous T13(Patau's):</label>
+                            <div class="checkbox-options">
+                                <label><InputCheckbox @bind-Value="requestForm.T13" /> Yes</label>
+                                <label><InputCheckbox @bind-Value="previousT13No" /> No</label>
+                            </div>
+                        </div>
+                        <div class="history-row">
+                            <label>Previous NTD:</label>
+                            <div class="checkbox-options">
+                                <label><InputCheckbox @bind-Value="requestForm.NTD" /> Yes</label>
+                                <label><InputCheckbox @bind-Value="previousNTDNo" /> No</label>
+                            </div>
+                        </div>
+                        <div class="history-row">
+                            <label>Family History of T21,T18,T13/NTD's:</label>
+                            <div class="checkbox-options">
+                                <label><InputCheckbox @bind-Value="requestForm.FamilyHistory" /> Yes</label>
+                                <label><InputCheckbox @bind-Value="familyHistoryNo" /> No</label>
+                            </div>
+                        </div>
+                        <div class="history-row">
+                            <label>Diabetic Status:</label>
+                            <div class="checkbox-options">
+                                <label><InputCheckbox @bind-Value="requestForm.DiabeticIDDM" /> IDDM</label>
+                                <label><InputCheckbox @bind-Value="requestForm.DiabeticGDM" /> GDM</label>
+                                <label><InputCheckbox @bind-Value="diabeticNo" /> No</label>
+                            </div>
+                        </div>
+                        <div class="history-row">
+                            <label>Bleeding (on Spotting last 2 week's):</label>
+                            <div class="checkbox-options">
+                                <label><InputCheckbox @bind-Value="requestForm.Bleeding" /> Yes</label>
+                                <label><InputCheckbox @bind-Value="bleedingNo" /> No</label>
+                            </div>
+                        </div>
+                        <div class="history-row">
+                            <label>Folic Acid:</label>
+                            <div class="checkbox-options">
+                                <label><InputCheckbox @bind-Value="requestForm.FolicAcid" /> Yes</label>
+                                <label><InputCheckbox @bind-Value="folicAcidNo" /> No</label>
+                            </div>
+                        </div>
+                        <div class="history-row">
+                            <label>HCG Dose:</label>
+                            <div class="checkbox-options">
+                                <label><InputCheckbox @bind-Value="requestForm.HCGDose" /> Yes</label>
+                                <label><InputCheckbox @bind-Value="hcgDoseNo" /> No</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <label>If Yes Means Last Dose:</label>
+                        <InputText @bind-Value="requestForm.LastHCGDose" class="form-input" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Clinical Measurements Section -->
+        <div class="measurements-section">
+            <div class="measurements-row">
+                <div class="measurement-group">
+                    <label>CRL:</label>
+                    <InputNumber @bind-Value="requestForm.CRL1" class="measurement-input" />
+                    <span class="unit">mm</span>
+                </div>
+                <div class="measurement-group">
+                    <label>NT:</label>
+                    <InputNumber @bind-Value="requestForm.NT1" class="measurement-input" />
+                    <span class="unit">mm</span>
+                </div>
+                <div class="measurement-group">
+                    <label>NB:</label>
+                    <div class="checkbox-options">
+                        <label><InputCheckbox @bind-Value="nb1Present" /> Present</label>
+                        <label><InputCheckbox @bind-Value="nb1Absent" /> Absent</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="measurements-row">
+                <label>Fetus B:</label>
+                <div class="measurement-group">
+                    <label>CRL:</label>
+                    <InputNumber @bind-Value="requestForm.CRL2" class="measurement-input" />
+                    <span class="unit">mm</span>
+                </div>
+                <div class="measurement-group">
+                    <label>NT:</label>
+                    <InputNumber @bind-Value="requestForm.NT2" class="measurement-input" />
+                    <span class="unit">mm</span>
+                </div>
+                <div class="measurement-group">
+                    <label>NB:</label>
+                    <div class="checkbox-options">
+                        <label><InputCheckbox @bind-Value="nb2Present" /> Present</label>
+                        <label><InputCheckbox @bind-Value="nb2Absent" /> Absent</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="measurements-row">
+                <div class="measurement-group">
+                    <label>BPD:</label>
+                    <InputNumber @bind-Value="requestForm.BPD" class="measurement-input" />
+                    <span class="unit">mm</span>
+                </div>
+                <div class="measurement-group">
+                    <label>HC:</label>
+                    <InputNumber @bind-Value="requestForm.HC" class="measurement-input" />
+                    <span class="unit">mm</span>
+                </div>
+                <div class="measurement-group">
+                    <label>AC:</label>
+                    <InputNumber @bind-Value="requestForm.AC" class="measurement-input" />
+                    <span class="unit">mm</span>
+                </div>
+                <div class="measurement-group">
+                    <label>FL:</label>
+                    <InputNumber @bind-Value="requestForm.FL" class="measurement-input" />
+                    <span class="unit">mm</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screening Options -->
+        <div class="screening-section">
+            <h3>SCREENING OPTIONS:</h3>
+            <div class="screening-columns">
+                <div class="screening-column">
+                    <h4>First Trimester Screening: 10 Weeks to 14.1 Weeks</h4>
+                    <div class="screening-options">
+                        <label><InputCheckbox @bind-Value="combinedScreening" /> Combined Screening (With NT)</label>
+                        <label><InputCheckbox @bind-Value="earlyBiochemistry" /> Early Biochemistry With 12th Week NT for risk assessment</label>
+                        <label><InputCheckbox @bind-Value="doubleMarker" /> Double Marker (Without NT)</label>
+                        <label><InputCheckbox @bind-Value="quadrupleScreening" /> 1st Trimester Quadruple Screening with Pre-eclampsia</label>
+                    </div>
+                </div>
+                <div class="screening-column">
+                    <h4>Second Trimester Screening: 15 Weeks to 21.6 Weeks</h4>
+                    <div class="screening-options">
+                        <label><InputCheckbox @bind-Value="hafpTest" /> hAFP Test Only</label>
+                        <label><InputCheckbox @bind-Value="tripleMarker" /> Triple Marker Test</label>
+                        <label><InputCheckbox @bind-Value="quadrupleMarker" /> Quadruple Marker Test</label>
+                        <label><InputCheckbox @bind-Value="integratedScreening" /> Integrated (1st+2nd) Trimester Screening</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* <!-- GA-Cut Off Section -->
+        <div class="ga-cutoff-section">
+            <h4>GA-Cut Off: (If same day Scan and Blood Collection)</h4>
+            <div class="ga-cutoff-content">
+                <div class="trimester-section">
+                    <h5>First Trimester</h5>
+                    <p>CRL: 33mm to 84 mm</p>
+                </div>
+                <div class="trimester-section">
+                    <h5>Second Trimester</h5>
+                    <p>BPD: 30mm to 51.5 mm</p>
+                    <p>HC: 112mm to 192 mm</p>
+                </div>
+            </div>
+        </div> *@
+
+        @* <!-- Patient Consent -->
+        <div class="consent-section">
+            <h4>Patient Consent:</h4>
+            <p class="consent-text">
+                I have read and understood the prenatal screening form, and agree to give my consent to have the test's done. I understand that the tests are 
+                non-invasive and cannot harm the pregnancy in any way, and are designed to discover and identify specific chromosomal abnormalities (Down's, Edward's 
+                and Patau's Syndrome) and neural tube defects, which can result in a baby born with severe abnormalities that lead to death, mental retardation, multiple 
+                medical problems and severe developmental issues. I understand there are benefits and limitations of prenatal testing and these birth defects cannot be detected 
+                100% of the time. I consent that my blood samples can be retained by the laboratory indefinitely for validation, educational purpose and research while 
+                maintaining the confidentiality.
+            </p>
+            
+            <div class="signature-section">
+                <div class="signature-field">
+                    <label>Patient Signature</label>
+                    <div class="signature-line"></div>
+                </div>
+                <div class="signature-field">
+                    <label>Signature of Ordering Physician</label>
+                    <div class="signature-line"></div>
+                </div>
+            </div>
+        </div> *@
+
+        @* <!-- Lab Use Section -->
+        <div class="lab-section">
+            <h4>For Lab Use Only:</h4>
+            <div class="lab-content">
+                <div class="lab-row">
+                    <div class="lab-field">
+                        <label>PAPP-A:</label>
+                        <InputText @bind-Value="pappA" class="lab-input" />
+                    </div>
+                    <div class="lab-field">
+                        <label>Free hCGβ:</label>
+                        <InputText @bind-Value="freehCG" class="lab-input" />
+                    </div>
+                    <div class="lab-field">
+                        <label>hAFP:</label>
+                        <InputText @bind-Value="hAFP" class="lab-input" />
+                    </div>
+                    <div class="lab-field">
+                        <label>uE3:</label>
+                        <InputText @bind-Value="uE3" class="lab-input" />
+                    </div>
+                </div>
+                <div class="lab-row">
+                    <div class="lab-field">
+                        <label>DIA:</label>
+                        <InputText @bind-Value="dia" class="lab-input" />
+                    </div>
+                    <div class="lab-field">
+                        <label>PIGF:</label>
+                        <InputText @bind-Value="pigf" class="lab-input" />
+                    </div>
+                    <div class="lab-field">
+                        <label>Received By:</label>
+                        <InputText @bind-Value="receivedBy" class="lab-input" />
+                    </div>
+                    <div class="lab-field">
+                        <label>Date & Time:</label>
+                        <InputText @bind-Value="dateTime" class="lab-input" />
+                    </div>
+                </div>
+                <div class="lab-row">
+                    <div class="lab-field">
+                        <label>Checked By:</label>
+                        <InputText @bind-Value="checkedBy" class="lab-input" />
+                    </div>
+                    <div class="lab-field">
+                        <label>Verified By:</label>
+                        <InputText @bind-Value="verifiedBy" class="lab-input" />
+                    </div>
+                </div>
+            </div>
+        </div> *@
+
+
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <span>Submitting...</span>
+                }
+                else
+                {
+                    <span>Submit Form</span>
+                }
+            </button>
+            <button type="button" @onclick="ClearForm" class="btn btn-secondary">Clear Form</button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success">@successMessage</div>
+        }
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+    </EditForm>
+</div>
+
+@code {
+    private string? token;
+    private RequestForm requestForm = new RequestForm();
+    private string? successMessage;
+    private string? errorMessage;
+    private bool isLoading = false;
+
+    // Additional form fields not in RequestForm model
+    private string patientName = "";
+    private DateTime? dateOfBirth;
+    private string patientAddress = "";
+    private string patientMobile = "";
+    private string patientEmail = "";
+    private string physicianName = "";
+    private string hospital = "";
+    private string physicianAddress = "";
+    private string physicianMobile = "";
+    private string physicianEmail = "";
+    private string sonographerName = "";
+    private string fmfCode = "";
+
+    // Checkbox states for Yes/No options
+    private bool smokingNo = false;
+    private bool passiveSmokingNo = false;
+    private bool previousT21No = false;
+    private bool previousT18No = false;
+    private bool previousT13No = false;
+    private bool previousNTDNo = false;
+    private bool familyHistoryNo = false;
+    private bool diabeticNo = false;
+    private bool bleedingNo = false;
+    private bool folicAcidNo = false;
+    private bool hcgDoseNo = false;
+
+    // Ethnicity checkboxes
+    private bool ethnicityIndian = false;
+    private bool ethnicityCaucasian = false;
+    private bool ethnicityAsian = false;
+    private bool ethnicityAfrican = false;
+    private bool ethnicityOthers = false;
+
+    // Chorionicity options
+    private bool chorionicityDCDA = false;
+    private bool chorionicityMCDA = false;
+    private bool chorionicityMCMA = false;
+
+    // Parity history
+    private bool gravida = false;
+    private bool para = false;
+    private bool abortion = false;
+    private bool live = false;
+
+    // Nasal bone options
+    private bool nb1Present = false;
+    private bool nb1Absent = false;
+    private bool nb2Present = false;
+    private bool nb2Absent = false;
+
+    // Screening options
+    private bool combinedScreening = false;
+    private bool earlyBiochemistry = false;
+    private bool doubleMarker = false;
+    private bool quadrupleScreening = false;
+    private bool hafpTest = false;
+    private bool tripleMarker = false;
+    private bool quadrupleMarker = false;
+    private bool integratedScreening = false;
+
+    // Lab fields
+    private string pappA = "";
+    private string freehCG = "";
+    private string hAFP = "";
+    private string uE3 = "";
+    private string dia = "";
+    private string pigf = "";
+    private string receivedBy = "";
+    private string dateTime = "";
+    private string checkedBy = "";
+    private string verifiedBy = "";
+
+    // Patient search
+    private List<Customer_Master> patientSearchResults = new();
+    private int selectedPatientIndex = -1;
+    private CancellationTokenSource? patientDebounceTokenSource;
+
+    // Physician search
+    private List<Doctor_Master> physicianSearchResults = new();
+    private int selectedPhysicianIndex = -1;
+    private CancellationTokenSource? physicianDebounceTokenSource;
+
+    private class UserAuth
+    {
+        public string token { get; set; } = "";
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        requestForm.ID = Guid.NewGuid();
+        requestForm.RequestGUID = Guid.NewGuid();
+        requestForm.EnteredDate = DateTime.Now;
+        requestForm.DonorDOB = DateTime.Now.AddYears(-25);
+        requestForm.ExtractionDate = DateTime.Now;
+        requestForm.TransferDate = DateTime.Now;
+        requestForm.DateOfUltraSound = DateTime.Now;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var claimsResult = await _sessionStorage.GetAsync<List<Claim>>("authClaims");
+                if (claimsResult.Success && claimsResult.Value != null)
+                {
+                    // The token is expected to be stored as a claim with the type "token".
+                    token = claimsResult.Value.FirstOrDefault(c => c.Type.Equals("token", StringComparison.OrdinalIgnoreCase))?.Value;
+                }
+
+                // Fallback: Some pages store token in "claim" as an object with a 'token' field
+                if (string.IsNullOrEmpty(token))
+                {
+                    var userAuthResult = await _sessionStorage.GetAsync<UserAuth>("claim");
+                    if (userAuthResult.Success && userAuthResult.Value != null && !string.IsNullOrEmpty(userAuthResult.Value.token))
+                    {
+                        token = userAuthResult.Value.token;
+                    }
+                }
+
+                if (string.IsNullOrEmpty(token))
+                {
+                    errorMessage = "Authentication token not found. Please log in again.";
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Error retrieving authentication token: {ex.Message}";
+            }
+
+            // Prefill patient name from FrontOfficeModel.ViewBills stored in session (e.g., from Billing page)
+            try
+            {
+                var newBillResult = await _sessionStorage.GetAsync<Lims.Components.Model.ViewBills>("newBill");
+                if (newBillResult.Success && newBillResult.Value != null)
+                {
+                    patientName = newBillResult.Value.Name ?? "";
+                    patientMobile = newBillResult.Value.Mobile ?? patientMobile;
+                }
+            }
+            catch
+            {
+                // Session may not have newBill; ignore if unavailable
+            }
+
+            StateHasChanged();
+        }
+    }
+
+    private async Task SubmitForm()
+    {
+        isLoading = true;
+        successMessage = null;
+        errorMessage = null;
+
+        try
+        {
+            if (string.IsNullOrEmpty(token))
+            {
+                errorMessage = "Authentication error. Please make sure you are logged in and try again.";
+                return;
+            }
+
+            var response = await ApiData.SubmitRequestForm(requestForm, token);
+
+            if (response.IsSuccessStatusCode)
+            {
+                successMessage = "Form submitted successfully!";
+                ClearForm();
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Error submitting form: {response.StatusCode} - {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ClearForm()
+    {
+        requestForm = new RequestForm();
+        requestForm.ID = Guid.NewGuid();
+        requestForm.RequestGUID = Guid.NewGuid();
+        requestForm.EnteredDate = DateTime.Now;
+        requestForm.DonorDOB = DateTime.Now.AddYears(-25);
+        requestForm.ExtractionDate = DateTime.Now;
+        requestForm.TransferDate = DateTime.Now;
+        requestForm.DateOfUltraSound = DateTime.Now;
+
+        patientName = "";
+        dateOfBirth = null;
+        patientAddress = "";
+        patientMobile = "";
+        patientEmail = "";
+        physicianName = "";
+        hospital = "";
+        physicianAddress = "";
+        physicianMobile = "";
+        physicianEmail = "";
+        sonographerName = "";
+        fmfCode = "";
+
+        // Reset all boolean fields
+        smokingNo = false;
+        passiveSmokingNo = false;
+        previousT21No = false;
+        previousT18No = false;
+        previousT13No = false;
+        previousNTDNo = false;
+        familyHistoryNo = false;
+        diabeticNo = false;
+        bleedingNo = false;
+        folicAcidNo = false;
+        hcgDoseNo = false;
+
+        ethnicityIndian = false;
+        ethnicityCaucasian = false;
+        ethnicityAsian = false;
+        ethnicityAfrican = false;
+        ethnicityOthers = false;
+
+        chorionicityDCDA = false;
+        chorionicityMCDA = false;
+        chorionicityMCMA = false;
+
+        gravida = false;
+        para = false;
+        abortion = false;
+        live = false;
+
+        nb1Present = false;
+        nb1Absent = false;
+        nb2Present = false;
+        nb2Absent = false;
+
+        combinedScreening = false;
+        earlyBiochemistry = false;
+        doubleMarker = false;
+        quadrupleScreening = false;
+        hafpTest = false;
+        tripleMarker = false;
+        quadrupleMarker = false;
+        integratedScreening = false;
+
+        pappA = "";
+        freehCG = "";
+        hAFP = "";
+        uE3 = "";
+        dia = "";
+        pigf = "";
+        receivedBy = "";
+        dateTime = "";
+        checkedBy = "";
+        verifiedBy = "";
+
+        successMessage = null;
+        errorMessage = null;
+        StateHasChanged();
+    }
+
+    private async Task OnPatientInputChanged(ChangeEventArgs e)
+    {
+        patientName = e.Value?.ToString() ?? "";
+        selectedPatientIndex = -1;
+
+        patientDebounceTokenSource?.Cancel();
+        patientDebounceTokenSource = new CancellationTokenSource();
+
+        try
+        {
+            await Task.Delay(300, patientDebounceTokenSource.Token);
+            await SearchPatients(patientName);
+        }
+        catch (TaskCanceledException)
+        {
+            // This is expected if the user types quickly.
+        }
+    }
+
+    private async Task HandlePatientKeyDown(KeyboardEventArgs e)
+    {
+        if (patientSearchResults.Any())
+        {
+            if (e.Key == "ArrowDown")
+            {
+                selectedPatientIndex = (selectedPatientIndex + 1) % patientSearchResults.Count;
+            }
+            else if (e.Key == "ArrowUp")
+            {
+                selectedPatientIndex = (selectedPatientIndex - 1 + patientSearchResults.Count) % patientSearchResults.Count;
+            }
+            else if (e.Key == "Enter" && selectedPatientIndex >= 0)
+            {
+                await SelectPatient(patientSearchResults[selectedPatientIndex]);
+            }
+            else if (e.Key == "Escape")
+            {
+                patientSearchResults.Clear();
+                selectedPatientIndex = -1;
+            }
+        }
+    }
+
+    private async Task SearchPatients(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            patientSearchResults.Clear();
+            StateHasChanged();
+            return;
+        }
+
+        var combinedResults = new List<Customer_Master>();
+
+        try
+        {
+            // 1) Fetch from primary API endpoint
+            var apiUrl = $"{appSettings.BaseUrl}request/PatientSearch?src={Uri.EscapeDataString(query)}";
+            var request = new HttpRequestMessage(HttpMethod.Get, apiUrl);
+            if (!string.IsNullOrEmpty(token))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+            var response = await http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var res = await response.Content.ReadAsStringAsync();
+                var apiResults = JsonConvert.DeserializeObject<List<Customer_Master>>(res) ?? new();
+                if (apiResults.Any())
+                {
+                    combinedResults.AddRange(apiResults);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", $"API patient search for '{query}' failed: {ex.Message}");
+        }
+
+        try
+        {
+            // 2) Fetch from ViewBills endpoint for a comprehensive search across all bills
+            // Provide DCode (branch) and a date range when calling ViewBills to match API expectations
+            string sd = DateTime.Now.ToString("yyyy-MM-dd") + " 12:00:00 AM";
+            string ed = DateTime.Now.ToString("yyyy-MM-dd") + " 11:59:59 PM";
+            var billsUrl = $"{appSettings.BaseUrl}request/ViewBills?DCode=0&fromdate={Uri.EscapeDataString(sd)}&todate={Uri.EscapeDataString(ed)}";
+            var billsRequest = new HttpRequestMessage(HttpMethod.Get, billsUrl);
+            if (!string.IsNullOrEmpty(token))
+            {
+                billsRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+            var billsResponse = await http.SendAsync(billsRequest);
+
+            if (billsResponse.IsSuccessStatusCode)
+            {
+                var bills = await billsResponse.Content.ReadFromJsonAsync<List<Lims.Components.Model.ViewBills>>() ?? new();
+                var matches = bills
+                    .Where(b => (b.Name?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                (b.Mobile?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                (b.CUSTCode?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false))
+                    .Select(b => new Customer_Master
+                    {
+                        Name = b.Name,
+                        Mobile = b.Mobile,
+                        CUSTCode = b.CUSTCode,
+                        CUSTID = 0 // Mark as partial record
+                    })
+                    .ToList();
+
+                // Deduplicate and merge
+                foreach (var match in matches)
+                {
+                    if (!combinedResults.Any(p => p.CUSTCode == match.CUSTCode && !string.IsNullOrEmpty(match.CUSTCode)))
+                    {
+                        combinedResults.Add(match);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", $"Error fetching or filtering from ViewBills: {ex.Message}");
+        }
+
+        try
+        {
+            // 3) Fallback to session storage if API fails or returns no results
+            try
+            {
+                var billsResult = await _sessionStorage.GetAsync<List<Lims.Components.Model.ViewBills>>("localBills");
+                if (billsResult.Success && billsResult.Value != null && billsResult.Value.Any())
+                {
+                    var matchesQuery = query ?? string.Empty;
+                    var matches = billsResult.Value
+                        .Where(b =>
+                                   (b.Name?.IndexOf(matchesQuery, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0 ||
+                                   (b.Mobile?.IndexOf(matchesQuery, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0 ||
+                                   (b.CUSTCode?.IndexOf(matchesQuery, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0
+                               )
+                        .Take(20)
+                        .Select(b => new Customer_Master // This creates a partial object
+                        {
+                            Name = b.Name,
+                            Mobile = b.Mobile,
+                            // Map minimal fields; other details can be filled after selecting from full API if needed
+                            CUSTCode = b.CUSTCode
+                        })
+                        .ToList();
+
+                    // Deduplicate and merge
+                    foreach (var match in matches)
+                    {
+                        if (!combinedResults.Any(p => p.CUSTCode == match.CUSTCode && !string.IsNullOrEmpty(match.CUSTCode)))
+                        {
+                            combinedResults.Add(match);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { await JSRuntime.InvokeVoidAsync("console.error", $"Error reading/filtering 'localBills' from session: {ex.Message}"); }
+
+            patientSearchResults = combinedResults.DistinctBy(p => !string.IsNullOrEmpty(p.CUSTCode) ? p.CUSTCode : $"{p.Name}-{p.Mobile}").Take(20).ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error searching patients: {ex.Message}";
+            patientSearchResults.Clear();
+        }
+        StateHasChanged();
+    }
+
+    private async Task SelectPatient(Customer_Master patient)
+    {
+        // If the selected patient object is partial (likely from session cache),
+        // fetch the full details from the API using either CUSTID or CUSTCode.
+        if (patient.CUSTID == 0 || string.IsNullOrEmpty(patient.Street))
+        {
+            try
+            {
+                var searchQuery = patient.CUSTID != 0 ? patient.CUSTID.ToString() : patient.CUSTCode;
+                var url = $"{appSettings.BaseUrl}request/PatientSearch?src={Uri.EscapeDataString(searchQuery ?? "")}";
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                if (!string.IsNullOrEmpty(token))
+                {
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                }
+                var response = await http.SendAsync(request);
+                if (response.IsSuccessStatusCode)
+                {
+                    var fullPatientList = await response.Content.ReadFromJsonAsync<List<Customer_Master>>();
+                    var foundPatient = fullPatientList?.FirstOrDefault(p => (patient.CUSTID != 0 && p.CUSTID == patient.CUSTID) || (!string.IsNullOrEmpty(patient.CUSTCode) && p.CUSTCode == patient.CUSTCode));
+
+                    patient = foundPatient ?? patient; // Use the full record if found
+                }
+            }
+            catch (Exception ex) { errorMessage = $"Could not fetch full patient details: {ex.Message}"; }
+        }
+
+        patientName = patient.Name;
+        dateOfBirth = patient.DateOfBirth;
+
+        // Build address string, handling null or empty parts gracefully
+        var addressParts = new[] { patient.Street, patient.Area, patient.City, patient.Zipcode }.Where(s => !string.IsNullOrWhiteSpace(s));
+        patientAddress = string.Join(", ", addressParts);
+        if (addressParts.Count() > 2 && !string.IsNullOrWhiteSpace(patient.Zipcode))
+        {
+            // A slightly cleaner format if we have enough parts
+            patientAddress = $"{string.Join(", ", addressParts.Take(addressParts.Count() - 1))} - {patient.Zipcode}";
+        }
+
+        patientMobile = patient.Mobile;
+        patientEmail = patient.Email;
+
+        // Persist selected patient into the request model so it can be submitted
+        requestForm.CustID = patient.CUSTID;
+
+        patientSearchResults.Clear();
+        selectedPatientIndex = -1;
+        StateHasChanged();
+    }
+
+    private async Task OnPhysicianInputChanged(ChangeEventArgs e)
+    {
+        physicianName = e.Value?.ToString() ?? "";
+        selectedPhysicianIndex = -1;
+
+        physicianDebounceTokenSource?.Cancel();
+        physicianDebounceTokenSource = new CancellationTokenSource();
+
+        try
+        {
+            await Task.Delay(300, physicianDebounceTokenSource.Token);
+            await SearchPhysiciansAsync(physicianName);
+        }
+        catch (TaskCanceledException)
+        {
+            // This is expected if the user types quickly.
+        }
+    }
+
+    private async Task HandlePhysicianKeyDown(KeyboardEventArgs e)
+    {
+        if (physicianSearchResults.Any())
+        {
+            if (e.Key == "ArrowDown")
+            {
+                selectedPhysicianIndex = (selectedPhysicianIndex + 1) % physicianSearchResults.Count;
+            }
+            else if (e.Key == "ArrowUp")
+            {
+                selectedPhysicianIndex = (selectedPhysicianIndex - 1 + physicianSearchResults.Count) % physicianSearchResults.Count;
+            }
+            else if (e.Key == "Enter" && selectedPhysicianIndex >= 0)
+            {
+                await SelectPhysician(physicianSearchResults[selectedPhysicianIndex]);
+            }
+            else if (e.Key == "Escape")
+            {
+                physicianSearchResults.Clear();
+                selectedPhysicianIndex = -1;
+            }
+        }
+    }
+
+    private async Task SearchPhysiciansAsync(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query) || query.Length < 2)
+        {
+            physicianSearchResults.Clear();
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        try
+        {
+            var url = $"{appSettings.BaseUrl}request/ReferralSearch?src={Uri.EscapeDataString(query)}";
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            if (!string.IsNullOrEmpty(token))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+            var response = await http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var res = await response.Content.ReadAsStringAsync();
+                physicianSearchResults = JsonConvert.DeserializeObject<List<Doctor_Master>>(res) ?? new();
+            }
+            else
+            {
+                physicianSearchResults.Clear();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error searching physicians: {ex.Message}";
+            physicianSearchResults.Clear();
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SelectPhysician(Doctor_Master physician)
+    {
+        physicianName = physician.DoctorFullName;
+        hospital = physician.Reference;
+
+        // Assuming Doctor_Master has Address, Area, and City properties like Customer_Master.
+        // You might need to adjust this based on the actual properties of Doctor_Master.
+        physicianAddress = $"{physician.Address}, {physician.Area}, {physician.City} - {physician.ZipCode}";
+        physicianMobile = physician.Mobile;
+        physicianEmail = physician.Email;
+
+        // Persist selected physician's DCode into the request model.
+        @* requestForm.DoctorCode = physician.DCode; *@
+
+        // Clear search results.
+        physicianSearchResults.Clear();
+        selectedPhysicianIndex = -1;
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        patientDebounceTokenSource?.Cancel();
+        patientDebounceTokenSource?.Dispose();
+        physicianDebounceTokenSource?.Cancel();
+        physicianDebounceTokenSource?.Dispose();
+    }
+}

@@ -1,0 +1,240 @@
+﻿@page "/master/patient-details"
+@using LIMS.Model
+@using System.Net.Http.Headers
+@using Lims.Components.Model
+@rendermode @(new InteractiveServerRenderMode(prerender:false))
+
+@inject ProtectedSessionStorage _sessionStorage
+@inject HttpClient http
+@inject AppSettings appSettings
+
+
+<h3>Patient Details Master </h3>
+
+<div class="container-fluid p-0">
+    <div class="card p-2">
+        
+    <div class="row">
+       <div class="col-4 float-end ms-auto">
+                <input type="text" placeholder="search" @oninput="OnSearchChanged" class="txt-src" />
+       </div>
+       <div class="col-auto float-end text-end">
+                <button type="button" class="btn-new" @onclick="ToggleSidebar"> Add New </button>
+       </div>
+    </div>
+
+
+    <div class="row">
+        <div class="col">
+            @if(pdm != null && pdm.Count > 0)
+            {
+                <table class="table table-bordered table-striped">
+                    <thead>
+                        <tr>
+                            <th>Order No</th>
+                            <th>Short Name</th>
+                            <th>Name</th>
+                            <th>Description</th>
+            
+                            <th>Deleted</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in pdm)
+                        {
+                            <tr>
+                                <td>@item.OrderNo</td>
+                                <td>@item.ShortName</td>
+                                <td>@item.Name</td>
+                                <td>@item.Description</td>
+                                <td>@(item.Deleted ? "Yes" : "No")</td>
+                                <td>
+                                    <!-- Action buttons like Edit/Delete can be added here -->
+                                        <button class="btn btn-primary btn-sm" @onclick="@(() => onupdate(item))">Edit</button>
+                                    <button class="btn btn-danger btn-sm" @onclick=@(()=>ondelete(item))>Delete</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <p>No patient details available.</p>
+            }
+
+        </div>
+    </div>
+    </div>
+
+
+    <div class="right-sidebar @(isSidebarOpen ? "open" : "")">
+
+        <!-- Header -->
+        <div class="sidebar-header">
+            <h5>Filters</h5>
+            <button class="btn-close" @onclick="ToggleSidebar"></button>
+        </div>
+
+        <!-- Body -->
+        <div class="sidebar-body">
+            <EditForm Model=@_pdm >
+
+            <div class="mb-3">
+                <label class="form-label">Order No</label>
+                <input type="number" class="form-control" @bind-value=@_pdm.OrderNo/>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Short Name</label>
+                <input type="text" class="form-control" @bind-value=@_pdm.ShortName />
+            </div>
+
+                <div class="mb-3">
+                    <label class="form-label"> Name</label>
+                    <input type="text" class="form-control" @bind-value=@_pdm.Name />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Description</label>
+                    <input type="text" class="form-control" @bind-value=@_pdm.Description />
+                </div>
+
+                <div class="mb-3">
+                    
+                    <InputCheckbox type="text" class="form-control" @bind-value=@_pdm.Deleted/>
+                </div>
+
+            </EditForm>
+            <!-- add more controls here -->
+        </div>
+
+        <!-- Footer -->
+        <div class="sidebar-footer">
+            <button class="btn btn-outline-secondary w-50" @onclick="@(()=>_pdm=new())">Clear</button>
+            <button class="btn btn-success w-50 ms-2" @onclick="btnSave">Save</button>
+        </div>
+
+    </div>
+
+
+
+</div>
+
+
+@code {
+    PatientDetails_Master _pdm = new();
+    bool isSidebarOpen = false;
+    int usercode = 0;
+    private async Task ToggleSidebar()
+    {
+        _pdm = new();
+        isSidebarOpen = !isSidebarOpen;
+        StateHasChanged();
+    }
+    IList<PatientDetails_Master> pdm1 = new List<PatientDetails_Master>();
+    IList<PatientDetails_Master> pdm = new List<PatientDetails_Master>();
+    string token = string.Empty;
+    protected override async Task OnInitializedAsync()
+    {
+        http.DefaultRequestHeaders.Clear();
+        http.DefaultRequestHeaders.Clear();
+        http.DefaultRequestHeaders.Add("X-Tenant-ID", appSettings.ClientId);
+
+        var tkn = await _sessionStorage.GetAsync<UserAuth>("claim");
+        if (tkn.Success && tkn.Value != null)
+        {
+            token = tkn.Value.token;
+            usercode = tkn.Value.UserCode;
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
+        await this.LoadPatientDetailsAsync();
+    }
+    private async Task LoadPatientDetailsAsync()
+    {
+        try
+        {
+            var res = await http.GetAsync($"{appSettings.BaseUrl}masters/getpatientdetails");
+            if (res.IsSuccessStatusCode)
+            {
+                var pdmList = await res.Content.ReadFromJsonAsync<List<PatientDetails_Master>>()?? new List<PatientDetails_Master>();
+                if (pdmList != null && pdmList.Any())
+                {
+                    pdm1 = pdmList.ToList();
+                    pdm = pdm1.Where(x => x.Deleted == false).OrderBy(x => x.OrderNo).ToList();
+                }
+            }
+            else
+            {
+                var tt = await res.Content.ReadAsStringAsync();
+                var tt1 = tt;
+            }
+
+            StateHasChanged();
+
+        }catch(Exception ex)
+        {
+        }
+    }
+    private async Task onupdate(PatientDetails_Master pdmobj)
+    {
+        _pdm = pdmobj;
+        isSidebarOpen = true;
+    }
+    private async Task ondelete(PatientDetails_Master pdmobj)
+    {
+        _pdm = pdmobj;
+        _pdm.Deleted = true;
+
+        await this.btnSave();
+
+    }
+    private async Task btnSave()
+    {
+        _pdm.Description = _pdm.Description ?? "";
+        _pdm.ShortName = _pdm.ShortName ?? "";
+        _pdm.Deleted = _pdm.Deleted == null ? false : _pdm.Deleted;
+        _pdm.ComputerCode = 1;
+        _pdm.UserCode = usercode;
+        _pdm.EnteredDate = DateTime.Now;
+        _pdm.IBSDate = DateTime.Now;
+        var chk = pdm1.Any(x => x.Name == _pdm.Name && (_pdm.PDCode==0 ||_pdm.PDCode ==null));
+        if(chk==false)
+        {
+            var res = await http.PostAsJsonAsync($"{appSettings.BaseUrl}masters/insertpatientdetails", _pdm);
+            if(res.IsSuccessStatusCode)
+            {
+                var pdmList = await res.Content.ReadFromJsonAsync<List<PatientDetails_Master>>() ?? new List<PatientDetails_Master>();
+                if (pdmList != null && pdmList.Any())
+                {
+                    pdm1 = pdmList.ToList();
+                    pdm = pdm1.Where(x => x.Deleted == false).OrderBy(x => x.OrderNo).ToList();
+                }
+                isSidebarOpen = false;
+            }
+            else
+            {
+                var tt = await res.Content.ReadAsStringAsync();
+
+            }
+        }
+        StateHasChanged();
+    }
+    private string searchText = "";
+    CancellationTokenSource cts;
+
+    async Task OnSearchChanged(ChangeEventArgs e)
+    {
+        cts?.Cancel();
+        cts = new CancellationTokenSource();
+
+        try
+        {
+            await Task.Delay(300, cts.Token);
+            searchText = e.Value?.ToString() ?? "";
+            pdm = pdm1.Where(x => x.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+        catch { }
+    }
+}

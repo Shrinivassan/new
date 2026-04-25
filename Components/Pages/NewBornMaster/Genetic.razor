@@ -1,0 +1,416 @@
+@page "/genetic"
+@using System
+@using System.Collections.ObjectModel
+@using System.Collections.Generic
+@using LIMS.Model
+@using Lims.Components.Model
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@rendermode @(new InteractiveServerRenderMode(prerender:false))
+@inject HttpClient Http
+@inject ProtectedSessionStorage _sessionStorage
+@inject AppSettings appSettings
+@inject Data.ApiData _apiData
+@inject Lims.Components.Data.NotificationService NotificationService
+@inject IJSRuntime JSRuntime
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.EntityFrameworkCore
+@using Newtonsoft.Json
+@using Syncfusion.Blazor.RichTextEditor
+@using Syncfusion.Blazor.Grids
+@inject ExecutionClass exe
+@using Syncfusion.Blazor.DropDowns
+@using Lims.Components.Data
+@using AspChangeEvent = Microsoft.AspNetCore.Components.ChangeEventArgs
+
+<div class="genetic-page">
+    <!-- Header Section -->
+    <div class="page-header">
+        <div class="page-header-title">
+            <i class="fas fa-dna animate-pulse"></i>
+            <span>Genetic Master</span>
+        </div>
+        <div class="page-header-accent"></div>
+    </div>
+
+    <div class="content-body">
+        <!-- Search Card -->
+        <div class="glass-card mb-3 selection-card">
+            <div class="card-header-premium">
+                <i class="fas fa-search-location"></i>
+                <span>Test Selection</span>
+            </div>
+            <div class="card-body-premium">
+                <div class="search-container-premium">
+                    <label class="premium-label">Search and Select Genetic Test</label>
+                    <SfAutoComplete TValue="string" 
+                                    TItem="Test_Master" 
+                                    Placeholder="Enter test name, code or keyword..." 
+                                    Value="@searchTest"
+                                    DataSource="@tm" 
+                                    AllowFiltering="true"
+                                    FilterType="Syncfusion.Blazor.DropDowns.FilterType.Contains"
+                                    IgnoreAccent="true"
+                                    ShowPopupButton="true"
+                                    CssClass="premium-autocomplete">
+                        <AutoCompleteEvents TItem="Test_Master" 
+                                           TValue="string" 
+                                           Filtering="OnAutoCompleteFilter" 
+                                           ValueChange="OnTestSelected">
+                        </AutoCompleteEvents>
+                        <AutoCompleteTemplates TItem="Test_Master">
+                            <ItemTemplate>
+                                <div class="autocomplete-item">
+                                    <div class="item-main">
+                                        <i class="fas fa-microscope me-2 text-primary"></i>
+                                        <span class="item-name">@context.Name</span>
+                                    </div>
+                                    <span class="item-code">@context.TCode</span>
+                                </div>
+                            </ItemTemplate>
+                        </AutoCompleteTemplates>
+                        <AutoCompleteFieldSettings Value="Name" Text="Name"></AutoCompleteFieldSettings>
+                    </SfAutoComplete>
+                </div>
+            </div>
+        </div>
+
+        @if (selectedTest != null)
+        {
+            <!-- Data Card -->
+            <div class="glass-card fade-in">
+                <div class="card-header-premium">
+                    <i class="fas fa-table-list"></i>
+                    <span>Parameter Mapping Details</span>
+                    <div class="ms-auto">
+                        <span class="badge-status success">
+                            <i class="fas fa-check-circle me-1"></i> @selectedTest.TCode Active
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-body-premium">
+                    <div class="info-strip mb-3">
+                        <div class="info-item">
+                            <label>Display Name</label>
+                            <span>@selectedTest.Name</span>
+                        </div>
+                        <div class="info-divider"></div>
+                        <div class="info-item">
+                            <label>Internal Code</label>
+                            <span class="code-span">@selectedTest.TCode</span>
+                        </div>
+                    </div>
+
+                    <!-- Normal Table with Y-Overflow -->
+                    <div class="table-wrapper-premium">
+                        <table class="normal-premium-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 80px; text-align: center;">SL No</th>
+                                    <th>Table Title</th>
+                                    <th>Parameter Name</th>
+                                    <th style="width: 200px;">Machine Code</th>
+                                    <th style="width: 100px; text-align: center;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (ntd.Count > 0)
+                                {
+                                    @foreach (var item in ntd)
+                                    {
+                                        <tr>
+                                            <td style="text-align: center;">@item.SLNo</td>
+                                            <td>@item.TableTitle</td>
+                                            <td>
+                                                @if (editingId == item.NTDID)
+                                                {
+                                                    <input type="text" class="table-inline-input" @bind="item.Parameters" />
+                                                }
+                                                else
+                                                {
+                                                    <div class="display-value" @onclick="() => editingId = item.NTDID">
+                                                        @(string.IsNullOrEmpty(item.Parameters) ? "---" : item.Parameters)
+                                                    </div>
+                                                }
+                                            </td>
+
+                                            <td>
+                                                @if (editingId == item.NTDID)
+                                                {
+                                                    <input type="text" class="table-inline-input" @bind="item.MachineCode" @onblur="() => editingId = Guid.Empty" autofocus />
+                                                }
+                                                else
+                                                {
+                                                    <div class="display-value" @onclick="() => editingId = item.NTDID">
+                                                        @(string.IsNullOrEmpty(item.MachineCode) ? "---" : item.MachineCode)
+                                                    </div>
+                                                }
+                                            </td>
+                                            <td style="text-align: center;">
+                                                <div class="action-buttons-cell">
+                                                    <button class="btn-row-action edit" title="Edit Row" @onclick="() => editingId = item.NTDID">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button class="btn-row-action delete" title="Remove row" @onclick="() => DeleteRow(item)">
+                                                        <i class="fas fa-trash-alt"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4 text-muted">No parameters found for this test.</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="footer-actions mt-3">
+                        <button class="btn-modern-save" @onclick="SaveData" disabled="@isSaving">
+                            @if (isSaving)
+                            {
+                                <i class="fas fa-spinner fa-spin me-2"></i>
+                                <span>SAVING...</span>
+                            }
+                            else
+                            {
+                                <i class="fas fa-cloud-arrow-up me-2"></i>
+                                <span>SAVE CONFIGURATION</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="empty-selection-state">
+                <div class="empty-illustration">
+                    <i class="fas fa-dna scale-up"></i>
+                </div>
+                <h3>Genetic Configuration</h3>
+                <p>Please search and select a test from the dropdown above to view and modify machine mappings.</p>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    NewBorn_Test_Master ntm = new();
+    ObservableCollection<NewBorn_Test_Details> ntd = new ObservableCollection<NewBorn_Test_Details>();
+
+    IList<Test_Master> tm = new List<Test_Master>();
+    private string searchTest = string.Empty;
+    private Test_Master? selectedTest;
+    private string token = string.Empty;
+    private bool isSaving = false;
+    private CancellationTokenSource _searchCancellationTokenSource = new();
+    private int? _lastFetchedTCode = null;
+    int Tcode = 0;
+    private Guid editingId = Guid.Empty;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            Http.DefaultRequestHeaders.Clear();
+            Http.DefaultRequestHeaders.Add("X-Tenant-ID", appSettings.ClientId);
+
+            var tkn = await _sessionStorage.GetAsync<UserAuth>("claim");
+            if (tkn.Success && tkn.Value != null)
+            {
+                token = tkn.Value.token;
+                Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task OnTestSelected(Syncfusion.Blazor.DropDowns.ChangeEventArgs<string, Test_Master> args)
+    {
+        if (args.ItemData != null && args.ItemData.TCode != selectedTest?.TCode)
+        {
+            selectedTest = args.ItemData;
+            await SelectTestItem(args.ItemData);
+            searchTest = args.ItemData.Name;
+            return;
+        }
+
+        if (args.ItemData == null && string.IsNullOrWhiteSpace(args.Value))
+        {
+            await ClearSelection();
+            return;
+        }
+
+        if (args.ItemData == null)
+        {
+            searchTest = args.Value ?? string.Empty;
+        }
+    }
+
+    private async Task ClearSelection()
+    {
+        searchTest = string.Empty;
+        selectedTest = null;
+        ntm = new();
+        ntd.Clear();
+        _lastFetchedTCode = null;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnAutoCompleteFilter(Syncfusion.Blazor.DropDowns.FilteringEventArgs args)
+    {
+        _searchCancellationTokenSource.Cancel();
+        _searchCancellationTokenSource = new CancellationTokenSource();
+        var cancellationToken = _searchCancellationTokenSource.Token;
+        await Task.Delay(300, cancellationToken);
+        if (cancellationToken.IsCancellationRequested) return;
+        await SearchTests(args.Text);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SearchTests(string searchText)
+    {
+        if (string.IsNullOrWhiteSpace(searchText) || searchText.Length < 2)
+        {
+            tm = new List<Test_Master>();
+            return;
+        }
+
+        try
+        {
+            var res = await Http.GetAsync($"{appSettings.BaseUrl}request/SearchTest?testname={Uri.EscapeDataString(searchText)}");
+            if (res.IsSuccessStatusCode)
+            {
+                var responseData = await res.Content.ReadAsStringAsync();
+                tm = JsonConvert.DeserializeObject<IList<Test_Master>>(responseData) ?? new List<Test_Master>();
+            }
+            else
+            {
+                tm = new List<Test_Master>();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", "Search error:", ex.Message);
+            tm = new List<Test_Master>();
+        }
+    }
+
+    private async Task SelectTestItem(Test_Master test)
+    {
+        if (test == null) return;
+        searchTest = test.Name;
+        selectedTest = test;
+        tm.Clear();
+        Tcode = test.TCode;
+        ntm = new NewBorn_Test_Master();
+        ntd = new ObservableCollection<NewBorn_Test_Details>();
+
+        if (test.TCode > 0 && _lastFetchedTCode != test.TCode)
+        {
+            try
+            {
+                var res = await Http.GetAsync($"{appSettings.BaseUrl}Newborn/NewBornTestMaster?TCode={test.TCode}");
+
+                if (res.IsSuccessStatusCode)
+                {
+                    var tt = await res.Content.ReadAsStringAsync();
+                    var data = JsonConvert.DeserializeObject<NewBornMasterData>(tt);
+
+                    if (data != null)
+                    {
+                        ntm = data.ntm ?? new NewBorn_Test_Master();
+                        ntm.TCode = test.TCode;
+                        ntd = data.ntd != null ? new ObservableCollection<NewBorn_Test_Details>(data.ntd) : new ObservableCollection<NewBorn_Test_Details>();
+                    }
+                    else
+                    {
+                        ntm = new NewBorn_Test_Master { TCode = test.TCode };
+                        ntd = new ObservableCollection<NewBorn_Test_Details>();
+                    }
+
+                    _lastFetchedTCode = test.TCode;
+                }
+                else
+                {
+                    var msg = await res.Content.ReadAsStringAsync();
+                    await JSRuntime.InvokeVoidAsync("console.warn", "API returned non-success:", msg);
+                }
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("console.error", "Exception fetching test details:", ex.ToString());
+                ntm = new NewBorn_Test_Master { TCode = test.TCode };
+                ntd = new ObservableCollection<NewBorn_Test_Details>();
+            }
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void DeleteRow(NewBorn_Test_Details item)
+    {
+        if (ntd.Contains(item))
+        {
+            ntd.Remove(item);
+            // Re-sequence SL No
+            int i = 1;
+            foreach(var row in ntd) row.SLNo = i++;
+            _ = NotificationService.ShowSuccess("Row deleted successfully!");
+        }
+    }
+
+    private async Task SaveData()
+    {
+        ntm.TCode = Tcode;
+        ntm.Method = ntm.Method ?? "";
+        ntm.Interpretation = ntm.Interpretation ?? "";
+        ntm.Comments = ntm.Comments ?? "";
+        ntm.Disclaimer = ntm.Disclaimer ?? "";
+        ntm.Normal = ntm.Normal ?? "";
+        ntm.Abnormal = ntm.Abnormal ?? "";
+
+        foreach (var item in ntd)
+        {
+            item.MachineCode = item.MachineCode ?? "";
+            item.TableTitle = item.TableTitle ?? "";
+            item.Parameters = item.Parameters ?? "";
+            item.Details = item.Details ?? "";
+            item.Method = item.Method ?? "";
+            item.ObserverValue = item.ObserverValue ?? "";
+            item.RangeType = item.RangeType ?? "-";
+            item.ReferenceRange = item.ReferenceRange ?? "";
+            item.Unit = item.Unit ?? "";
+            item.Result = item.Result ?? "";
+            item.GroupTitle = item.GroupTitle ?? "";
+            item.Condition = item.Condition ?? "";
+            item.RangeType1 = item.RangeType1 ?? "-";
+        }
+
+        isSaving = true;
+
+        var payload = new NewBornMasterData { ntm = this.ntm, ntd = this.ntd.ToList() };
+
+        var response = await Http.PostAsJsonAsync($"{appSettings.BaseUrl}NewBorn/NewBornMasterInsert", payload);
+
+        if (response.IsSuccessStatusCode)
+        {
+            _ = NotificationService.ShowSuccess("Configuration saved successfully!");
+        }
+        else
+        {
+            var msg = await response.Content.ReadAsStringAsync();
+            _ = NotificationService.ShowError("Error Saving: " + msg);
+        }
+
+        isSaving = false;
+        await InvokeAsync(StateHasChanged);
+    }
+}

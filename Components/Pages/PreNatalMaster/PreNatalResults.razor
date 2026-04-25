@@ -1,0 +1,1108 @@
+@page "/prenatalresult"
+@using LIMS.Model
+@rendermode @(new InteractiveServerRenderMode(prerender:false))
+
+
+@using Lims.Components.Data
+@using Lims.Components.Model
+@using Newtonsoft.Json
+@using Syncfusion.Blazor.RichTextEditor
+@using Syncfusion.Blazor.Popups
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.DropDowns
+@using System.Text.Json
+
+@inject HttpClient http
+@inject AppSettings appSettings
+@inject ProtectedSessionStorage sessionStorage
+@inject ExecutionClass exe
+@inject Lims.Components.Data.NotificationService NotificationService
+<div class="page-header">
+    <div class="page-header-title">
+        <i class="fas fa-microscope animate-pulse"></i>
+        <span>PreNatal Result Entry</span>
+    </div>
+    <div class="page-header-accent"></div>
+</div>
+
+<div class="container-fluid">
+
+
+    <div class="card p-3">
+        <div class="card-body">
+            <!-- Patient info section -->
+            @if (!string.IsNullOrEmpty(prenatalrequest.PatientName))
+            {
+                <EditForm Model="@prenatalrequest">
+                    <div class="row">
+                        <div class="col-auto">
+                            <label style="font-weight: 600; display: flex; align-items: center; width: 150px;">
+                                <i class="bi bi-calendar-fill" style="margin-right: 5px;"></i> Sample ID: </label>
+                            <span>@prenatalrequest.RequestSnoPrint</span>
+                        </div>
+                        @* <div class="col-auto">
+                            <label style="font-weight: 600; display: flex; align-items: center; width: 150px;">
+                                <i class="bi bi-hash" style="margin-right: 5px;"></i> Patient GUID: </label>
+                            <span>@prenatalrequest.RequestGUID</span>
+                        </div> *@
+                        <div class="col-auto">
+                            <label style="font-weight: 600; display: flex; align-items: center; width: 150px;">
+                                <i class="bi bi-person-fill" style="margin-right: 5px;"></i> Patient Name:
+                            </label>
+                            <InputText @bind-Value="prenatalrequest.PatientName" style="flex: 1; padding: 6px 10px;"
+                                readonly />
+                        </div>
+                        <div class="col-auto">
+                            <label style="font-weight: 600; display: flex; align-items: center; width: 150px;">
+                                <i class="bi bi-calendar-fill" style="margin-right: 5px;"></i> Age / Gender:
+                            </label>
+                            <span>@prenatalrequest.Age / @prenatalrequest.Gender</span>
+                        </div>
+                        @* <div class="col-auto">
+                            <label style="font-weight: 600; display: flex; align-items: center; width: 150px;">
+                                <i class="bi bi-calendar-fill" style="margin-right: 5px;"></i> requsetGUID:
+                            </label>
+                            <span>@prenatalrequest.RequestGUID / @prenatalrequest.Gender</span>
+                        </div> *@
+                        <div class="col-auto">
+                            <label style="font-weight: 600; display: flex; align-items: center; width: 150px;">
+                                <i class="bi bi-file-medical-fill" style="margin-right: 5px;"></i> Referral:
+                            </label>
+                            <span>@prenatalrequest.DoctorFullName</span>
+                        </div>
+                    </div>
+
+                    <div class="row">
+
+                        <div class="col">
+                            <label style="font-weight: 600; display: flex; align-items: center; width: 150px;">
+                                <i class="bi bi-file-medical-fill" style="margin-right: 5px;"></i> Test Name:
+                            </label>
+                            <span>@prenatalrequest.TestName</span>
+                        </div>
+                    </div>
+
+
+
+
+                </EditForm>
+
+
+
+                <button type="button" class="btn btn-danger position-relative float-end top-0 reload-btn"
+                    @onclick="@ReloadAsync">Reload</button>
+                                                   <button type="button"
+        @onclick="@GetMachineResultsAsync"
+        class="get-machine-btn">
+    Get Machine Results
+</button>
+
+            }
+        </div>
+
+
+        @if (prd?.prm != null)
+        {
+            <EditForm Model="@prd?.prm">
+                <div class="row d-flex">
+                    <div class="col">
+                        <label>Collected Time</label>
+                        <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="prd.prm.CollectedDateTime"
+                            class="form-control" />
+                    </div>
+                    <div class="col">
+                        <label>Received Time</label>
+                        <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="prd.prm.ReceivedDateTime"
+                            class="form-control" />
+                    </div>
+                    <div class="col">
+                        <label>Reported Time</label>
+                        <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="prd.prm.ResultDateTime"
+                            class="form-control" />
+                    </div>
+                </div>
+            </EditForm>
+        }
+
+        <!-- Results Table -->
+        <div class="row">
+            <h3>Result Table</h3>
+            @if (prd?.prd != null)
+            {
+                <SfGrid DataSource="@rdet1" TValue="PreNatal_Result_Details" AllowPaging="false" @ref="grd1">
+                    <GridTemplates>
+                        <EmptyRecordTemplate>
+                            <div class="text-center">No results found.</div>
+                        </EmptyRecordTemplate>
+                    </GridTemplates>
+                    <GridSelectionSettings Mode="Syncfusion.Blazor.Grids.SelectionMode.Both"></GridSelectionSettings>
+                    <GridEditSettings AllowEditing="true" AllowAdding="true" AllowDeleting="true" Mode="EditMode.Batch"
+                        ShowConfirmDialog="false"></GridEditSettings>
+                    <GridEvents OnCellEdit="@OnCellEdit" CellSelected="@OnCellSelAsync" CellSaved="@CellSaveHandlerAsync"
+                        TValue="PreNatal_Result_Details"></GridEvents>
+
+                    <GridColumns>
+                        @* <GridColumn Field="@nameof(PreNatal_Result_Details.PNDetailsID)"
+                            HeaderText="GUID" AllowEditing="false"></GridColumn> *@
+                       
+                        
+                            <GridColumn Field="@nameof(PreNatal_Result_Details.BiochemicalMarker)"
+                                HeaderText="Biochemical Marker" IsPrimaryKey="true" AllowEditing="true"></GridColumn>
+                        
+                        <GridColumn Field="@nameof(PreNatal_Result_Details.MachineCode)" HeaderText="Machine Code"
+                            AllowEditing="true" Visible="false"></GridColumn>
+                        <GridColumn Field="@nameof(PreNatal_Result_Details.Concentration)" HeaderText="Concentration"
+                            AllowEditing="true"></GridColumn>
+                        <GridColumn Field="@nameof(PreNatal_Result_Details.Unit)" HeaderText="Unit" AllowEditing="true">
+                        </GridColumn>
+                        <GridColumn Field="@nameof(PreNatal_Result_Details.CorrMOM)" HeaderText="Corr. MoM"
+                            AllowEditing="true"></GridColumn>
+                    </GridColumns>
+                </SfGrid>
+            }
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger mt-2">@errorMessage</div>
+            }
+        </div>
+        <div class="row">
+            <h3>Result Table 2</h3>
+            @if (prd?.prd != null)
+            {
+                <SfGrid @ref="@grd2" DataSource="@rdet2" TValue="PreNatal_Result_Details" AllowPaging="false">
+                    <GridTemplates>
+                        <EmptyRecordTemplate>
+                            <div class="text-center">No results found.</div>
+                        </EmptyRecordTemplate>
+                    </GridTemplates>
+                    <GridSelectionSettings Mode="Syncfusion.Blazor.Grids.SelectionMode.Both"></GridSelectionSettings>
+                    <GridEditSettings AllowEditing="true" AllowAdding="true" AllowDeleting="true" Mode="EditMode.Batch"
+                        ShowConfirmDialog="false"></GridEditSettings>
+                    <GridEvents CellSelected="@OnCellSelAsync2" CellSaved="@CellSaveHandlerAsync2"
+                        TValue="PreNatal_Result_Details"></GridEvents>
+
+                    <GridColumns>
+                        @* <GridColumn Field="@nameof(PreNatal_Result_Details.PNDetailsID)"
+                            HeaderText="GUID" AllowEditing="false"></GridColumn> *@
+                        <GridColumn Field="@nameof(PreNatal_Result_Details.Disorder)" HeaderText="Disorder"
+                            IsPrimaryKey="true" AllowEditing="true"></GridColumn>
+                        <GridColumn Field="@nameof(PreNatal_Result_Details.MachineCode)" HeaderText="Machine Code"
+                            AllowEditing="true" Visible="false"></GridColumn>
+                        <GridColumn Field="@nameof(PreNatal_Result_Details.RiskValue)" HeaderText="Risk Value"
+                            AllowEditing="true"></GridColumn>
+                        <GridColumn Field="@nameof(PreNatal_Result_Details.CutOff)" HeaderText="CutOff" AllowEditing="true">
+                        </GridColumn>
+                        <GridColumn Field="@nameof(PreNatal_Result_Details.RiskValueMachineCode)" HeaderText="Risk Machine Code"
+                            AllowEditing="true" Visible="false"></GridColumn>
+                        <GridColumn Field="@nameof(PreNatal_Result_Details.CutOffMachineCode)" HeaderText="CutOff Machine Code"
+                            AllowEditing="true" Visible="false"></GridColumn>
+                        <GridColumn Field="@nameof(PreNatal_Result_Details.FinalRisk)" HeaderText="Final Risk"
+                            AllowEditing="true">
+                            <EditTemplate>
+                                @{
+                                    var rowData = (context as PreNatal_Result_Details);
+                                    <SfDropDownList TValue="string" TItem="string" DataSource="@RiskOptions" @bind-Value="@rowData.FinalRisk">
+                                    </SfDropDownList>
+                                }
+                            </EditTemplate>
+                        </GridColumn>
+                    </GridColumns>
+                </SfGrid>
+
+            }
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger mt-2">@errorMessage</div>
+            }
+        </div>
+
+        @if (prd?.prm != null)
+        {
+            <div class="mt-3">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-tools me-1"></i> Method:
+                    </label>
+                    <SfRichTextEditor @bind-Value="@prd.prm.Method" Width="100%">
+                        <RichTextEditorToolbarSettings Items="@exe.Tools"></RichTextEditorToolbarSettings>
+                    </SfRichTextEditor>
+                </div>
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1"
+                        style="background-color: white; border-none;">
+                        <label class="form-label fw-bold mb-0">
+                            <i class="bi bi-tools me-1"></i> Interpretation:
+                        </label>
+              <div class="d-flex gap-2">
+
+    <!-- Abnormal Button -->
+    <button type="button"
+        class="btn btn-outline-danger btn-sm d-flex align-items-center justify-content-center"
+        style="height:28px; width:100px; font-size:11px; background-color:#DDD; border-color:#dc3545; color:#dc3545;"
+        @onclick="@(() => GetNotes("Abnormal"))">
+       
+        ABNORMAL
+    </button>
+
+    <!-- Normal Button -->
+    <button type="button"
+        class="btn btn-outline-success btn-sm d-flex align-items-center justify-content-center"
+        style="height:28px; width:100px; font-size:11px; background-color:#DDD; border-color:#198754; color:#198754;"
+        @onclick="@(() => GetNotes("Normal"))">
+       
+        NORMAL
+    </button>
+
+</div>
+
+
+
+
+
+
+                    </div>
+
+                    <SfRichTextEditor @bind-Value="@prd.prm.Interpretation" Width="100%">
+                        <RichTextEditorToolbarSettings Items="@exe.Tools"></RichTextEditorToolbarSettings>
+                    </SfRichTextEditor>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-chat-left-text me-1"></i> Comments:
+                    </label>
+                    <SfRichTextEditor @bind-Value="@prd.prm.Comments" Width="100%">
+                        <RichTextEditorToolbarSettings Items="@exe.Tools"></RichTextEditorToolbarSettings>
+                    </SfRichTextEditor>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-exclamation-triangle me-1"></i> Disclaimer:
+                    </label>
+                    <SfRichTextEditor @bind-Value="@prd.prm.Disclaimer" Width="100%">
+                        <RichTextEditorToolbarSettings Items="@exe.Tools"></RichTextEditorToolbarSettings>
+                    </SfRichTextEditor>
+                </div>
+            </div>
+
+
+        }
+
+
+        <div class="row">
+            <div class="col">
+                <InputFile OnChange="@(e => UploadFile(e, 1))"></InputFile><br />
+                <InputFile OnChange="@(e => UploadFile(e, 2))"></InputFile>
+            </div>
+            <div
+                style="flex: 0 0 33.3333%; padding-top: 0.25rem; padding-bottom: 0.25rem; border-bottom: 1px solid #6c757d; display: flex; flex-direction: column; margin-left: auto;">
+                <strong style="margin-bottom: 0.5rem;">Attachments</strong>
+
+                @if (prd?.prm != null && !string.IsNullOrEmpty(prd?.prm.Filepath1))
+                {
+                    <div style="display: flex; align-items: center; gap: 0.5rem; max-width: 200px; overflow: hidden;">
+                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px;">
+                            @SplitFileName(prd?.prm.Filepath1).Result
+                        </span>
+
+                        <button
+                            style="font-size: 0.875rem; color: #0d6efd; background: none; border: none; cursor: pointer;"
+                            title="Download" @onclick="@(() => DownloadFile(prd?.prm.Filepath1 ?? ""))">
+                            <i class="bi bi-file-earmark-arrow-down"></i>
+                        </button>
+
+                        <button
+                            style="font-size: 0.875rem; color: #dc3545; background: none; border: none; cursor: pointer;"
+                            title="Delete" @onclick="@(() => DeleteFile(prd?.prm.Filepath1 ?? "", 1))">
+                            <i class="bi bi-trash3"></i>
+                        </button>
+                    </div>
+
+                }
+            </div>
+
+
+            @if (prd?.prm != null && !string.IsNullOrEmpty(prd?.prm.Filepath2))
+            {
+                <div class="row">
+                    <div class="col-4 justify-content-end ms-auto">
+                        <div class="d-flex align-items-center">
+                            <span class="me-2">@SplitFileName(prd?.prm.Filepath2).Result</span>
+                            <button class="btn btn-sm text-primary" title="Download"
+                                @onclick="@(() => DownloadFile(prd?.prm.Filepath2 ?? ""))">
+                                <i class="bi bi-file-earmark-arrow-down"></i>
+                            </button>
+                            <button class="btn btn-sm text-danger" title="Delete"
+                                @onclick="@(() => DeleteFile(prd?.prm.Filepath2 ?? "", 2))">
+                                <i class="bi bi-trash3"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+
+
+
+        <div class="card-footer bg-transparent">
+            <div class="row">
+                <div class="col">
+                    <div class="row">
+                        <div class="col">
+                            <span>@ent1</span> <br />
+                            <small>Result Entered By</small>
+                        </div>
+                        <div class="col">
+                            <span>@app1</span> <br />
+                            <small>Approved By</small>
+                        </div>
+                        <div class="col">
+                            <span>@auth1</span> <br />
+                            <small>Authorized By</small>
+                        </div>
+                    </div>
+
+
+                </div>
+                <div class="col-auto d-flex justify-content-end gap-2">
+                    @* <button class="btn btn-info" @onclick="GetPreNatalReport">
+                        <i class="bi bi-file-pdf"></i>
+                        <span>Print Report</span>
+                    </button> *@
+                    <button class="btn btn-primary" @onclick="SaveResultsAsync">
+                        <i class="bi bi-save"></i>
+                        @{
+                            string btnsave = isauthorized == true ? "Authorize" : isapproved == true ? "Approve" : "Save";
+                        }
+                        <span>@btnsave</span>
+                    </button>
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+
+</div>
+<SfDialog Visible=@isview Width="90%" Height="500px" IsModal=true ShowCloseIcon=true>
+    <DialogTemplates>
+        <Content>
+            <ReportViewer Reportstring="@filestring"></ReportViewer>
+        </Content>
+    </DialogTemplates>
+</SfDialog>
+<SfDialog Width="600px" IsModal="true" @bind-Visible="isMachineResultDialogVisible" ShowCloseIcon="true">
+    <DialogTemplates>
+        <Header>Machine Results</Header>
+        <Content>
+            @if (machineResultsList != null && machineResultsList.Count > 0)
+            {
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm">
+                        <thead>
+                            <tr>
+                                <th>Parameter Name</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in machineResultsList)
+                            {
+                                <tr>
+                                    <td>@item.ParameterName</td>
+                                    <td>@item.ParameterValue</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center p-3">No results found.</div>
+            }
+        </Content>
+    </DialogTemplates>
+    <DialogButtons>
+        <DialogButton Content="Clear" OnClick="@ClearMachineResults" />
+        <DialogButton Content="Add Result" IsPrimary="true" OnClick="@AddMachineResultsToGrid" />
+    </DialogButtons>
+</SfDialog>
+
+<style>
+.reload-btn {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+}
+
+.get-machine-btn {
+    background: linear-gradient(135deg, #0dcaf0, #0a58ca);
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 8px;
+    float: right;
+    margin-right: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.get-machine-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 14px rgba(0,0,0,0.25);
+}
+</style>
+
+@code {
+    SfPdfViewer2 rpt;
+
+
+    [Parameter]
+    public PreNatalRequest prenatalrequest { get; set; } = new PreNatalRequest();
+
+    private PreNatalResultData prd = new PreNatalResultData();
+    private List<string> RiskOptions = new List<string>() { "LOW", "Medium", "High" };
+    private string? errorMessage;
+    private SfGrid<PreNatal_Result_Details> grd1;
+    private SfGrid<PreNatal_Result_Details> grd2;
+
+    User_Master user = new();
+    IList<User_Master> usermaster = new List<User_Master>();
+
+    string ent1 = "";
+    string ent2 = "";
+
+    string app1 = "";
+    string app2 = "";
+
+    string auth1 = "";
+    string auth2 = "";
+
+    PreNatal_Test_Master premaster = new();
+    List<string> assignedMachineCodes = new List<string>();
+    private async Task LoadpremasterAsync()
+    {
+        var res = await http.GetAsync($"{appSettings.BaseUrl}genetics/prenatalnote?TCode={prenatalrequest.TCode}");
+        if (res.IsSuccessStatusCode)
+        {
+            premaster = res.Content.ReadFromJsonAsync<PreNatal_Test_Master>().Result ?? new();
+        }
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        http.DefaultRequestHeaders.Add("X-Tenant-ID", appSettings.ClientId);
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+
+            user = (await sessionStorage.GetAsync<User_Master>("UserDetails")).Value ?? new();
+            var rights = (await sessionStorage.GetAsync<List<User_Rights>>("UserRights")).Value ?? new List<User_Rights>();
+            isentered = rights.Where(x => x.Department == "Lab" && x.ModuleName == "Result Entry").Select(x => x.ToAdd).FirstOrDefault();
+            isapproved = rights.Where(x => x.Department == "Lab" && x.ModuleName == "Authorize Lab Results").Select(x => x.ToAdd).FirstOrDefault();
+            isauthorized = rights.Where(x => x.Department == "Lab" && x.ModuleName == "Authorize Lab Results 2").Select(x => x.ToAdd).FirstOrDefault();
+            this.UserMasterAsync();
+            this.LoadpremasterAsync();
+        }
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+
+        await LoadResultAsync();
+    }
+
+    private async Task UserMasterAsync()
+    {
+        var res = await http.GetAsync($"{appSettings.BaseUrl}masters/usermasters");
+        if (res.IsSuccessStatusCode)
+        {
+            usermaster = await res.Content.ReadFromJsonAsync<IList<User_Master>>();
+
+            if (usermaster != null && usermaster.Count > 0 && (prd.prd != null && prd.prm != null))
+            {
+                ent1 = usermaster.Where(x => x.UserCode == prd.prm.EnteredBy).Select(x => x.Name).FirstOrDefault() ?? "";
+                ent2 = usermaster.Where(x => x.UserCode == prd.prm.EnteredBy).Select(x => x.Description).FirstOrDefault() ?? "";
+                app1 = usermaster.Where(x => x.UserCode == prd.prm.ApprovedBy).Select(x => x.Name).FirstOrDefault() ?? "";
+                app2 = usermaster.Where(x => x.UserCode == prd.prm.ApprovedBy).Select(x => x.Description).FirstOrDefault() ?? "";
+                auth1 = usermaster.Where(x => x.UserCode == prd.prm.AuthorizedBy).Select(x => x.Name).FirstOrDefault() ?? "";
+                auth2 = usermaster.Where(x => x.UserCode == prd.prm.AuthorizedBy).Select(x => x.Description).FirstOrDefault() ?? "";
+            }
+
+        }
+        StateHasChanged();
+    }
+
+
+    bool isentered = false;
+    bool isapproved = false;
+    bool isauthorized = false;
+    private async Task LoadResultAsync()
+    {
+        errorMessage = null;
+        if (prenatalrequest != null && prenatalrequest.RequestGUID != Guid.Empty)
+        {
+            try
+            {
+                var result = await http.GetFromJsonAsync<PreNatalResultData>($"{appSettings.BaseUrl}Genetics/PrenatalGet?rid={Uri.EscapeDataString(prenatalrequest.RequestGUID.ToString())}");
+                if (result != null)
+                {
+                    prd = result;
+
+                    prd.prm.CollectedDateTime = prd.prm.CollectedDateTime == null ? DateTime.Now : prd.prm.CollectedDateTime;
+                    prd.prm.ReceivedDateTime = prd.prm.ReceivedDateTime == null ? DateTime.Now : prd.prm.ReceivedDateTime;
+                    prd.prm.ResultDateTime = prd.prm.ResultDateTime == null ? DateTime.Now : prd.prm.ResultDateTime;
+
+                    // Load assigned machine codes from master data
+                    if (prenatalrequest.TCode != null)
+                    {
+                        var masterRes = await http.GetFromJsonAsync<PreNatalMasterData>($"{appSettings.BaseUrl}genetics/prenataltest?TCode={prenatalrequest.TCode}");
+                        if (masterRes?.ptrm != null)
+                        {
+                            assignedMachineCodes = masterRes.ptrm.Where(x => !string.IsNullOrEmpty(x.MachineCode)).Select(x => x.MachineCode).ToList();
+                            assignedMachineCodes.AddRange(masterRes.ptrm.Where(x => !string.IsNullOrEmpty(x.RiskValueMachineCode)).Select(x => x.RiskValueMachineCode).ToList());
+                            assignedMachineCodes.AddRange(masterRes.ptrm.Where(x => !string.IsNullOrEmpty(x.CutOffMachineCode)).Select(x => x.CutOffMachineCode).ToList());
+                            assignedMachineCodes = assignedMachineCodes.Distinct().ToList();
+                        }
+                    }
+
+                    rdet1 = prd.prd.Where(x => x.Title == "Result Table" && (string.IsNullOrEmpty(x.MachineCode) || assignedMachineCodes.Contains(x.MachineCode, StringComparer.OrdinalIgnoreCase))).ToList();
+                    rdet2 = prd.prd.Where(x => x.Title == "Result Table 2" && (string.IsNullOrEmpty(x.MachineCode) || assignedMachineCodes.Contains(x.MachineCode, StringComparer.OrdinalIgnoreCase))).ToList();
+                    rdetBiochemical = prd.prd.Where(x => !string.IsNullOrEmpty(x.BiochemicalMarker)).ToList();
+
+                }
+                else
+                {
+                    errorMessage = "Error loading results: No data returned from server.";
+                    prd = new PreNatalResultData();
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine($"HTTP request failed: {ex.Message}");
+                errorMessage = $"Error loading results: The server did not allow the request. (Status: {ex.StatusCode})";
+                prd = new PreNatalResultData();
+            }
+        }
+    }
+
+    IList<PreNatal_Result_Details> rdet1 = new List<PreNatal_Result_Details>();
+    IList<PreNatal_Result_Details> rdet2 = new List<PreNatal_Result_Details>();
+    IList<PreNatal_Result_Details> rdetBiochemical = new List<PreNatal_Result_Details>();
+
+    private bool HasBiochemicalMarkerValues => rdet1.Any(x => !string.IsNullOrEmpty(x.BiochemicalMarker));
+
+    private async Task SaveResultsAsync()
+    {
+
+        errorMessage = null;
+
+        if (prd?.prm == null)
+        {
+            errorMessage = "No data to save.";
+            return;
+        }
+
+        try
+        {
+            prd.prm.Interpretation = prd.prm.Interpretation ?? "";
+            prd.prm.Method = prd.prm.Method ?? "";
+            prd.prm.Comments = prd.prm.Comments ?? "";
+            prd.prm.Disclaimer = prd.prm.Disclaimer ?? "";
+
+            prd.prm.Filepath1 = prd.prm.Filepath1 ?? "";
+            prd.prm.Filepath2 = prd.prm.Filepath2 ?? "";
+            prd.prm.Filepath3 = prd.prm.Filepath3 ?? "";
+
+            // bool prdab = prd.prd.Any(x => x.ResultNormal == false) == true;
+            // if (prdab == true)
+            // {
+            //     prd.prm.Interpretation = prd.prd[0].LowMessage;
+            // }
+
+            var ttinsert = JsonConvert.SerializeObject(prd);
+
+            bool issaved = false;
+
+            if (isauthorized == true)
+            {
+                if (prd.prm.AuthorizedBy == 0 || prd.prm.AuthorizedBy == user.UserCode)
+                {
+                    issaved = true; prd.prm.AuthorizedBy = prd.prm.AuthorizedBy == 0 ? user.UserCode : prd.prm.AuthorizedBy;
+                }
+                else
+                {
+                    issaved = false;
+                }
+            }
+
+            if (isapproved == true)
+            {
+                if ((prd.prm.ApprovedBy == 0 || prd.prm.ApprovedBy == user.UserCode) && prd.prm.AuthorizedBy == 0)
+                {
+                    issaved = true; prd.prm.ApprovedBy = prd.prm.ApprovedBy == 0 ? user.UserCode : prd.prm.ApprovedBy;
+                }
+                else if (isauthorized == false)
+                {
+                    issaved = false;
+                }
+            }
+
+            if (isentered == true)
+            {
+                if ((prd.prm.EnteredBy == 0 || prd.prm.EnteredBy == user.UserCode) && prd.prm.ApprovedBy == 0 && prd.prm.AuthorizedBy ==0)
+                {
+                    issaved = true; prd.prm.EnteredBy = prd.prm.EnteredBy == 0 ? user.UserCode : prd.prm.EnteredBy;
+                }
+                else if (isapproved == false && isauthorized == false)
+                {
+                    issaved = false;
+                }
+            }
+
+
+            if (issaved == false)
+            {
+                errorMessage = "You do not have rights to save the record.";
+                await NotificationService.ShowError("You do not have rights to save the record.");
+                return;
+            }
+            else
+            {
+
+                var tt = JsonConvert.SerializeObject(prd);
+                var response = await http.PostAsJsonAsync($"{appSettings.BaseUrl}Genetics/PreNatalResult", prd);
+                response.EnsureSuccessStatusCode();
+                if (response.IsSuccessStatusCode)
+                {
+                    prd = new();
+                    await NotificationService.ShowSuccess("Result saved successfully!");
+                }
+            }
+
+            // Optionally, you can add a success message here.
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"HTTP request failed: {ex.Message}");
+            errorMessage = $"Error saving results: The server did not allow the request. (Status: {ex.StatusCode})";
+            await NotificationService.ShowError(errorMessage);
+        }
+
+
+    }
+
+    private async Task OnCellEdit(CellEditArgs<PreNatal_Result_Details> args)
+    {
+        if (args.ColumnName == "OrderNo")
+        {
+
+        }
+        else
+        {
+
+        }
+        StateHasChanged();
+    }
+
+    private async Task OnCellSelAsync(CellSelectEventArgs<PreNatal_Result_Details> args)
+    {
+        var CellIndexes = await grd1.GetSelectedRowCellIndexesAsync();
+        //get the row and cell index
+        var CurrentEditRowIndex = (int)CellIndexes[0].Item1;
+        var CurrentEditCellIndex = (int)CellIndexes[0].Item2;
+
+        //get the available fields
+        var fields = await grd1.GetColumnFieldNamesAsync();
+        // edit the selected cell using the cell index and column name
+        await grd1.EditCellAsync(CurrentEditRowIndex, fields[CurrentEditCellIndex]);
+
+    }
+    public async void CellSaveHandlerAsync(CellSavedArgs<PreNatal_Result_Details> args)
+    {
+        try
+        {
+
+            if (args.Column.Field == "Concentration")
+            {
+                prd.prd.Where(x => x.PNDetailsID == args.Data.PNDetailsID).FirstOrDefault().Concentration = args.Value?.ToString() ??
+                "";
+            }
+            else if (args.Column.Field == "CorrMOM")
+            {
+                prd.prd.Where(x => x.PNDetailsID == args.Data.PNDetailsID).FirstOrDefault().CorrMOM = args.Value?.ToString() ?? "";
+                Double valu = Convert.ToDouble(args.Value ?? 0);
+                string rangetype = args.Data.RangeType;
+                Double fromrange = args.Data.RangeFrom;
+                Double torange = args.Data.RangeTo;
+
+                var abnormal = await exe.CheckNormal(rangetype, fromrange, torange, valu);
+
+                prd.prd.Where(x => x.PNDetailsID == args.Data.PNDetailsID).FirstOrDefault().ResultLow = abnormal.low;
+                prd.prd.Where(x => x.PNDetailsID == args.Data.PNDetailsID).FirstOrDefault().ResultHigh = abnormal.high;
+                prd.prd.Where(x => x.PNDetailsID == args.Data.PNDetailsID).FirstOrDefault().ResultNormal = abnormal.normal;
+
+            }
+            else if (args.Column.Field == "MachineCode")
+            {
+                prd.prd.Where(x => x.PNDetailsID == args.Data.PNDetailsID).FirstOrDefault().MachineCode = args.Value?.ToString() ?? "";
+            }
+
+        }
+        catch (Exception ex)
+        {
+            var msg = ex.Message.ToString();
+        }
+    }
+
+
+    private async Task OnCellSelAsync2(CellSelectEventArgs<PreNatal_Result_Details> args)
+    {
+        var CellIndexes = await grd2.GetSelectedRowCellIndexesAsync();
+        //get the row and cell index
+        var CurrentEditRowIndex = (int)CellIndexes[0].Item1;
+        var CurrentEditCellIndex = (int)CellIndexes[0].Item2;
+
+        //get the available fields
+        var fields = await grd2.GetColumnFieldNamesAsync();
+        // edit the selected cell using the cell index and column name
+        await grd2.EditCellAsync(CurrentEditRowIndex, fields[CurrentEditCellIndex]);
+
+    }
+    public async void CellSaveHandlerAsync2(CellSavedArgs<PreNatal_Result_Details> args)
+    {
+        try
+        {
+
+            if (args.Column.Field == "RiskValue")
+            {
+                prd.prd.Where(x => x.PNDetailsID == args.Data.PNDetailsID).FirstOrDefault().RiskValue = args.Value?.ToString() ?? "";
+            }
+            else if (args.Column.Field == "CutOff")
+            {
+                prd.prd.Where(x => x.PNDetailsID == args.Data.PNDetailsID).FirstOrDefault().CutOff = args.Value?.ToString() ?? "";
+            }
+            else if (args.Column.Field == "FinalRisk")
+            {
+                prd.prd.Where(x => x.PNDetailsID == args.Data.PNDetailsID).FirstOrDefault().FinalRisk = args.Value?.ToString() ?? "";
+            }
+            else if (args.Column.Field == "MachineCode")
+            {
+                prd.prd.Where(x => x.PNDetailsID == args.Data.PNDetailsID).FirstOrDefault().MachineCode = args.Value?.ToString() ?? "";
+            }
+
+        }
+        catch (Exception ex)
+        {
+            var msg = ex.Message.ToString();
+        }
+    }
+
+
+    string uploadkey = "";
+    private async Task UploadFile(InputFileChangeEventArgs e, int uploadno)
+    {
+        string client = (await sessionStorage.GetAsync<string>("MainBranch")).Value ?? "General";
+        var file = e.File;
+        var content = new MultipartFormDataContent();
+        var streamContent = new StreamContent(file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024)); // max 10 MB
+        streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+        content.Add(streamContent, "file", prenatalrequest.RequestSnoPrint.Replace("/", "") + "_" + file.Name);
+
+        var response = await http.PostAsync($"{appSettings.BaseUrl}files/upload?client={client}", content);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var tt = await response.Content.ReadFromJsonAsync<JsonElement>();
+            // Get the "key" value as string
+            uploadkey = tt.GetProperty("key").GetString();
+            switch (uploadno)
+            {
+                case 1: prd.prm.Filepath1 = uploadkey; break;
+                case 2: prd.prm.Filepath2 = uploadkey; break;
+            }
+        }
+        else
+        {
+            Console.WriteLine($"Upload failed: {response.StatusCode}");
+        }
+    }
+    bool isview = false;
+    string filestring = "";
+    private async Task DownloadFile(string key)
+    {
+        try
+        {
+            string client = (await sessionStorage.GetAsync<string>("MainBranch")).Value ?? "General";
+            var result = await
+            http.GetFromJsonAsync<FileDownloadResult>($"{appSettings.BaseUrl}files/download/{key}?client={client}");
+
+            if (result != null)
+            {
+                // Convert Base64 back to byte[]
+                filestring = Convert.ToBase64String(result.Base64);
+                // await rpt.LoadAsync("data:application/pdf;base64, " + filestring, null);
+                isview = true;
+                // Example: trigger browser download
+
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving results: The server did not allow the request. (Status: {ex.Message.ToString()})";
+        }
+    }
+
+    private async Task DeleteFile(string key, int uploadno)
+    {
+        if (string.IsNullOrEmpty(key))
+        {
+            Console.WriteLine("No file key provided.");
+            return;
+        }
+        string client = (await sessionStorage.GetAsync<string>("MainBranch")).Value ?? "General";
+        // Encode key to safely include in query string
+        var encodedKey = Uri.EscapeDataString(key);
+
+        // Call DELETE API
+        var response = await http.DeleteAsync($"{appSettings.BaseUrl}files/delete?client={client}&key={encodedKey}");
+
+        if (response.IsSuccessStatusCode)
+        {
+            switch (uploadno)
+            {
+                case 1: prd.prm.Filepath1 = ""; break;
+                case 2: prd.prm.Filepath2 = ""; break;
+            }
+            Console.WriteLine("File deleted successfully!");
+            await NotificationService.ShowSuccess("File deleted successfully!");
+        }
+        else
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"Delete failed: {response.StatusCode} - {error}");
+        }
+
+        StateHasChanged();
+    }
+    private async Task<string> SplitFileName(string filename)
+    {
+        string[] sp = filename.Split("_");
+        return sp[1] + "_" + sp[2];
+    }
+    private async Task ReloadAsync()
+    {
+        try
+        {
+            Guid pnid = prd.prm.PNID == Guid.Empty ? Guid.NewGuid() : prd.prm.PNID;
+            var res = await
+            http.GetAsync($"{appSettings.BaseUrl}genetics/prenatalreload?rid={Uri.EscapeDataString(prd.prm.RequestGUID.ToString())}");
+            if (res.IsSuccessStatusCode)
+            {
+                prd = await res.Content.ReadFromJsonAsync<PreNatalResultData>();
+                prd.prm.PNID = pnid;
+                prd.prd.ToList().ForEach(x => x.PNID = pnid);
+
+                rdet1 = prd.prd.Where(x => x.Title == "Result Table").ToList();
+                rdet2 = prd.prd.Where(x => x.Title == "Result Table 2").ToList();
+                rdetBiochemical = prd.prd.Where(x => !string.IsNullOrEmpty(x.BiochemicalMarker)).ToList();
+            }
+            StateHasChanged();
+
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message.ToString());
+
+        }
+    }
+
+    private bool isMachineResultDialogVisible = false;
+    private List<MachineResultItem> machineResultsList = new();
+
+    private async Task GetMachineResultsAsync()
+    {
+        errorMessage = null;
+        if (prenatalrequest == null || prenatalrequest.RequestGUID == Guid.Empty)
+        {
+            errorMessage = "No request selected for machine results.";
+            return;
+        }
+
+        try
+        {
+            var url = $"{appSettings.BaseUrl}MachineInterface/GetResultbyid?rguid={prenatalrequest.RequestGUID}";
+            if (!http.DefaultRequestHeaders.Contains("X-Tenant-ID"))
+                http.DefaultRequestHeaders.Add("X-Tenant-ID", appSettings.ClientId);
+            var res = await http.GetAsync(url);
+            
+            if (res.IsSuccessStatusCode)
+            {
+                var allMachineResults = await res.Content.ReadFromJsonAsync<List<MachineResultItem>>() ?? new();
+
+                Console.WriteLine("--- Machine Results Debug ---");
+                Console.WriteLine($"Total results fetched: {allMachineResults.Count}");
+                foreach (var item in allMachineResults)
+                {
+                    Console.WriteLine($"Raw - Param: {item.ParameterName}, Value: {item.ParameterValue}, SampleNo: {item.SampleNo}");
+                }
+                
+                // Use all machine results without filtering by assigned codes
+                machineResultsList = allMachineResults;
+                
+                if (machineResultsList != null && machineResultsList.Count > 0)
+                {
+                    isMachineResultDialogVisible = true;
+                    StateHasChanged();
+                }
+                else
+                {
+                    errorMessage = "No machine results found for this request that match assigned machine codes.";
+                }
+            }
+            else
+            {
+                errorMessage = $"Failed to get machine results: {res.ReasonPhrase}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error fetching machine results: {ex.Message}";
+        }
+    }
+
+    private async Task AddMachineResultsToGrid()
+    {
+        if (machineResultsList != null && machineResultsList.Count > 0 && prd?.prd != null)
+        {
+            bool updated = false;
+            foreach (var item in machineResultsList)
+            {
+                // Update or add to rdet1 (Result Table)
+                // First try to match by MachineCode
+                var row1 = rdet1.FirstOrDefault(x => string.Equals(x.MachineCode, item.ParameterName, StringComparison.OrdinalIgnoreCase));
+                
+                // If no match by MachineCode, try to match by BiochemicalMarker (e.g., "Placental Growth Factor (PIGF)" contains "PIGF")
+                if (row1 == null)
+                {
+                    row1 = rdet1.FirstOrDefault(x => x.BiochemicalMarker != null && 
+                           (x.BiochemicalMarker.Contains(item.ParameterName, StringComparison.OrdinalIgnoreCase) || 
+                            x.BiochemicalMarker.EndsWith($"({item.ParameterName})", StringComparison.OrdinalIgnoreCase)));
+                }
+                
+                if (row1 != null)
+                {
+                    row1.Concentration = item.ParameterValue;
+                    updated = true;
+                }
+                else
+                {
+                    var newRow = new PreNatal_Result_Details
+                    {
+                        PNDetailsID = Guid.NewGuid(),
+                        Title = "Result Table",
+                        MachineCode = item.ParameterName,
+                        Concentration = item.ParameterValue,
+                        PNID = prd.prm.PNID,
+                        BiochemicalMarker = item.ParameterName,
+                        // Set other default fields if necessary
+                    };
+                    prd.prd.Add(newRow);
+                    rdet1.Add(newRow);
+                    updated = true;
+                }
+
+                // Update rdet2 (Result Table 2) if matching RiskValueMachineCode or CutOffMachineCode exists
+                var rowsToUpdateRisk = rdet2.Where(x => string.Equals(x.RiskValueMachineCode, item.ParameterName, StringComparison.OrdinalIgnoreCase)).ToList();
+                foreach(var r in rowsToUpdateRisk)
+                {
+                    r.RiskValue = item.ParameterValue;
+                    updated = true;
+                }
+
+                var rowsToUpdateCutOff = rdet2.Where(x => string.Equals(x.CutOffMachineCode, item.ParameterName, StringComparison.OrdinalIgnoreCase)).ToList();
+                foreach(var r in rowsToUpdateCutOff)
+                {
+                    r.CutOff = item.ParameterValue;
+                    updated = true;
+                }
+
+                // Fallback to legacy MachineCode matching for rdet2
+                var row2Default = rdet2.FirstOrDefault(x => string.Equals(x.MachineCode, item.ParameterName, StringComparison.OrdinalIgnoreCase));
+                if (row2Default != null)
+                {
+                    row2Default.RiskValue = item.ParameterValue;
+                    updated = true;
+                }
+            }
+            
+            if (updated)
+            {
+                 if(grd1 != null) await grd1.Refresh();
+                 if(grd2 != null) await grd2.Refresh();
+            }
+        }
+        isMachineResultDialogVisible = false;
+        StateHasChanged();
+    }
+
+    private void ClearMachineResults()
+    {
+        machineResultsList.Clear();
+        StateHasChanged();
+    }
+
+    private async Task GetNotes(string args)
+    {
+        if (prd?.prm == null) return;
+        prd.prm.Interpretation = args switch
+        {
+            "Abnormal" => premaster?.Abnormal ?? string.Empty,
+            "Normal" => premaster?.Normal ?? string.Empty,
+            _ => string.Empty
+        };
+    }
+
+    private async Task GetPreNatalReport()
+    {
+        try
+        {
+            if (prenatalrequest == null || prenatalrequest.RequestGUID == Guid.Empty)
+            {
+                errorMessage = "No request available to generate report.";
+                return;
+            }
+
+            bool letterhead = (await sessionStorage.GetAsync<bool>("IsLetterHead")).Value;
+            var basestring = await exe.GetReport<PreNatalRequest>(prenatalrequest, (await sessionStorage.GetAsync<string>("MainBranch")).Value ?? "General", letterhead, "PreNatalReport.rdlc");
+            
+            if (!string.IsNullOrEmpty(basestring))
+            {
+                filestring = basestring;
+                isview = true;
+                StateHasChanged();
+            }
+            else
+            {
+                errorMessage = "Failed to generate report.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error generating report: {ex.Message}";
+            Console.WriteLine($"Report generation error: {ex}");
+        }
+    }
+
+    public class MachineResultItem
+    {
+        public string? SampleNo { get; set; }
+        public string? ParameterName { get; set; }
+        public string? ParameterValue { get; set; }
+        public bool IsUpdated { get; set; }
+    }
+}
