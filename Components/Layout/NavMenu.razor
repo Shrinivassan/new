@@ -1,0 +1,281 @@
+﻿@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+<!-- User Profile Section -->
+<div class="p-2" style=" border-bottom: 1px solid var(--border-color);">
+    <div class="flex items-center justify-between" style="border: none;">
+        <div class="flex items-center gap-3">
+            <img src="https://img.freepik.com/premium-vector/health-care-medical-logo-vector-design_990473-2554.jpg"
+                 alt="User"
+                 class="w-10 h-10 rounded-full border-2 border-blue-500">
+            <div>
+                <h3 class="font-semibold text-sm" style="color: var(--text-primary);">LIMS System</h3>
+                <p class="text-xs" style="color: var(--text-secondary);">Healthcare</p>
+            </div>
+        </div>
+
+        <NavToggle />
+    </div>
+</div>
+
+
+<!-- Navigation Items -->
+<div class="flex-1 overflow-y-auto overflow-x-hidden py-4 px-1" style="padding-bottom:40px;">
+    <!-- Dashboard -->
+    <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+             href="dashboard" Match="NavLinkMatch.All"
+             data-tooltip="Dashboard">
+        <i class="fas fa-home"></i>
+        <span class="font-medium nav-text truncate text-sm">Dashboard</span>
+    </NavLink>
+
+
+
+    <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+             href="orderbooked"
+             data-tooltip="Order Booked">
+        <i class="fas fa-clipboard-list"></i>
+        <span class="font-medium nav-text truncate text-sm">Order Booked</span>
+    </NavLink>
+
+
+
+    <div class="has-submenu">
+        <button @onclick="@frontoffice" class="submenu-toggle group flex items-center justify-between w-full px-2 py-3 rounded-lg mb-1 transition-all duration-200" aria-expanded="false">
+            <span class="font-medium nav-text truncate text-sm">Front Office</span>
+            <i class="submenu-arrow fas fa-caret-down"></i>
+        </button>
+        @if (showfrontoffice)
+        {
+            <div class="submenu">
+                <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                         href="billing"
+                         data-tooltip="Billing">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    <span class="font-medium nav-text truncate text-sm">Billing</span>
+                </NavLink>
+
+                <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                         href="viewbills"
+                         data-tooltip="View Bills">
+                    <i class="fas fa-eye"></i>
+                    <span class="font-medium nav-text truncate text-sm">View Bills</span>
+                </NavLink>
+
+                <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                         href="duecollection"
+                         data-tooltip="Due Collection">
+                    <i class="fas fa-clock"></i>
+                    <span class="font-medium nav-text truncate text-sm">Due Collection</span>
+                </NavLink>
+
+                <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                         href="view-due-collection"
+                         data-tooltip="View Due Collection">
+                    <i class="fas fa-search"></i>
+                    <span class="font-medium nav-text truncate text-sm">View Due Collection</span>
+                </NavLink>
+
+                <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                         href="viewshiftcollection"
+                         data-tooltip="View Shift Collection">
+                    <i class="fas fa-exchange-alt"></i>
+                    <span class="font-medium nav-text truncate text-sm">View Shift Collection</span>
+                </NavLink>
+
+                <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                         href="referral"
+                         data-tooltip="Referral">
+                    <i class="fas fa-user-friends"></i>
+                    <span class="font-medium nav-text truncate text-sm">Referral</span>
+                </NavLink>
+            </div>
+        }
+    </div>
+    <div class="has-submenu">
+        <button @onclick="@ToggleLab" class="submenu-toggle group flex items-center justify-between w-full px-2 py-3 rounded-lg mb-1 transition-all duration-200" aria-expanded="false">
+            <span class="font-medium nav-text truncate text-sm">Lab</span>
+            <i class="submenu-arrow fas fa-caret-down"></i>
+        </button>
+        @if (showlab)
+        {
+            <div class="submenu">
+                <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                         href="result-entry"
+                         data-tooltip="Result Entry">
+                    <i class="fas fa-edit"></i>
+                    <span class="font-medium nav-text truncate text-sm">Result Entry</span>
+                </NavLink>
+
+                <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                         href="result-search"
+                         data-tooltip="Result Search">
+                    <i class="fas fa-search-plus"></i>
+                    <span class="font-medium nav-text truncate text-sm">Result Search</span>
+                </NavLink>
+
+                <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                         href="Studies_Master"
+                         data-tooltip="Studies Master">
+                    <i class="fas fa-book-medical"></i>
+                    <span class="font-medium nav-text truncate text-sm">Studies Master</span>
+                </NavLink>
+
+                <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                         href="Sample_Master"
+                         data-tooltip="Sample Master">
+                    <i class="fas fa-vial"></i>
+                    <span class="font-medium nav-text truncate text-sm">Sample Master</span>
+                </NavLink>
+
+                <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                         href="Method_Master"
+                         data-tooltip="Method Master">
+                    <i class="fas fa-cogs"></i>
+                    <span class="font-medium nav-text truncate text-sm">Method Master</span>
+                </NavLink>
+
+                <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                         href="Unit_Master"
+                         data-tooltip="Unit Master">
+                    <i class="fas fa-balance-scale"></i>
+                    <span class="font-medium nav-text truncate text-sm">Unit Master</span>
+                </NavLink>
+            </div>
+        }
+    </div>
+    <div class="has-submenu">
+        <button @onclick="@ToggleConfig" class="submenu-toggle group flex items-center justify-between w-full px-2 py-3 rounded-lg mb-1 transition-all duration-200" aria-expanded="false">
+            <span class="font-medium nav-text truncate text-sm">Configuration</span>
+            <i class="submenu-arrow fas fa-caret-down"></i>
+        </button>
+        @if (config)
+        {
+            <div class="submenu">
+                <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                     href="User_Master"
+                     data-tooltip="User Master">
+                <i class="fas fa-user-cog"></i>
+                <span class="font-medium nav-text truncate text-sm">User Master</span>
+            </NavLink>
+
+            <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                     href="Company_Master"
+                     data-tooltip="Company Master">
+                <i class="fas fa-building"></i>
+                <span class="font-medium nav-text truncate text-sm">Company Master</span>
+            </NavLink>
+
+            <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                     href="Branch_Master"
+                     data-tooltip="Branch_Master">
+                <i class="fas fa-code-branch"></i>
+                <span class="font-medium nav-text truncate text-sm">Branch_Master</span>
+            </NavLink>
+
+            <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                     href="General Settings Area Master"
+                     data-tooltip="General Settings Area Master">
+                <i class="fas fa-map-marked-alt"></i>
+                <span class="font-medium nav-text truncate text-sm">General Settings Area Master</span>
+            </NavLink>
+            <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                     href="City_MAster"
+                     data-tooltip="City MAster">
+                <i class="fas fa-city"></i>
+                <span class="font-medium nav-text truncate text-sm">City MAster</span>
+            </NavLink>
+            <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                     href="State_Master"
+                     data-tooltip="State Master">
+                <i class="fas fa-landmark"></i>
+                <span class="font-medium nav-text truncate text-sm">State Master</span>
+            </NavLink>
+        </div>
+        }
+    </div>
+
+    <!-- Pre-Natal Section -->
+    <div class="mt-4 mb-2 px-1 py-2">
+        <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--text-muted);">Pre-Natal</span>
+    </div>
+
+    <div class="">
+        <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                 href="prenatalmaster"
+                 data-tooltip="PreNatal Master">
+            <i class="fas fa-baby"></i>
+            <span class="font-medium nav-text truncate text-sm">PreNatal Master</span>
+        </NavLink>
+
+        <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                 href="prenatallist"
+                 data-tooltip="PreNatal List">
+            <i class="fas fa-list"></i>
+            <span class="font-medium nav-text truncate text-sm">PreNatal List</span>
+        </NavLink>
+    </div>
+    <div>
+        <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                 href="prenatal-genetic"
+                 data-tooltip="Genetic">
+            <i class="fas fa-dna"></i>
+            <span class="font-medium nav-text truncate text-sm">Genetic</span>
+        </NavLink>
+    </div>
+
+    <!-- New Born Section -->
+    <div class="mt-4 mb-2 px-1 py-2">
+        <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--text-muted);">New Born</span>
+    </div>
+
+    <div class="">
+        <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                 href="newborn-master"
+                 data-tooltip="NewBorn Master">
+            <i class="fas fa-baby-carriage"></i>
+            <span class="font-medium nav-text truncate text-sm">NewBorn Master</span>
+        </NavLink>
+
+        <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                 href="newborn-list"
+                 data-tooltip="NewBorn List">
+            <i class="fas fa-clipboard-list"></i>
+            <span class="font-medium nav-text truncate text-sm">NewBorn List</span>
+        </NavLink>
+
+        <NavLink class="nav-link group flex items-center gap-3 px-2 py-3 rounded-lg mb-1 transition-all duration-200"
+                 href="genetic"
+                 data-tooltip="Genetic">
+            <i class="fas fa-hdd"></i>
+            <span class="font-medium nav-text truncate text-sm">Genetic</span>
+        </NavLink>
+    </div>
+
+
+</div>
+
+<!-- Bottom Section -->
+<div class="position-relative p-1 border-t" style="border-top-color: var(--border-color) !important;">
+    <Lims.Components.Pages.Logout />
+</div>
+@code{
+    bool showfrontoffice = false;
+    private async Task frontoffice()
+    {
+        showfrontoffice = !showfrontoffice;
+        StateHasChanged();
+    }
+    bool config=false;
+    private async Task ToggleConfig()
+    {
+        config = !config;
+        StateHasChanged();
+
+    }
+    bool showlab = false;
+    private async Task ToggleLab()
+    {
+        showlab = !showlab;
+        StateHasChanged();
+    }
+}

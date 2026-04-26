@@ -1,0 +1,29 @@
+@using Lims.Components.Model
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@rendermode @(new InteractiveServerRenderMode(prerender:false))
+
+@inject ProtectedSessionStorage sessionStorage
+@inject NavigationManager navman
+<button type="button" @onclick="Signout" class="nav-link group flex items-center gap-3 px-2 py-3 w-full rounded-lg transition-all duration-200 border-none bg-transparent" data-tooltip="Logout">
+    <i class="fas fa-sign-out-alt flex-shrink-0"></i>
+    <span class="font-medium nav-text truncate text-sm">Logout</span>
+</button>
+
+@code {
+
+    protected override async Task OnAfterRenderAsync(bool firstrender)
+    {
+        if(firstrender)
+        {
+            var user = await sessionStorage.GetAsync<UserAuth>("claim");
+            if (user.Value == null || !user.Success) navman.NavigateTo("/");
+        }
+    }
+    private async Task Signout()
+    {
+        await sessionStorage.DeleteAsync("claim");
+        // Store a flag so the login page can show the toast after the new circuit loads
+        await sessionStorage.SetAsync("justLoggedOut", true);
+        navman.NavigateTo("/");
+    }
+}

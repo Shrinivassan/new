@@ -1,0 +1,121 @@
+@rendermode InteractiveServer
+@using Lims.Components.Data
+@implements IDisposable
+@inject NotificationService NotificationService
+@using System.Timers
+
+<div class="toast-container position-fixed top-0 end-0 p-3 mt-4" style="z-index: 9999; pointer-events: none;">
+    <style>
+        @@keyframes shrink {
+            from { width: 100%; }
+            to { width: 0%; }
+        }
+        @@keyframes fadein {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+    @foreach (var toast in toasts)
+    {
+        <div class="toast show mb-3 shadow-lg" 
+             style="pointer-events: auto; animation: fadein 0.3s ease-out forwards; opacity: 1; min-width: 320px; max-width: 450px; background-color: var(--bg-surface); color: var(--text-primary); border: none; border-left: 5px solid @GetBorderColor(toast.Type); border-radius: var(--radius-card); overflow: hidden; cursor: pointer;" 
+             role="alert" aria-live="assertive" aria-atomic="true" @onclick="() => RemoveToast(toast.Id)">
+            
+            <div class="d-flex align-items-start p-3">
+                <div class="flex-shrink-0 me-3">
+                    @if (toast.Type == NotificationType.Success)
+                    {
+                        <svg style="color: #22c55e; width: 24px; height: 24px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    }
+                    else if (toast.Type == NotificationType.Error)
+                    {
+                        <svg style="color: #ef4444; width: 24px; height: 24px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    }
+                    else if (toast.Type == NotificationType.Info)
+                    {
+                        <svg style="color: #3b82f6; width: 24px; height: 24px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    }
+                    else if (toast.Type == NotificationType.Warning)
+                    {
+                        <svg style="color: #f59e0b; width: 24px; height: 24px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    }
+                </div>
+                <div class="flex-grow-1">
+                    <h6 class="mb-1" style="font-weight: 600; font-size: 1rem; color: var(--text-primary);">@toast.Title</h6>
+                    <p class="mb-0" style="font-size: 0.875rem; color: var(--text-secondary);">@toast.Message</p>
+                </div>
+                <button type="button" class="btn-close ms-2 mt-1" aria-label="Close" @onclick:stopPropagation="true" @onclick="() => RemoveToast(toast.Id)" style="filter: var(--btn-close-filter);"></button>
+            </div>
+            
+            <div class="w-100" style="height: 4px; background: rgba(0,0,0,0.05);">
+                <div style="background-color: @GetBorderColor(toast.Type); height: 100%; width: 100%; animation: shrink @(toast.Duration)ms linear forwards;"></div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<ToastItem> toasts = new List<ToastItem>();
+
+    protected override void OnInitialized()
+    {
+        NotificationService.OnNotify += ShowToast;
+    }
+
+    private async Task ShowToast(NotificationMessage message)
+    {
+        var toast = new ToastItem
+        {
+            Id = Guid.NewGuid(),
+            Title = string.IsNullOrEmpty(message.Title) ? message.Type.ToString() : message.Title,
+            Message = message.Message,
+            Type = message.Type,
+            Duration = message.Duration > 0 ? message.Duration : 3000
+        };
+
+        toasts.Add(toast);
+        await InvokeAsync(StateHasChanged);
+
+        var timer = new Timer(toast.Duration);
+        timer.Elapsed += (sender, e) =>
+        {
+            timer.Stop();
+            timer.Dispose();
+            RemoveToast(toast.Id);
+        };
+        timer.Start();
+    }
+
+    private void RemoveToast(Guid id)
+    {
+        var toast = toasts.FirstOrDefault(x => x.Id == id);
+        if (toast != null)
+        {
+            toasts.Remove(toast);
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public void Dispose()
+    {
+        NotificationService.OnNotify -= ShowToast;
+    }
+
+    private string GetBorderColor(NotificationType type) => type switch
+    {
+        NotificationType.Success => "#22c55e",
+        NotificationType.Error => "#ef4444",
+        NotificationType.Warning => "#f59e0b",
+        NotificationType.Info => "#3b82f6",
+        _ => "#6b7280"
+    };
+
+    private class ToastItem
+    {
+        public Guid Id { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public NotificationType Type { get; set; }
+        public int Duration { get; set; }
+    }
+}

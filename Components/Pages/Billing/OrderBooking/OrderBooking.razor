@@ -1,0 +1,946 @@
+@page "/orderbooked"
+@rendermode @(new InteractiveServerRenderMode(prerender:false))
+
+@using System.ComponentModel.DataAnnotations
+@using LIMS.Model
+@using Lims.Components.Data
+@using Lims.Components.Model
+@using Lims.Components.Layout
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Newtonsoft.Json
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.DropDowns
+@using System.Net.Http.Headers
+
+@inject CustomAuthStateProvider AuthProvider
+@inject NavigationManager Nav
+@inject ProtectedSessionStorage _sessionStorage
+@inject HttpClient http
+@inject AppSettings AppSettings
+@inject ApiData apidata
+@inject NotificationService NotificationService
+
+<div class="order-booked-container">
+    <!-- Header Section -->
+    <div class="header-section">
+        <div class="header-title" 
+     style="display:flex; align-items:center; gap:10px; border-bottom:3px solid var(--brand-accent); padding-bottom:6px; margin-bottom:12px;">
+
+    <!-- Icon -->
+    <i class="bi bi-journal-text" style="font-size:22px;"></i>
+
+    <!-- Title -->
+    <h1 class="page-title" 
+        style="margin:0; font-size:22px; font-weight:700;">
+        Order Booking
+    </h1>
+</div>
+
+
+        <div class="header-controls">
+            <!-- Branch Dropdown -->
+            <div class="header-control-item">
+                <label class="header-label">Branch</label>
+                <SfDropDownList DataSource="@branches" TItem="Branch_Master" TValue="int" Placeholder="Select Branch"
+                    @bind-Value="branchID" PopupHeight="200px" Width="220px" CssClass="header-dropdown">
+                    <DropDownListFieldSettings Text="Name" Value="BHCode"></DropDownListFieldSettings>
+                    <DropDownListEvents OnValueSelect="@SelBranch" TValue="int" TItem="Branch_Master">
+                    </DropDownListEvents>
+                </SfDropDownList>
+            </div>
+
+            <!-- Counter Dropdown -->
+            <div class="header-control-item">
+                <label class="header-label">Counter</label>
+                <SfDropDownList DataSource="@counters" TItem="Counter_Master" TValue="int" Placeholder="Select Counter"
+                    @bind-Value="counterid" PopupHeight="200px" Width="220px" CssClass="header-dropdown">
+                    <DropDownListFieldSettings Text="Name" Value="CNTCode"></DropDownListFieldSettings>
+                    <DropDownListEvents OnValueSelect="@SelCounter" TValue="int" TItem="Counter_Master">
+                    </DropDownListEvents>
+                </SfDropDownList>
+            </div>
+
+            <!-- Bill Type Dropdown -->
+            <div class="header-control-item">
+                <label class="header-label">Bill Type</label>
+                <SfDropDownList DataSource="@billNos" TItem="BillNo_Master" TValue="int" Placeholder="Select Bill Type"
+                    @bind-Value="bncode" PopupHeight="200px" Width="220px" CssClass="header-dropdown">
+                    <DropDownListFieldSettings Text="Name" Value="BNCode"></DropDownListFieldSettings>
+                </SfDropDownList>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section"
+         style="display:flex; flex-direction:column; gap:15px;">
+
+        <!-- Top Row: Dates + Search + Load -->
+        <div class="filter-row" style="display:flex; flex-wrap:wrap; gap:20px; align-items:flex-end;">
+
+            <!-- From Date -->
+            <div class="filter-col" style="display:flex; flex-direction:column;">
+                <label for="fdate" class="filter-label"
+                       style="font-weight:600; margin-bottom:5px; font-size:14px;">
+                    <i class="bi bi-calendar-date" style="margin-right:5px;"></i> From Date
+                </label>
+                <InputDate Type="InputDateType.Date" @bind-Value="fdt" class="filter-input" id="fdate"
+                           style="width:150px;" />
+            </div>
+
+            <!-- To Date -->
+            <div class="filter-col" style="display:flex; flex-direction:column;">
+                <label for="tdate" class="filter-label"
+                       style="font-weight:600; margin-bottom:5px; font-size:14px;">
+                    <i class="bi bi-calendar-check" style="margin-right:5px;"></i> To Date
+                </label>
+                <InputDate Type="InputDateType.Date" @bind-Value="tdt" class="filter-input" id="tdate"
+                           style="width:150px;" />
+            </div>
+            
+            <!-- Load Button -->
+            <div class="filter-col" style="display:flex; align-items:flex-end;">
+                <button class="btn-load" @onclick="LoadAsync" disabled="@isLoading"
+                        style="display:flex; align-items:center; gap:6px;">
+                    <i class="bi bi-arrow-repeat"></i>
+                    <span class="btn-text">@(isLoading ? "Loading..." : "Load Orders")</span>
+                </button>
+            </div>
+
+         
+        </div>
+
+<!-- Bottom Row: Status Filter -->
+<div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:20px; padding:8px 0;">
+
+    <!-- Status Filter -->
+<div style="display:flex; align-items:center; flex-wrap:wrap; gap:15px;">
+    <label style="font-weight:600; font-size:14px; color:var(--text-primary); margin-right:10px; display:flex; align-items:center;">
+        <i class="bi bi-funnel" style="margin-right:5px; color:var(--text-muted);"></i> Status:
+    </label>
+
+    <div style="display:flex; flex-wrap:wrap; gap:18px; align-items:center;">
+
+        <!-- All -->
+        <label style="
+            display:flex; align-items:center; gap:6px; cursor:pointer; padding:4px 8px; border-radius:6px; transition:all 0.2s;
+            @(selectedFilter == FilterStatus.All 
+                ? "border:1px solid #007bff; background:rgba(0,123,255,0.1); box-shadow:0 0 5px rgba(0,123,255,0.5);" 
+                : "border:1px solid transparent;")
+        "
+               onmouseover="this.style.transform='scale(1.05)'"
+               onmouseout="this.style.transform='scale(1)'">
+            <input type="radio" name="statusFilter"
+                   @onchange="@(() => OnFilterChange(FilterStatus.All))"
+                   checked="@(selectedFilter == FilterStatus.All)" hidden />
+            <span style="color:var(--text-primary);">All</span>
+            <span style="background:var(--bg-surface); color:var(--text-primary); border-radius:10px; padding:2px 8px; font-size:12px;">@GetUniqueOrderCount(filteredOrders)</span>
+            <i class="bi bi-list-task" style="font-size:16px; color:#007bff;"></i>
+        </label>
+
+        <!-- Pending -->
+        <label style="
+            display:flex; align-items:center; gap:6px; cursor:pointer; padding:4px 8px; border-radius:6px; transition:all 0.2s;
+            @(selectedFilter == FilterStatus.Pending 
+                ? "border:1px solid #ffc107; background:rgba(255,193,7,0.1); box-shadow:0 0 5px rgba(255,193,7,0.5);" 
+                : "border:1px solid transparent;")
+        "
+               onmouseover="this.style.transform='scale(1.05)'"
+               onmouseout="this.style.transform='scale(1)'">
+            <input type="radio" name="statusFilter"
+                   @onchange="@(() => OnFilterChange(FilterStatus.Pending))"
+                   checked="@(selectedFilter == FilterStatus.Pending)" hidden />
+            <span style="color:var(--text-primary);">Pending</span>
+            <span style="background:rgba(255,193,7,0.2); color:var(--text-primary); border-radius:10px; padding:2px 8px; font-size:12px;">@GetUniqueOrderCount(filteredOrders, o => o.OrderStatus ==false)</span>
+            <i class="bi bi-hourglass-split" style="font-size:16px; color:#f0ad4e;"></i>
+        </label>
+
+        <!-- Accepted -->
+        <label style="
+            display:flex; align-items:center; gap:6px; cursor:pointer; padding:4px 8px; border-radius:6px; transition:all 0.2s;
+            @(selectedFilter == FilterStatus.Accepted 
+                ? "border:1px solid #28a745; background:rgba(40,167,69,0.1); box-shadow:0 0 5px rgba(40,167,69,0.5);" 
+                : "border:1px solid transparent;")
+        "
+               onmouseover="this.style.transform='scale(1.05)'"
+               onmouseout="this.style.transform='scale(1)'">
+            <input type="radio" name="statusFilter"
+                   @onchange="@(() => OnFilterChange(FilterStatus.Accepted))"
+                   checked="@(selectedFilter == FilterStatus.Accepted)" hidden />
+            <span style="color:var(--text-primary);">Accept</span>
+            <span style="background:rgba(40,167,69,0.2); color:var(--text-primary); border-radius:10px; padding:2px 8px; font-size:12px;">@GetUniqueOrderCount(filteredOrders, o => o.OrderStatus==true)</span>
+            <i class="bi bi-check-circle-fill" style="font-size:16px; color:#28a745;"></i>
+        </label>
+
+        <!-- Rejected -->
+        <label style="
+            display:flex; align-items:center; gap:6px; cursor:pointer; padding:4px 8px; border-radius:6px; transition:all 0.2s;
+            @(selectedFilter == FilterStatus.Rejected 
+                ? "border:1px solid #dc3545; background:rgba(220,53,69,0.1); box-shadow:0 0 5px rgba(220,53,69,0.5);" 
+                : "border:1px solid transparent;")
+        "
+               onmouseover="this.style.transform='scale(1.05)'"
+               onmouseout="this.style.transform='scale(1)'">
+            <input type="radio" name="statusFilter" @onchange="@(() => OnFilterChange(FilterStatus.Rejected))"
+                   checked="@(selectedFilter == FilterStatus.Rejected)" hidden />
+            <span style="color:var(--text-primary);">Reject</span>
+            <span style="background:rgba(220,53,69,0.2); color:var(--text-primary); border-radius:10px; padding:2px 8px; font-size:12px;">@GetUniqueOrderCount(filteredOrders, o => o.Deleted ==true)</span>
+            <i class="bi bi-x-circle-fill" style="font-size:16px; color:#dc3545;"></i>
+        </label>
+
+    </div>
+</div>
+
+
+
+    <!-- Search -->
+    <div style="display:flex; flex-direction:column; min-width:220px;">
+        <label for="search" class="filter-label" style="font-weight:600; margin-bottom:5px; font-size:14px;">
+            Search
+        </label>
+        <div style="position: relative; width:100%;">
+            <i class="bi bi-search" 
+               style="position:absolute; left:10px; top:50%; transform:translateY(-50%);
+                      color:var(--text-muted); font-size:16px;"></i>
+            <input type="text" id="search" placeholder="Search customer..."
+                   @bind="searchText"
+                   @oninput="OnSearch"
+                   class="filter-input"
+                   style="width:100%; padding:6px 10px 6px 32px; outline:none;" />
+        </div>
+    </div>
+</div>
+
+    </div>
+
+    <!-- Main Content Section -->
+    <div class="main-content @(isPanelOpen ? "panel-open" : "")">
+        <!-- Orders Grid -->
+        <div class="orders-grid-container">
+            <SfGrid DataSource="@orders" CssClass="custom-grid">
+                <GridEvents RowSelected="OnRowSel" TValue="ViewOrderModel"></GridEvents>
+                <GridColumns>
+                    <GridColumn Field="@nameof(ViewOrderModel.orderSno)" HeaderText="Order No" Width="120px">
+                    </GridColumn>
+
+                    <GridColumn Field="@nameof(ViewOrderModel.orderDateTime)" HeaderText="Order Date" Width="150px"
+                        Format="dd/MM/yyyy HH:mm">
+                    </GridColumn>
+
+                    <GridColumn Field="@nameof(ViewOrderModel.custID)" HeaderText="Customer ID" Width="120px">
+                    </GridColumn>
+
+                    <GridColumn Field="@nameof(ViewOrderModel.namewithInitials)" HeaderText="Customer Name"
+                        Width="200px">
+                    </GridColumn>
+
+                    <GridColumn Field="@nameof(ViewOrderModel.doctorFullName)" HeaderText="Doctor Name" Width="200px">
+                    </GridColumn>
+
+                    <GridColumn Field="@nameof(ViewOrderModel.totalAmount)" HeaderText="Total Amount" Width="130px">
+                    </GridColumn>
+
+                    <GridColumn HeaderText="Actions" Width="200px">
+                        <Template>
+                            @{
+                                var data = context as ViewOrderModel;
+                            }
+                            <div class="action-buttons">
+                                @if (data?.OrderStatus ==false)
+                                {
+                                    <button class="btn-accept" @onclick="(() => AcceptOrder(data))" disabled="@isLoading">
+                                        <i class="bi bi-check-circle-fill"></i> Accept
+                                    </button>
+                                    <button class="btn-reject" @onclick="(() => RejectOrder(data))" disabled="@isLoading">
+                                        <i class="bi bi-x-circle-fill"></i> Reject
+                                    </button>
+                                }
+                                else if (data?.Deleted ==false)
+                                {
+                                 
+                                    <button class="btn-undo" @onclick="(() => RestoreOrder(data))" disabled="@isLoading">
+                                        <i class="bi bi-arrow-counterclockwise"></i> Undo Reject
+                                    </button>
+                                }
+                                else
+                                {
+                                   @*  <!-- Pending status -->
+                                    <button class="btn-accept" @onclick="(() => AcceptOrder(data))" disabled="@isLoading">
+                                        <i class="bi bi-check-circle-fill"></i> Accept
+                                    </button>
+                                    <button class="btn-reject" @onclick="(() => RejectOrder(data))" disabled="@isLoading">
+                                        <i class="bi bi-x-circle-fill"></i> Reject
+                                    </button> *@
+                                    <span><i class="bi bi-check"></i></span>
+                                }
+                            </div>
+                        </Template>
+                    </GridColumn>
+                </GridColumns>
+            </SfGrid>
+        </div>
+
+        <!-- Order Details Panel -->
+        <div class="order-details-panel @SlideClass" hidden="@showtest">
+            @if (orderGUID != Guid.Empty)
+            {
+                <div class="panel-header">
+                    <div class="customer-info">
+                        <h5 class="customer-name">@name</h5>
+                        <p class="customer-mobile">@mobileNo</p>
+                    </div>
+                    <button class="btn-close" @onclick="CloseDetails">
+                        <span class="close-icon">✖</span>
+                    </button>
+                </div>
+
+                <div class="tests-container">
+                    @{
+                        var filteredOrders = orders1.Where(o => o.orderGUID == orderGUID.ToString()).ToList();
+                        var groupedOrders = filteredOrders.GroupBy(o => string.IsNullOrWhiteSpace(o.groupName) ? "Others" :
+                        char.ToUpper(o.groupName[0]) + o.groupName.Substring(1).ToLower());
+                    }
+
+                    @foreach (var group in groupedOrders)
+                    {
+                        <!-- Group Header -->
+                        <h4 class="group-header">@group.Key</h4>
+
+                        @foreach (var test in group)
+                        {
+                            <div class="test-item">
+                                <div class="test-info">
+                                    <img src="/Test.jpg" class="test-avatar" alt="test" />
+                                    <span class="test-name">@test.testName</span>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    @if (isLoading)
+    {
+        <div class="loading-overlay">
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p>Loading...</p>
+            </div>
+        </div>
+    }
+
+    <!-- Error Message -->
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="error-message">
+            <span class="error-text">@errorMessage</span>
+            <button class="btn-close-error" @onclick="ClearError">✖</button>
+        </div>
+    }
+</div>
+
+@code {
+    private enum FilterStatus { All, Pending, Accepted, Rejected }
+
+    #region Private Fields
+    private FilterStatus selectedFilter = FilterStatus.All;
+
+    // Date filters
+    private DateTime fdt = DateTime.Now.Date;
+    private DateTime tdt = DateTime.Now.Date;
+
+    // Filter values
+    private int branchID = 0;
+    private int counterid = 0;
+    private int bncode = 0;
+
+    // Order data
+    private IList<ViewOrderModel> orders1 = new List<ViewOrderModel>();
+    private IList<ViewOrderModel> orders = new List<ViewOrderModel>();
+    private IList<ViewOrderModel> filteredOrders = new List<ViewOrderModel>();
+    private string searchText = string.Empty;
+    private List<string> customerNames = new List<string>();
+
+    // Selected order details
+    private Guid orderGUID = Guid.Empty;
+    private string name = "";
+    private string mobileNo = "";
+    private bool showtest = true;
+
+    // UI state
+    private bool isLoading = false;
+    private string errorMessage = "";
+    private bool isPanelOpen = false;
+
+    // Master data
+    private IList<Branch_Master> branches = new List<Branch_Master>();
+    private IList<Counter_Master> counters1 = new List<Counter_Master>();
+    private IList<Counter_Master> counters = new List<Counter_Master>();
+    private IList<BillNo_Master> billNos1 = new List<BillNo_Master>();
+    private IList<BillNo_Master> billNos = new List<BillNo_Master>();
+
+    // User authentication
+    private UserAuth userdetails = new();
+
+    #endregion
+
+    #region Lifecycle Methods
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            isLoading = true;
+            await GetUserDetailsAsync();
+            await GetMastersAsync();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error initializing: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task GetUserDetailsAsync()
+    {
+        try
+        {
+            var userdet = await _sessionStorage.GetAsync<UserAuth>("claim");
+            if (userdet.Success && userdet.Value != null)
+            {
+                userdetails = userdet.Value;
+            }
+            else
+            {
+                throw new InvalidOperationException("User authentication not found");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Authentication error: {ex.Message}");
+            Nav.NavigateTo("/login");
+        }
+    }
+
+    #endregion
+
+    #region Data Loading Methods
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            isLoading = true;
+            ClearError();
+
+            if (userdetails?.token == null)
+            {
+                ShowError("Authentication token is missing");
+                return;
+            }
+
+            string startDate = fdt.ToString("yyyy-MM-dd") + " 12:00:00 AM";
+            string endDate = tdt.ToString("yyyy-MM-dd") + " 11:59:59 PM";
+
+            http.DefaultRequestHeaders.Clear();
+            // Set authorization header
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", userdetails.token);
+            http.DefaultRequestHeaders.Add("X-Tenant-ID", AppSettings.ClientId);
+            var response = await http.GetAsync(
+                $"{AppSettings.BaseUrl}booking/ViewOrder?dcode=0&fdate={Uri.EscapeDataString(startDate)}&tdate={Uri.EscapeDataString(endDate)}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                if (!string.IsNullOrEmpty(content))
+                {
+                    orders1 = JsonConvert.DeserializeObject<IList<ViewOrderModel>>(content) ?? new List<ViewOrderModel>();
+                    await ApplyFiltersAndGroup();
+                }
+                else
+                {
+                    orders1 = new List<ViewOrderModel>();
+                    orders = new List<ViewOrderModel>();
+                    customerNames.Clear();
+                }
+            }
+            else
+            {
+                var tt = await response.Content.ReadAsStringAsync();
+                ShowError($"Error loading data: {response.StatusCode} - {response.ReasonPhrase}");
+            }
+        }
+        catch (HttpRequestException httpEx)
+        {
+            ShowError($"Network error: {httpEx.Message}");
+        }
+        catch (Newtonsoft.Json.JsonException jsonEx)
+        {
+            ShowError($"Data parsing error: {jsonEx.Message}");
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error loading data: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task GetMastersAsync()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(userdetails?.token))
+            {
+                ShowError("Authentication token not found");
+                return;
+            }
+
+            await Task.WhenAll(
+                LoadBranchesAsync(userdetails.token),
+                LoadCountersAsync(userdetails.token),
+                LoadBillnoAsync(userdetails.token)
+            );
+
+            // Set default values
+            if (branches?.Any() == true && counters1?.Any() == true)
+            {
+                var mainBranch = branches.FirstOrDefault(x => x.IsMainBranch == true);
+                if (mainBranch != null)
+                {
+                    branchID = mainBranch.BHCode;
+                    await FilterCounter(branchID);
+                    await FilterBillNo(branchID, counterid);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error loading master data: {ex.Message}");
+        }
+    }
+
+    private async Task LoadBranchesAsync(string token)
+    {
+        branches = await apidata.GetMasterList<Branch_Master>(token, "request/branches") ?? new List<Branch_Master>();
+        branches = branches.Where(x => x.Deleted == false).ToList();
+    }
+
+    private async Task LoadCountersAsync(string token)
+    {
+        counters1 = await apidata.GetMasterList<Counter_Master>(token, "request/counters") ?? new List<Counter_Master>();
+    }
+
+    private async Task LoadBillnoAsync(string token)
+    {
+        billNos1 = await apidata.GetMasterList<BillNo_Master>(token, "request/billnos") ?? new List<BillNo_Master>();
+    }
+
+    #endregion
+
+    #region Filter Event Handlers
+
+    private async Task OnFilterChange(FilterStatus newFilter)
+    {
+        selectedFilter = newFilter;
+        await ApplyFiltersAndGroup();
+        StateHasChanged();
+    }
+
+    private async Task SelBranch(SelectEventArgs<Branch_Master> args)
+    {
+        if (args?.ItemData != null)
+        {
+            branchID = args.ItemData.BHCode;
+            await FilterCounter(branchID);
+            await FilterBillNo(branchID, counterid);
+        }
+    }
+
+    private async Task SelCounter(SelectEventArgs<Counter_Master> args)
+    {
+        if (args?.ItemData != null)
+        {
+            counterid = args.ItemData.CNTCode;
+            await FilterBillNo(branchID, counterid);
+        }
+    }
+
+    private async Task FilterCounter(int bcode)
+    {
+        counters = counters1?.Where(x => x.BHCode == branchID && x.Deleted == false)
+            .OrderBy(x => x.OrderNo)
+            .ThenBy(x => x.Name)
+            .ToList() ?? new List<Counter_Master>();
+
+        if (counters.Any())
+        {
+            counterid = counters[0].CNTCode;
+        }
+        else
+        {
+            counterid = 0;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task FilterBillNo(int bcode, int cntcode)
+    {
+        billNos = billNos1?.Where(x => x.BHCode == bcode &&
+            x.IsSampleNo == true &&
+            x.Deleted == false)
+            .OrderBy(x => x.OrderNo)
+            .ThenBy(x => x.Name)
+            .ToList() ?? new List<BillNo_Master>();
+
+        if (billNos.Any())
+        {
+            bncode = billNos[0].BNCode;
+        }
+
+        StateHasChanged();
+    }
+
+    #endregion
+
+    #region Business Logic Methods
+
+    private async Task ApplyFiltersAndGroup()
+    {
+        // Apply search filter
+        filteredOrders = ApplySearchFilter(orders1);
+
+        // Apply status filter
+        var statusFiltered = ApplyStatusFilter(filteredOrders);
+
+        // Group orders
+        await GroupOrdersAsync(statusFiltered);
+    }
+
+    private IList<ViewOrderModel> ApplyStatusFilter(IList<ViewOrderModel> ordersList)
+    {
+        // Since we don't know the exact property names for status tracking,
+        // we'll use a simple approach based on paidAmount for now
+        // You'll need to update this based on your actual ViewOrderModel properties
+        
+        return selectedFilter switch
+        {
+            FilterStatus.Pending => ordersList.Where(o => o.OrderStatus == false).ToList(),
+            FilterStatus.Accepted => ordersList.Where(o => o.OrderStatus==true).ToList(),
+            FilterStatus.Rejected => ordersList.Where(o => o.Deleted==true).ToList(),
+            _ => ordersList.ToList() // All
+        };
+    }
+
+    private IList<ViewOrderModel> ApplySearchFilter(IList<ViewOrderModel> ordersList)
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+            return ordersList;
+
+        return ordersList
+            .Where(o => !string.IsNullOrEmpty(o.namewithInitials) &&
+                o.namewithInitials.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private async Task GroupOrdersAsync(IList<ViewOrderModel> ordersList)
+    {
+        if (ordersList?.Any() == true)
+        {
+            orders = ordersList
+                .GroupBy(x => new
+                {
+                    x.orderGUID,
+                    x.orderSno,
+                    x.orderDateTime,
+                    x.custID,
+                    x.namewithInitials,
+                    x.doctorFullName,
+                    x.totalAmount
+                })
+                .Select(g => g.First())
+                .OrderBy(x => x.orderSno)
+                .ThenBy(x => x.orderDateTime)
+                .ToList();
+
+            customerNames = ordersList
+                .Where(o => !string.IsNullOrEmpty(o.namewithInitials))
+                .Select(o => o.namewithInitials!)
+                .Distinct()
+                .OrderBy(n => n)
+                .ToList();
+        }
+        else
+        {
+            orders = new List<ViewOrderModel>();
+            customerNames.Clear();
+        }
+    }
+
+    private async Task OnSearch(ChangeEventArgs args)
+    {
+        searchText = args.Value?.ToString() ?? string.Empty;
+        await ApplyFiltersAndGroup();
+        StateHasChanged();
+    }
+
+    private async Task AcceptOrder(ViewOrderModel? order)
+    {
+        if (order == null || isLoading)
+            return;
+
+        try
+        {
+            isLoading = true;
+
+            if (!Guid.TryParse(order.orderGUID, out var orderGuid))
+            {
+                ShowError("Invalid order ID");
+                return;
+            }
+
+            var bookingOrder = new BookingOrders
+            {
+                OrderGUID = orderGuid,
+                BHCode = branchID,
+                CNTCode = counterid,
+                BNCode = bncode,
+                BillDate = DateTime.Now,
+                DCode = order.dCode,
+                UserCode = userdetails.UserCode
+            };
+
+            var result = await apidata.PostData<BookingOrders>(
+                userdetails.token,
+                "request/OrderConfirm",
+                bookingOrder);
+
+            if (result != null)
+            {
+                // Manually update the status in the local list for all items with the same orderGUID
+                var ordersToUpdate = orders1.Where(o => o.orderGUID == order.orderGUID).ToList();
+                foreach (var item in ordersToUpdate)
+                {
+                    // Mark as accepted. Use totalAmount or 1 if total is 0 to indicate a non-pending state.
+                    item.paidAmount = item.totalAmount > 0 ? item.totalAmount : 1;
+                }
+                
+                _ = NotificationService.ShowSuccess("Order accepted successfully!");
+
+                // Re-apply filters and grouping to refresh the UI without a full server reload
+                await ApplyFiltersAndGroup();
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error accepting order: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task RestoreOrder(ViewOrderModel? order)
+    {
+        if (order == null || isLoading)
+            return;
+
+        try
+        {
+            isLoading = true;
+
+            if (!Guid.TryParse(order.orderGUID, out var orderGuid))
+            {
+                ShowError("Invalid order ID");
+                return;
+            }
+
+            // Create restore order request
+            var restoreOrder = new BookingOrders
+            {
+                OrderGUID = orderGuid,
+                BHCode = branchID,
+                CNTCode = counterid,
+                BNCode = bncode,
+                BillDate = DateTime.Now,
+                DCode = order.dCode,
+                UserCode = userdetails.UserCode
+            };
+
+            // Call API to restore/accept the deleted order
+            var result = await apidata.PostData<BookingOrders>(
+                userdetails.token,
+                "request/OrderRestore", // or whatever your restore endpoint is
+                restoreOrder);
+
+            if (result != null)
+            {
+                // Manually update the status in the local list for all items with the same orderGUID
+                var ordersToUpdate = orders1.Where(o => o.orderGUID == order.orderGUID).ToList();
+                foreach (var item in ordersToUpdate)
+                {
+                    item.paidAmount = 0; // Mark as pending
+                }
+
+                _ = NotificationService.ShowSuccess("Order restored successfully!");
+
+                // Re-apply filters and grouping to refresh the UI
+                await ApplyFiltersAndGroup();
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error restoring order: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task RejectOrder(ViewOrderModel? order)
+    {
+        if (order == null || isLoading)
+            return;
+
+        try
+        {
+            isLoading = true;
+
+            if (!Guid.TryParse(order.orderGUID, out var orderGuid))
+            {
+                ShowError("Invalid order ID");
+                return;
+            }
+
+            // Create reject order request
+            var rejectOrder = new BookingOrders
+            {
+                OrderGUID = orderGuid,
+                BHCode = branchID,
+                CNTCode = counterid,
+                BNCode = bncode,
+                BillDate = DateTime.Now,
+                DCode = order.dCode,
+                UserCode = userdetails.UserCode
+            };
+
+            // Call API to reject the order
+            var result = await apidata.PostData<BookingOrders>(
+                userdetails.token,
+                "request/OrderReject",
+                rejectOrder);
+
+            if (result != null)
+            {
+                // Manually update the status in the local list for all items with the same orderGUID
+                var ordersToUpdate = orders1.Where(o => o.orderGUID == order.orderGUID).ToList();
+                foreach (var item in ordersToUpdate)
+                {
+                    item.paidAmount = -1; // Mark as rejected
+                }
+
+                _ = NotificationService.ShowSuccess("Order rejected/deleted successfully!");
+
+                // Re-apply filters and grouping to refresh the UI
+                await ApplyFiltersAndGroup();
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error rejecting order: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    #endregion
+
+    #region UI Event Handlers
+
+    private async Task OnRowSel(RowSelectEventArgs<ViewOrderModel> args)
+    {
+        if (args?.Data == null)
+            return;
+
+        try
+        {
+            showtest = false;
+            isPanelOpen = true;
+            name = args.Data.namewithInitials ?? "";
+            mobileNo = args.Data.mobileNo ?? "";
+
+            if (Guid.TryParse(args.Data.orderGUID, out var guid))
+            {
+                orderGUID = guid;
+            }
+            else
+            {
+                orderGUID = Guid.Empty;
+                ShowError("Invalid order GUID");
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error selecting order: {ex.Message}");
+        }
+    }
+
+    private void CloseDetails()
+    {
+        showtest = true;
+        isPanelOpen = false;
+        orderGUID = Guid.Empty;
+        StateHasChanged();
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    private string SlideClass => showtest ? "slide-out" : "slide-in";
+
+    private void ShowError(string message)
+    {
+        errorMessage = message;
+        Console.WriteLine($"Error: {message}");
+        StateHasChanged();
+    }
+
+    private void ClearError()
+    {
+        errorMessage = "";
+        StateHasChanged();
+    }
+
+    private int GetUniqueOrderCount(IList<ViewOrderModel>? ordersList, Func<ViewOrderModel, bool>? predicate = null)
+    {
+        if (ordersList == null || !ordersList.Any())
+        {
+            return 0;
+        }
+
+        var query = predicate == null ? ordersList : ordersList.Where(predicate);
+
+        return query.Select(o => o.orderGUID).Distinct().Count();
+    }
+
+
+    #endregion
+}

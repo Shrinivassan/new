@@ -1,0 +1,79 @@
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+
+<button @onclick="ToggleSidebar"
+        class="sidebar-toggle-btn"
+        title="@(IsCollapsed ? "Expand Sidebar" : "Collapse Sidebar")"
+        style="
+            position: absolute;
+            color: #fff;
+            top: 15px;
+            right: -40px;
+            width: 35px;
+            height: 35px;
+            background: var(--brand-primary);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all .3s ease;
+            border: 2px solid var(--border-color);
+            border-radius: 50%;
+            z-index: 1001;
+        ">
+    <i class="fas @(IsCollapsed ? "fa-chevron-right" : "fa-chevron-left")"
+       style="
+            font-size: 14px;
+            color: #fff;
+            transition: transform .3s ease;
+       ">
+    </i>
+</button>
+
+
+
+
+@code {
+    private bool IsCollapsed = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Load saved state from localStorage
+            var savedState = await JS.InvokeAsync<string>("localStorage.getItem", "sidebarCollapsed");
+            if (savedState == "true")
+            {
+                IsCollapsed = true;
+                await ApplySidebarState();
+            }
+        }
+    }
+
+    private async Task ToggleSidebar()
+    {
+        IsCollapsed = !IsCollapsed;
+        await ApplySidebarState();
+        
+        // Save state to localStorage
+        await JS.InvokeVoidAsync("localStorage.setItem", "sidebarCollapsed", IsCollapsed.ToString().ToLower());
+    }
+
+    private async Task ApplySidebarState()
+    {
+        var sidebar = "document.getElementById('sidebar')";
+        var mainContent = "document.getElementById('main-content')";
+
+        if (IsCollapsed)
+        {
+            await JS.InvokeVoidAsync("eval", $"{sidebar}?.classList.add('collapsed')");
+            await JS.InvokeVoidAsync("eval", $"{mainContent}?.classList.add('expanded')");
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("eval", $"{sidebar}?.classList.remove('collapsed')");
+            await JS.InvokeVoidAsync("eval", $"{mainContent}?.classList.remove('expanded')");
+        }
+    }
+}

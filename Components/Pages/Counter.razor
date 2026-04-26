@@ -1,0 +1,84 @@
+@page "/counter"
+@using LIMS.Model
+@using Lims.Components.Model
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using System.Net.Http.Headers
+@using Newtonsoft.Json
+@using System.Text.Json.Serialization
+@rendermode InteractiveServer
+
+@inject HttpClient http
+@inject ProtectedSessionStorage _sessionStorage
+@inject AppSettings appSettings
+
+<div class="container">
+    <div class="row">
+        <div class="col-3">
+            <input type="text" />
+        </div>
+        <div class="col-1">
+            <button type="button" @onclick="@(() => PDFReport("d9a80402-935f-4486-95b3-a15d14096e0b"))">Get Report</button>
+        </div>
+    </div>
+
+    <div class="row">
+        <SfPdfViewer2 @ref="@rpt1"></SfPdfViewer2>
+    </div>
+</div>
+
+@code {
+    SfPdfViewer2 rpt1;
+    string tcode = "";
+    bool letterhead = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        http.DefaultRequestHeaders.Add("X-Tenant-ID", appSettings.ClientId);
+    }
+
+    public async void PDFReport(string RequestGUID)
+    {
+
+
+        RoutineReportDto parameters = new();
+        parameters.ClientID = "";
+        parameters.DataSource = "DataSet3";
+        parameters.ReportName = "LabReport.rdlc";
+        parameters.RequestGUID = RequestGUID;
+        parameters.TCode = "";
+        List<ReportParameterDto> parameter = new List<ReportParameterDto>();
+
+
+        parameter.Add(new ReportParameterDto() { Name = "RequestGUID", Values = new List<string>() { RequestGUID } });
+        parameter.Add(new ReportParameterDto() { Name = "TCode", Values = new List<string>() { tcode } });
+        parameter.Add(new ReportParameterDto() { Name = "IsLetterHead", Values = new List<string>() { Convert.ToString(letterhead) } });
+        parameters.Parameters = parameter;
+
+        var response = await http.PostAsJsonAsync($"{appSettings.BaseUrl}Report/LabReport", parameters);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var filecontent = await response.Content.ReadAsStringAsync();
+            if (filecontent.Length > 0)
+            {
+
+                string base64 = filecontent;
+                await rpt1.LoadAsync("data:application/pdf;base64," + base64, null);
+                await Task.Delay(1000);
+
+
+            }
+            else
+            {
+
+
+            }
+
+        }
+        else
+        {
+
+        }
+
+    }
+}

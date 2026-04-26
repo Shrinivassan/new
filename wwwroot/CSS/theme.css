@@ -1,0 +1,954 @@
+/* ============================================================
+   LIMS Global Theme — Light & Dark Mode
+   Uses CSS Custom Properties (variables) for full-page theming
+   Apply: <html data-theme="dark"> to enable dark mode
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ─────────────────────────────────────────────
+   1. CSS VARIABLES — LIGHT MODE (default)
+───────────────────────────────────────────── */
+:root {
+    /* Brand */
+    --brand-primary:       #38487c;
+    --brand-primary-light: #5164a5;
+    --brand-accent:        #3b82f6;
+    --brand-accent-hover:  #2563eb;
+
+    /* Backgrounds */
+    --bg-page:    #ffffff;
+    --bg-surface: #ffffff;
+    --bg-card:    #ffffff;
+    --bg-hover:   #f8fafc;
+    --bg-input:   #ffffff;
+    --bg-sidebar: #ffffff;
+    --bg-header:  linear-gradient(135deg, #2c3e50, #34495e);
+    --bg-table-header: linear-gradient(135deg, #2c3e50, #34495e);
+    --bg-table-row-hover: #f0f4ff;
+    --bg-dropdown: #ffffff;
+    --bg-disabled: #e9ecef;
+    --bg-badge-paid:    #d1fae5;
+    --bg-badge-due:     #fee2e2;
+    --bg-badge-pending: #fef9c3;
+
+    /* Text */
+    --text-primary:   #1e293b;
+    --text-secondary: #64748b;
+    --text-muted:     #94a3b8;
+    --text-label:     #38487c;
+    --text-on-brand:  #ffffff;
+    --text-link:      #3b82f6;
+    --text-danger:    #ef4444;
+    --text-success:   #22c55e;
+    --text-warning:   #f59e0b;
+    --text-badge-paid:    #065f46;
+    --text-badge-due:     #991b1b;
+    --text-badge-pending: #92400e;
+
+    /* Borders */
+    --border-color:  #d1d5db;
+    --border-input:  #ced4da;
+    --border-focus:  #3b82f6;
+    --border-table:  #e5e7eb;
+    --border-card:   rgba(0,0,0,0.06);
+
+    /* Shadows */
+    --shadow-card:    0 4px 16px rgba(0,0,0,0.08);
+    --shadow-sidebar: 2px 0 8px rgba(2,6,23,0.25);
+    --shadow-dropdown: 0 4px 16px rgba(0,0,0,0.12);
+    --shadow-btn:     0 4px 12px rgba(59,130,246,0.3);
+
+    /* Scrollbar */
+    --scrollbar-thumb: #5164a5;
+    --scrollbar-thumb-hover: #4338ca;
+    --scrollbar-track: transparent;
+
+    /* Sidebar nav-link hover/active */
+    --nav-link-hover-bg:   #f1f5f9;
+    --nav-link-active-bg:  #f1f5f9;
+    --nav-link-color:      #334155;
+    --nav-link-active-color: #3b82f6;
+
+    /* Misc */
+    --radius-card:  12px;
+    --radius-input: 6px;
+    --radius-btn:   6px;
+
+    /* Transition */
+    --theme-transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* ─────────────────────────────────────────────
+   2. CSS VARIABLES — DARK MODE
+   Activated by: <html data-theme="dark">
+───────────────────────────────────────────── */
+[data-theme="dark"] {
+    /* Backgrounds */
+    --bg-page:    #0f172a;
+    --bg-surface: #1e293b;
+    --bg-card:    #1e293b;
+    --bg-hover:   #263248;
+    --bg-input:   #0f172a;
+    --bg-sidebar: #0d1526;
+    --bg-header:  linear-gradient(135deg, #0d1526, #1a2540);
+    --bg-table-header: linear-gradient(135deg, #0d1526, #1a2540);
+    --bg-table-row-hover: #263248;
+    --bg-dropdown: #1e293b;
+    --bg-disabled: #1e2d40;
+    --bg-badge-paid:    rgba(34,197,94,0.15);
+    --bg-badge-due:     rgba(239,68,68,0.15);
+    --bg-badge-pending: rgba(245,158,11,0.15);
+
+    /* Text */
+    --text-primary:   #e2e8f0;
+    --text-secondary: #94a3b8;
+    --text-muted:     #64748b;
+    --text-label:     #93afd9;
+    --text-on-brand:  #ffffff;
+    --text-link:      #60a5fa;
+    --text-danger:    #f87171;
+    --text-success:   #4ade80;
+    --text-warning:   #fbbf24;
+    --text-badge-paid:    #4ade80;
+    --text-badge-due:     #f87171;
+    --text-badge-pending: #fbbf24;
+
+    /* Borders */
+    --border-color:  #334155;
+    --border-input:  #334155;
+    --border-focus:  #60a5fa;
+    --border-table:  #1e3a5f;
+    --border-card:   rgba(255,255,255,0.05);
+
+    /* Shadows */
+    --shadow-card:    0 4px 24px rgba(0,0,0,0.4);
+    --shadow-sidebar: 2px 0 12px rgba(0,0,0,0.5);
+    --shadow-dropdown: 0 8px 24px rgba(0,0,0,0.5);
+    --shadow-btn:     0 4px 12px rgba(96,165,250,0.25);
+
+    /* Scrollbar */
+    --scrollbar-thumb: #3b5080;
+    --scrollbar-thumb-hover: #5164a5;
+
+    /* Sidebar nav-link hover/active */
+    --nav-link-hover-bg:   rgba(255,255,255,0.07);
+    --nav-link-active-bg:  rgba(96,165,250,0.15);
+    --nav-link-color:      #94a3b8;
+    --nav-link-active-color: #e2e8f0;
+
+    /* Brand adjustments */
+    --brand-primary:       #4a5e9a;
+    --brand-primary-light: #6074b5;
+    --brand-accent:        #60a5fa;
+    --brand-accent-hover:  #3b82f6;
+}
+
+/* ─────────────────────────────────────────────
+   3. BASE ELEMENT STYLES (theme-aware)
+───────────────────────────────────────────── */
+*, *::before, *::after {
+    transition: var(--theme-transition);
+    box-sizing: border-box;
+}
+
+html, body {
+    font-family: 'Inter', 'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+    font-size: 14px;
+    margin: 0;
+    padding: 0;
+}
+
+/* ─────────────────────────────────────────────
+   4. SCROLLBAR (theme-aware)
+───────────────────────────────────────────── */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+}
+
+/* ─────────────────────────────────────────────
+   5. PAGE & MAIN CONTENT (theme-aware)
+───────────────────────────────────────────── */
+.bg-main,
+#main-content {
+    background-color: var(--bg-page) !important;
+    min-height: 100vh;
+}
+
+.h-screen {
+    background-color: var(--bg-page) !important;
+}
+
+/* ─────────────────────────────────────────────
+   6. SIDEBAR (theme-aware)
+───────────────────────────────────────────── */
+.sidebar-bg {
+    background-color: var(--bg-sidebar) !important;
+    box-shadow: var(--shadow-sidebar);
+    transition: background-color 0.3s ease, width 0.25s ease, transform 0.25s ease;
+}
+
+/* Sidebar top divider */
+.sidebar-bg > div[style*="border-bottom"] {
+    border-bottom-color: var(--border-color) !important;
+}
+
+/* ─────────────────────────────────────────────
+   7. NAV LINKS (sidebar — theme-aware)
+───────────────────────────────────────────── */
+.nav-link {
+    color: var(--nav-link-color) !important;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.nav-link:hover,
+.nav-link.active {
+    background: var(--nav-link-hover-bg) !important;
+    color: var(--nav-link-active-color) !important;
+}
+.nav-link.active {
+    background: var(--nav-link-active-bg) !important;
+}
+
+.submenu-toggle {
+    color: var(--nav-link-color) !important;
+    background: transparent !important;
+    border: none;
+}
+.submenu-toggle:hover {
+    background: var(--nav-link-hover-bg) !important;
+    color: var(--nav-link-active-color) !important;
+}
+
+/* ─────────────────────────────────────────────
+   8. CARD / SURFACE (theme-aware)
+───────────────────────────────────────────── */
+.main-card,
+.card {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-card) !important;
+    border-radius: var(--radius-card) !important;
+    box-shadow: var(--shadow-card) !important;
+    color: var(--text-primary) !important;
+}
+
+.card-footer {
+    background: transparent !important;
+    border-top: 1px solid var(--border-color) !important;
+    color: var(--text-primary) !important;
+}
+
+/* ─────────────────────────────────────────────
+   9. WINDOW HEADER (theme-aware)
+───────────────────────────────────────────── */
+.window-header {
+    background: var(--bg-header);
+    color: var(--text-on-brand) !important;
+}
+.window-header span {
+    color: var(--text-on-brand) !important;
+}
+
+/* ─────────────────────────────────────────────
+   10. FORM LABELS (theme-aware)
+───────────────────────────────────────────── */
+label,
+.form-label,
+.billing-label {
+    color: var(--text-label) !important;
+}
+
+/* ─────────────────────────────────────────────
+   11. FORM INPUTS (theme-aware)
+───────────────────────────────────────────── */
+.form-control,
+.form-select,
+input[type="text"],
+input[type="number"],
+input[type="date"],
+input[type="email"],
+input[type="password"],
+input[type="tel"],
+input[type="search"],
+select,
+textarea {
+    background-color: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-input) !important;
+    border-radius: var(--radius-input);
+    font-size: 0.85rem;
+    padding: 4px 10px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
+}
+
+.form-control:focus,
+.form-select:focus,
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="date"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+select:focus,
+textarea:focus {
+    border-color: var(--border-focus) !important;
+    box-shadow: 0 0 0 0.15rem rgba(59,130,246,0.2) !important;
+    outline: none !important;
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled,
+.form-control:disabled {
+    background-color: var(--bg-disabled) !important;
+    color: var(--text-muted) !important;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+::placeholder {
+    color: var(--text-muted) !important;
+    opacity: 1;
+}
+
+/* ─────────────────────────────────────────────
+   12. SEARCH INPUTS (theme-aware)
+───────────────────────────────────────────── */
+.search-input {
+    background-color: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-input) !important;
+    border-radius: 6px;
+}
+.search-input:focus {
+    border-color: var(--border-focus) !important;
+    outline: none;
+    box-shadow: none;
+}
+
+/* ─────────────────────────────────────────────
+   13. DROPDOWN LISTS (theme-aware)
+───────────────────────────────────────────── */
+.list-group {
+    background: var(--bg-dropdown) !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: var(--shadow-dropdown) !important;
+}
+.list-group-item {
+    background-color: var(--bg-dropdown) !important;
+    color: var(--text-primary) !important;
+    border-bottom: 1px solid var(--border-table) !important;
+}
+.list-group-item:hover {
+    background-color: var(--bg-hover) !important;
+}
+.list-group-item.active {
+    background-color: var(--brand-accent) !important;
+    color: #fff !important;
+    border-color: var(--brand-accent) !important;
+}
+
+/* ─────────────────────────────────────────────
+   14. TEST / HOME-COLLECTION LISTS (theme-aware)
+───────────────────────────────────────────── */
+.test-list,
+.home-collection-list {
+    background: var(--bg-dropdown) !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: var(--shadow-dropdown) !important;
+}
+.test-item,
+.home-collection-list li {
+    color: var(--text-primary) !important;
+    border-bottom: 1px solid var(--border-table) !important;
+    background: transparent;
+}
+.test-item:hover,
+.home-collection-list li:hover {
+    background-color: var(--bg-hover) !important;
+}
+.test-item.selected {
+    background-color: var(--brand-accent) !important;
+    color: #fff !important;
+}
+.test-item.selected .test-amount {
+    color: #fff !important;
+}
+.home-collection-list li.active {
+    background: var(--brand-accent) !important;
+    color: #fff !important;
+}
+
+/* ─────────────────────────────────────────────
+   15. TABLE (theme-aware)
+───────────────────────────────────────────── */
+.test-table-container {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: var(--shadow-card) !important;
+}
+
+.test-table {
+    background: var(--bg-card);
+}
+
+.test-table th {
+    background: var(--bg-table-header) !important;
+    color: #ffffff !important;
+}
+
+.test-table td {
+    color: var(--text-primary) !important;
+    border-bottom: 1px solid var(--border-table) !important;
+}
+
+.test-table tr:hover td {
+    background-color: var(--bg-table-row-hover) !important;
+}
+
+.test-table input[type="number"] {
+    background-color: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-input) !important;
+}
+
+/* Bootstrap table theme-aware */
+.table {
+    color: var(--text-primary) !important;
+    border-color: var(--border-table) !important;
+}
+.table th {
+    background: var(--bg-table-header) !important;
+    color: #ffffff !important;
+    border-color: var(--border-table) !important;
+}
+.table td {
+    border-color: var(--border-table) !important;
+    background-color: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+}
+.table-striped > tbody > tr:nth-of-type(odd) > * {
+    background-color: var(--bg-hover) !important;
+    color: var(--text-primary) !important;
+}
+.table-hover tbody tr:hover > * {
+    background-color: var(--bg-table-row-hover) !important;
+    color: var(--text-primary) !important;
+}
+
+/* ─────────────────────────────────────────────
+   16. BUTTONS (theme-aware)
+───────────────────────────────────────────── */
+/* Save / Submit */
+button[type="submit"],
+.btn-save,
+.btn-success {
+    background: linear-gradient(135deg, #27ae60, #2ecc71) !important;
+    color: #fff !important;
+    border: none !important;
+}
+button[type="submit"]:hover,
+.btn-save:hover,
+.btn-success:hover {
+    background: linear-gradient(135deg, #229954, #27ae60) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(39,174,96,0.35) !important;
+}
+
+/* Default / type=button */
+button[type="button"]:not(.submenu-toggle):not(.nav-link):not(.btn-close):not(#dark-mode-toggle),
+.btn-secondary {
+    background: var(--bg-surface) !important;
+    color: var(--text-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+}
+button[type="button"]:not(.submenu-toggle):not(.nav-link):not(.btn-close):not(#dark-mode-toggle):hover {
+    background: var(--bg-hover) !important;
+    border-color: var(--border-focus) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Primary button */
+.btn-primary {
+    background-color: var(--brand-accent) !important;
+    border-color: var(--brand-accent) !important;
+    color: #fff !important;
+}
+.btn-primary:hover {
+    background-color: var(--brand-accent-hover) !important;
+    border-color: var(--brand-accent-hover) !important;
+}
+
+/* New / Add button */
+.btn-new {
+    background-color: #27ae60 !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 5px;
+    padding: 5px 20px;
+    font-size: 14px !important;
+}
+
+/* ─────────────────────────────────────────────
+   17. STATUS BADGES (theme-aware)
+───────────────────────────────────────────── */
+.badge-paid, .status-paid {
+    background-color: var(--bg-badge-paid) !important;
+    color: var(--text-badge-paid) !important;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.badge-due, .status-due, .status-overdue {
+    background-color: var(--bg-badge-due) !important;
+    color: var(--text-badge-due) !important;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.badge-pending, .status-pending {
+    background-color: var(--bg-badge-pending) !important;
+    color: var(--text-badge-pending) !important;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* ─────────────────────────────────────────────
+   18. RIGHT SIDEBAR / DRAWER (theme-aware)
+───────────────────────────────────────────── */
+.right-sidebar {
+    background: var(--bg-surface) !important;
+    box-shadow: -4px 0 18px rgba(0,0,0,0.25) !important;
+}
+.sidebar-header {
+    border-bottom-color: var(--border-color) !important;
+    color: var(--text-primary) !important;
+}
+.sidebar-body {
+    color: var(--text-primary) !important;
+}
+.sidebar-footer {
+    background: var(--bg-surface) !important;
+    border-top-color: var(--border-color) !important;
+}
+
+/* ─────────────────────────────────────────────
+   19. TRANSFER / BOOKING CARDS (theme-aware)
+───────────────────────────────────────────── */
+.transfer-item {
+    background-color: var(--bg-hover) !important;
+    color: var(--text-primary) !important;
+}
+.btn-close-x {
+    color: var(--text-muted) !important;
+}
+.btn-close-x:hover {
+    color: var(--text-primary) !important;
+}
+
+/* ─────────────────────────────────────────────
+   20. NO RECORDS EMPTY STATE
+───────────────────────────────────────────── */
+.no-records-wrapper {
+    color: var(--text-muted) !important;
+}
+.no-records-icon {
+    color: var(--text-muted) !important;
+}
+
+/* ─────────────────────────────────────────────
+   21. MODAL — BOOTSTRAP (theme-aware)
+───────────────────────────────────────────── */
+.modal-content {
+    background-color: var(--bg-surface) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-card) !important;
+    box-shadow: var(--shadow-card) !important;
+}
+.modal-header {
+    border-bottom-color: var(--border-color) !important;
+    background: var(--bg-header) !important;
+}
+.modal-header .modal-title {
+    color: #fff !important;
+}
+.modal-header .btn-close {
+    filter: invert(1);
+}
+.modal-footer {
+    border-top-color: var(--border-color) !important;
+    background-color: var(--bg-surface) !important;
+}
+
+/* ─────────────────────────────────────────────
+   22. ALERTS (theme-aware)
+───────────────────────────────────────────── */
+.alert-success {
+    background-color: rgba(34,197,94,0.12) !important;
+    color: var(--text-success) !important;
+    border-color: rgba(34,197,94,0.25) !important;
+}
+.alert-danger {
+    background-color: rgba(239,68,68,0.12) !important;
+    color: var(--text-danger) !important;
+    border-color: rgba(239,68,68,0.25) !important;
+}
+.alert-warning {
+    background-color: rgba(245,158,11,0.12) !important;
+    color: var(--text-warning) !important;
+    border-color: rgba(245,158,11,0.25) !important;
+}
+.alert-info {
+    background-color: rgba(59,130,246,0.12) !important;
+    color: var(--text-link) !important;
+    border-color: rgba(59,130,246,0.25) !important;
+}
+
+/* ─────────────────────────────────────────────
+   23. DARK MODE TOGGLE BUTTON
+───────────────────────────────────────────── */
+#dark-mode-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: var(--brand-primary-light);
+    color: #fff;
+    font-size: 17px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    transition: background 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    padding: 0;
+}
+#dark-mode-toggle:hover {
+    background: var(--brand-accent);
+    transform: scale(1.1) translateY(-2px);
+    box-shadow: 0 8px 24px rgba(59,130,246,0.4);
+}
+#dark-mode-toggle:active {
+    transform: scale(0.95);
+}
+
+/* ─────────────────────────────────────────────
+   24. CONTAINER / SECTIONS (theme-aware)
+───────────────────────────────────────────── */
+.container {
+    background-color: var(--bg-page) !important;
+    color: var(--text-primary) !important;
+}
+
+/* ─────────────────────────────────────────────
+   25. HOME COLLECTION (theme-aware)
+───────────────────────────────────────────── */
+.home-collection-group input,
+.home-collection-group .form-control {
+    background-color: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-input) !important;
+}
+.home-collection-switch label {
+    color: var(--text-label) !important;
+}
+
+/* ─────────────────────────────────────────────
+   26. DATE FIELD (theme-aware)
+───────────────────────────────────────────── */
+.date-field .form-label {
+    color: var(--text-label) !important;
+}
+.date-input {
+    background-color: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-input) !important;
+}
+
+/* ─────────────────────────────────────────────
+   27. SYNCFUSION OVERRIDES (theme-aware)
+───────────────────────────────────────────── */
+[data-theme="dark"] .e-grid,
+[data-theme="dark"] .e-grid .e-gridheader,
+[data-theme="dark"] .e-grid .e-gridcontent,
+[data-theme="dark"] .e-grid .e-emptyrow,
+[data-theme="dark"] .e-grid .e-groupdroparea {
+    background-color: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-table) !important;
+}
+[data-theme="dark"] .e-grid .e-headercell,
+[data-theme="dark"] .e-grid .e-detailheadercell {
+    background-color: #0d1526 !important;
+    color: #e2e8f0 !important;
+    border-color: var(--border-table) !important;
+}
+[data-theme="dark"] .e-grid .e-rowcell {
+    color: var(--text-primary) !important;
+    border-color: var(--border-table) !important;
+    background-color: var(--bg-card) !important;
+}
+[data-theme="dark"] .e-grid .e-altrow .e-rowcell {
+    background-color: var(--bg-hover) !important;
+}
+[data-theme="dark"] .e-grid .e-row:hover .e-rowcell {
+    background-color: var(--bg-table-row-hover) !important;
+}
+[data-theme="dark"] .e-input-group,
+[data-theme="dark"] .e-ddl .e-input-group,
+[data-theme="dark"] .e-dropdownlist {
+    background-color: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-input) !important;
+}
+[data-theme="dark"] .e-popup,
+[data-theme="dark"] .e-ddl-popup,
+[data-theme="dark"] .e-dropdownbase,
+[data-theme="dark"] .e-dropdownbase .e-content,
+[data-theme="dark"] .e-popup .e-content,
+[data-theme="dark"] .e-autocomplete-popup,
+[data-theme="dark"] .e-list-parent {
+    background-color: var(--bg-dropdown) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-color) !important;
+}
+[data-theme="dark"] .e-list-item {
+    color: var(--text-primary) !important;
+    background-color: transparent !important;
+}
+[data-theme="dark"] .e-list-item:hover,
+[data-theme="dark"] .e-list-item.e-active,
+[data-theme="dark"] .e-list-item.e-hover,
+[data-theme="dark"] .e-list-item.e-item-focus {
+    background-color: var(--bg-hover) !important;
+    color: var(--text-primary) !important;
+}
+[data-theme="dark"] .e-numerictextbox,
+[data-theme="dark"] .e-datepicker,
+[data-theme="dark"] .e-timepicker {
+    background-color: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Syncfusion Rich Text Editor (RTE) — Dark Mode */
+[data-theme="dark"] .e-richtexteditor,
+[data-theme="dark"] .e-richtexteditor .e-rte-content,
+[data-theme="dark"] .e-richtexteditor .e-source-content {
+    background-color: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-input) !important;
+}
+
+[data-theme="dark"] .e-richtexteditor .e-rte-toolbar,
+[data-theme="dark"] .e-richtexteditor .e-toolbar,
+[data-theme="dark"] .e-richtexteditor .e-toolbar-items {
+    background: var(--bg-surface) !important;
+    background-color: var(--bg-surface) !important;
+    border-color: var(--border-input) !important;
+}
+
+[data-theme="dark"] .e-richtexteditor .e-toolbar .e-toolbar-item,
+[data-theme="dark"] .e-richtexteditor .e-toolbar .e-toolbar-item .e-tbar-btn,
+[data-theme="dark"] .e-richtexteditor .e-toolbar .e-toolbar-item .e-tbar-btn.e-btn,
+[data-theme="dark"] .e-richtexteditor .e-toolbar .e-toolbar-item .e-tbar-btn:active,
+[data-theme="dark"] .e-richtexteditor .e-toolbar .e-toolbar-item .e-tbar-btn:focus {
+    background: transparent !important;
+    background-color: transparent !important;
+    color: var(--text-primary) !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+[data-theme="dark"] .e-richtexteditor .e-toolbar .e-toolbar-item .e-tbar-btn:hover {
+    background-color: var(--bg-hover) !important;
+}
+
+[data-theme="dark"] .e-richtexteditor .e-toolbar .e-toolbar-item .e-tbar-btn-text,
+[data-theme="dark"] .e-richtexteditor .e-toolbar .e-toolbar-item .e-icons {
+    color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .e-richtexteditor .e-toolbar .e-toolbar-item.e-overlay {
+    background-color: var(--bg-input) !important;
+    opacity: 0.5;
+}
+
+/* Fix for RTE Toolbar Navigation / Dropdown / "More" button (Down Arrow) */
+[data-theme="dark"] .e-richtexteditor .e-toolbar .e-hor-nav,
+[data-theme="dark"] .e-richtexteditor .e-toolbar .e-toolbar-item.e-hor-nav,
+[data-theme="dark"] .e-richtexteditor .e-toolbar .e-toolbar-item.e-rte-add-item {
+    background: var(--bg-surface) !important;
+    background-color: var(--bg-surface) !important;
+    border-color: var(--border-input) !important;
+}
+
+[data-theme="dark"] .e-richtexteditor .e-toolbar .e-hor-nav:hover,
+[data-theme="dark"] .e-richtexteditor .e-toolbar .e-toolbar-item.e-hor-nav:hover {
+    background-color: var(--bg-hover) !important;
+}
+
+[data-theme="dark"] .e-richtexteditor .e-toolbar .e-hor-nav .e-icons,
+[data-theme="dark"] .e-richtexteditor .e-toolbar .e-toolbar-item.e-hor-nav .e-icons {
+    color: var(--text-primary) !important;
+}
+
+/* RTE Dropdowns and Popups (Paragraph, Color, etc.) */
+[data-theme="dark"] .e-rte-dropdown-popup,
+[data-theme="dark"] .e-rte-inline-dropdown,
+[data-theme="dark"] .e-rte-elements.e-dropdown-menu,
+[data-theme="dark"] .e-rte-elements.e-dropdown-menu .e-item {
+    background-color: var(--bg-dropdown) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-color) !important;
+}
+[data-theme="dark"] .e-rte-elements.e-dropdown-menu .e-item:hover {
+    background-color: var(--bg-hover) !important;
+}
+[data-theme="dark"] .e-rte-color-picker-popup,
+[data-theme="dark"] .e-colorpicker-container {
+    background-color: var(--bg-dropdown) !important;
+    border-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] .e-richtexteditor .e-rte-character-count {
+    color: var(--text-muted) !important;
+}
+
+/* Syncfusion Grid — Dark Mode Overrides for SyncfusionStyle.css */
+[data-theme="dark"] .e-gridheader .e-table th {
+    background: var(--bg-table-header) !important;
+    color: var(--text-on-brand) !important;
+}
+[data-theme="dark"] .e-gridheader .e-table .e-headertext {
+    text-shadow: none !important;
+    color: var(--text-on-brand) !important;
+}
+[data-theme="dark"] .e-gridcontent {
+    background-color: var(--bg-card) !important;
+}
+[data-theme="dark"] .e-gridcontent .e-table .e-rowcell {
+    color: var(--text-primary) !important;
+    border-color: var(--border-table) !important;
+}
+[data-theme="dark"] .e-gridcontent .e-table .e-row:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+}
+[data-theme="dark"] .e-gridcontent .e-table .e-row:hover {
+    background-color: var(--bg-table-row-hover) !important;
+}
+[data-theme="dark"] .e-grid .e-rowcell.e-selectionbackground {
+    background-color: var(--brand-accent) !important;
+}
+
+/* Syncfusion Pager (Pagination) — Dark Mode */
+[data-theme="dark"] .e-grid .e-pager,
+[data-theme="dark"] .e-pager,
+[data-theme="dark"] .e-pager .e-pagercontainer,
+[data-theme="dark"] .e-pager .e-pagesize,
+[data-theme="dark"] .e-pager .e-parentmsgbar {
+    background-color: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-table) !important;
+}
+
+[data-theme="dark"] .e-pager .e-numericitem {
+    background-color: transparent !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-table) !important;
+}
+
+[data-theme="dark"] .e-pager .e-numericitem:hover {
+    background-color: var(--bg-hover) !important;
+}
+
+[data-theme="dark"] .e-pager .e-numericitem.e-currentitem {
+    background-color: var(--brand-accent) !important;
+    color: #ffffff !important;
+}
+
+[data-theme="dark"] .e-pager .e-first,
+[data-theme="dark"] .e-pager .e-prev,
+[data-theme="dark"] .e-pager .e-next,
+[data-theme="dark"] .e-pager .e-last,
+[data-theme="dark"] .e-pager .e-firstpage,
+[data-theme="dark"] .e-pager .e-prevpage,
+[data-theme="dark"] .e-pager .e-nextpage,
+[data-theme="dark"] .e-pager .e-lastpage {
+    background-color: transparent !important;
+    color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .e-pager .e-first:hover,
+[data-theme="dark"] .e-pager .e-prev:hover,
+[data-theme="dark"] .e-pager .e-next:hover,
+[data-theme="dark"] .e-pager .e-last:hover {
+    background-color: var(--bg-hover) !important;
+}
+
+[data-theme="dark"] .e-pager .e-spacing {
+    color: var(--text-primary) !important;
+}
+
+/* Syncfusion Dropdown / Input Arrows — Dark Mode */
+[data-theme="dark"] .e-input-group-icon,
+[data-theme="dark"] .e-ddl .e-input-group-icon,
+[data-theme="dark"] .e-numeric .e-input-group-icon,
+[data-theme="dark"] .e-datepicker .e-input-group-icon,
+[data-theme="dark"] .e-timepicker .e-input-group-icon {
+    background-color: var(--bg-surface) !important;
+    color: var(--text-primary) !important;
+    border-left-color: var(--border-input) !important;
+}
+[data-theme="dark"] .e-input-group-icon:hover {
+    background-color: var(--bg-hover) !important;
+}
+
+/* ─────────────────────────────────────────────
+   28. RESPONSIVE
+───────────────────────────────────────────── */
+@media (max-width: 768px) {
+    #dark-mode-toggle {
+        bottom: 12px;
+        right: 12px;
+        width: 38px;
+        height: 38px;
+        font-size: 15px;
+    }
+}
+
+/* ─────────────────────────────────────────────
+   29. TOAST NOTIFICATION ANIMATIONS
+───────────────────────────────────────────── */
+@keyframes shrink {
+    0% { width: 100%; }
+    100% { width: 0%; }
+}
+
+@keyframes toast-enter {
+    0% { transform: translateX(100%); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+}
+
+.toast-enter {
+    animation: toast-enter 0.3s ease-out forwards;
+}

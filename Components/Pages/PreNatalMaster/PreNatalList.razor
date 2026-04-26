@@ -1,0 +1,314 @@
+@page "/prenatallist"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@using LIMS.Model
+@using Lims.Components.Data
+@using Lims.Components.Model
+@using Newtonsoft.Json
+@using Syncfusion.Blazor.Grids
+
+@inject HttpClient http
+@inject AppSettings appSettings
+@inject IJSRuntime JS
+@using Syncfusion.Blazor.Popups
+@using Lims.Components.Pages.PreNatalMaster
+@using Syncfusion.Pdf
+@inject ExecutionClass exe
+@inject ProtectedSessionStorage sessionStorage
+<!-- Modern PreNatal Header -->
+<div class="d-flex align-items-center mb-3 py-2 px-3 shadow-sm rounded position-relative overflow-hidden" style="background: var(--bg-card); border-left: 5px solid #667eea; border: 1px solid var(--border-color); border-left-width: 5px;">
+    <i class="fas fa-dna position-absolute pe-none" style="font-size: 6rem; right: 10px; top: -20px; opacity: 0.05; color: #667eea; transform: rotate(20deg);"></i>
+    <div class="me-3 rounded-circle d-flex justify-content-center align-items-center" style="background: rgba(102, 126, 234, 0.1); width: 45px; height: 45px; z-index: 1;">
+        <i class="fas fa-dna" style="font-size: 1.5rem; color: #667eea;"></i>
+    </div>
+    <div style="z-index: 1;">
+        <h4 class="mb-0 fw-bold" style="font-family: 'Inter', sans-serif; letter-spacing: 0.3px; color: var(--text-primary);">PreNatal List</h4>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row align-items-end">
+                        <div class="col-md-2">
+                            <label>From Date</label>    
+                            <InputDate @bind-Value="fromDate" class="form-control" />
+                        </div>
+                        <div class="col-md-2">
+                            <label>To Date</label>    
+                            <InputDate @bind-Value="toDate" class="form-control" />
+                        </div>
+                        <div class="col-md-2">
+    <button class="btn btn-primary mt-2" @onclick="btnrefreshAsync">
+        <i class="bi bi-search"></i> Search
+    </button>
+</div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col">
+            <div class="card">
+                <div class="card-body">
+                    <SfGrid @ref="grd1" DataSource="@preNatalrequests">
+                        @* <GridEvents RowSelected="OnRowSel" TValue="PreNatalRequest"></GridEvents> *@
+                        <GridColumns>
+                            @* <GridColumn Field="RequestGUID" IsPrimaryKey="true" HeaderText="GUID"></GridColumn> *@
+                            <GridColumn Field="RequestSno" HeaderText="SID" Width="40"></GridColumn>
+                            <GridColumn Field="RequestDateTime" Format="dd-MM-yyyy" HeaderText="Date" Width="120"></GridColumn>
+                            <GridColumn Field="PatientName" HeaderText="Patient Name" Width="200"></GridColumn>
+                            <GridColumn Field="Age" HeaderText="Age" Width="80"></GridColumn>
+                            <GridColumn Field="Gender" HeaderText="Gender" Width="100"></GridColumn>
+                            <GridColumn Field="MobileNo" HeaderText="Mobile No" Width="120"></GridColumn>
+                            <GridColumn Field="DoctorFullName" HeaderText="Referral" Width="150"></GridColumn>
+                            <GridColumn Field="TestName" HeaderText="Test Name" Width="200"></GridColumn>
+
+
+                            <!-- Actions Column -->
+                            <GridColumn HeaderText="Actions" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" Width="150">
+                                <Template>
+                                    @{
+                                        var dat = (context as PreNatalRequest);
+                                    }
+                                    <div style="display: flex; gap: 8px; justify-content: center;">
+                                     <button type="button"
+        class="btn btn-primary btn-sm d-flex align-items-center gap-1"
+        style="border: 1px solid blue; color: blue;"
+        @onclick="() => ResultEntry(dat)">
+    <i class="bi bi-box-arrow-in-right" style="color: blue;"></i>
+    Entry
+</button>
+
+
+                                        @if (dat.AuthorizedBy > 0)
+                                        {
+                                            <button type="button"
+                                                    @onclick="() => GetReport(dat)"
+                                                    class="btn btn-info btn-sm d-flex align-items-center gap-1">
+                                                <i class="bi bi-eye-fill"></i>
+                                                View
+                                            </button>
+                                        }
+                                    </div>
+                                </Template>
+                            </GridColumn>
+                        </GridColumns>
+                    </SfGrid>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+          
+        </div>
+    </div>
+ 
+</div>
+
+
+    
+@if(isviewer==true)
+{
+    <div class="row">
+       
+    </div>    
+}
+<SfDialog Visible="@isshow" Width="100%" Height="100vh" IsModal="true" ShowCloseIcon="true">
+    <DialogTemplates>
+        <Header>Result Entry</Header>
+        <Content>
+         <Lims.Components.Shared.ToastComponent />
+            <PreNatalResults prenatalrequest="@pnr"></PreNatalResults>
+        </Content>
+    </DialogTemplates>
+    <DialogEvents OnClose="CloseEntry"></DialogEvents>
+</SfDialog>
+<SfDialog Visible="@isviewer" Width="80%" Header="Result" Height="80%" IsModal="true" ShowCloseIcon="true">
+    <DialogTemplates>
+        <Header>Result Entry</Header>
+        <Content>
+            <ReportViewer Reportstring="@reportstring" pnr="@reportrequest"></ReportViewer>
+        </Content>
+    </DialogTemplates>
+    <DialogEvents OnClose="CloseViewer"></DialogEvents>
+</SfDialog>
+@code {
+    DateTime fromDate = DateTime.Now;
+    DateTime toDate = DateTime.Now;
+
+    SfGrid<PreNatalRequest> grd1;
+    IList<PreNatalRequest> preNatalrequests = new List<PreNatalRequest>();
+    PreNatalRequest pnr = new();
+    bool isshow = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            http.DefaultRequestHeaders.Clear();
+            http.DefaultRequestHeaders.Add("X-Tenant-ID", appSettings.ClientId);
+            await btnrefreshAsync();
+        }
+    }
+
+    private async Task btnrefreshAsync()
+    {
+        try
+        {
+            string sd = fromDate.ToString("yyyy-MM-dd") + " 12:00:00 AM";
+            string ed = toDate.ToString("yyyy-MM-dd") + " 11:59:59 PM";
+            var res = await http.GetAsync($"{appSettings.BaseUrl}Genetics/PreNatalRequest?fdate={Uri.EscapeDataString(sd)}&tdate={Uri.EscapeDataString(ed)}");
+            if (res.IsSuccessStatusCode)
+            {
+                var tt = res.Content.ReadAsStringAsync().Result;
+
+                if (!string.IsNullOrWhiteSpace(tt))
+                {
+                    var natal = JsonConvert.DeserializeObject<IList<PreNatalRequest>>(tt) ?? new List<PreNatalRequest>();
+
+                    if (natal != null && natal.Count > 0)
+                    {
+                        preNatalrequests = natal.Where(x => x.SkyCode == "PreNatal").ToList();
+                        // Load status overrides from sessionStorage
+                        foreach (var req in preNatalrequests)
+                        {
+                            var status = await JS.InvokeAsync<string>("sessionStorage.getItem", $"prenatal_status_{req.RequestGUID}");
+                            if (!string.IsNullOrEmpty(status))
+                            {
+                                req.RequestStatus = status;
+                            }
+                        }
+                    }
+                    StateHasChanged();
+
+                }
+            }
+        }catch(Exception ex)
+        {
+            var tt = ex.Message.ToString();
+            var tt1 = tt;
+        }
+    }
+
+    private async Task ResultEntry(PreNatalRequest args)
+    {
+
+        pnr = args;
+        isshow = true;
+
+        StateHasChanged();
+    }
+
+    private async Task OnRowSel(RowSelectEventArgs<PreNatalRequest> args)
+    {
+        pnr = args.Data;
+        isshow = true;
+        StateHasChanged();
+    }
+
+    private async Task CloseEntry()
+    {
+        isshow = false;
+        await btnrefreshAsync();
+    }
+    private async Task CloseViewer()
+    {
+        isviewer = false;
+        await btnrefreshAsync();
+    }
+    bool isviewer = false;
+    string reportstring = "";
+    private SfPdfViewer2 rpt;
+    PreNatalRequest reportrequest = new();
+    bool letterhead = false;
+    private async Task GetReport(PreNatalRequest args)
+    {
+        try
+        {
+            reportrequest = args;
+            var basestring = await exe.GetReport<PreNatalRequest>(args, (await sessionStorage.GetAsync<string>("MainBranch")).Value ?? "General", letterhead,"PreNatalReport.rdlc");
+            if(basestring.Length>0)
+            {
+                reportstring = basestring;
+                isviewer = true;
+                StateHasChanged();
+            }
+            // reportrequest = args;
+            // // PreNatalReportModel reportModel = new PreNatalReportModel
+            // // {
+            // //    
+            // //     ReportName="PreNatalReport.rdlc",
+            // //     RequestGUID=args.RequestGUID.ToString(),
+            // //     TCode=args.TCode,
+            // // };
+
+            // RoutineReportDto parameters = new();
+            // parameters.ClientID = appSettings.ClientId;
+            // parameters.DataSource = "DataSet1";
+            // parameters.ReportName = "PreNatalReport.rdlc";
+            // parameters.RequestGUID =Convert.ToString(args.RequestGUID);
+            // parameters.TCode = Convert.ToString(args.TCode);
+            // List<ReportParameterDto> parameter = new List<ReportParameterDto>();
+
+
+        
+            // parameter.Add(new ReportParameterDto() { Name = "TCode", Values = new List<string>() { Convert.ToString(args.TCode) } });
+            // parameter.Add(new ReportParameterDto() { Name = "IsLetterHead", Values = new List<string>() { Convert.ToString(letterhead) } });
+            // parameters.Parameters = parameter;
+
+
+            // var res = await http.PostAsJsonAsync($"{appSettings.BaseUrl}Genetics/GetPreNatalReport", parameters);
+            // if(res.IsSuccessStatusCode)
+            // {
+
+            //     string report1 = res.Content.ReadAsStringAsync().Result;
+            //     string client = (await sessionStorage.GetAsync<string>("MainBranch")).Value ?? "General";
+
+            //     var result1 = await http.GetAsync($"{appSettings.BaseUrl}files/download/{args.FilePath1.ToString()}?client={client}");
+            //     byte[] filestring =null;
+            //     if (result1.IsSuccessStatusCode)
+            //     {
+            //         var result = await result1.Content.ReadFromJsonAsync<FileDownloadResult>();
+            //         // Convert Base64 back to byte[]
+            //         filestring = (result.Base64);
+            //         byte[] report = Convert.FromBase64String(report1);
+
+            //         PdfDocument finalDoc = new PdfDocument();
+            //         MemoryStream ms1 = new MemoryStream(report);
+            //         MemoryStream ms2 = new MemoryStream(filestring);
+
+            //         //Creates a PDF stream for merging.
+            //         Stream[] streams = { ms1, ms2 };
+            //         //Merges PDFDocument.
+            //         PdfDocumentBase.Merge(finalDoc, streams);
+
+            //         //Save the document into stream.
+            //         MemoryStream stream = new MemoryStream();
+            //         finalDoc.Save(stream);
+            //         reportstring = Convert.ToBase64String(stream.ToArray());
+            //         //await rpt.LoadAsync("data:application/pdf;base64, " + reportstring, null);
+            //         StateHasChanged();
+            //         isviewer = true;
+            //         return;
+            //     }
+            //     reportstring = report1;
+            //     StateHasChanged();
+            //     isviewer = true;
+            //     return;
+            //}
+        }catch(Exception ex)
+        {
+            var msf = ex.Message.ToString();
+        }
+    }
+
+  
+    // Status update logic removed as per new requirements
+}

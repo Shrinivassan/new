@@ -1,0 +1,57 @@
+@using Syncfusion.Blazor.Notifications
+@using Lims.Components.Data
+@inject NotificationService NotificationService
+
+@implements IDisposable
+
+<SfToast @ref="ToastRef" Target="#layout-root" ShowCloseButton="true">
+    <ToastPosition X="@position.X" Y="@position.Y"></ToastPosition>
+</SfToast>
+
+@code {
+    private SfToast? ToastRef;
+    private ToastPosition position = new ToastPosition { X = "Right", Y = "Top" };
+
+    protected override void OnInitialized()
+    {
+        NotificationService.OnNotify += OnNotifyHandler;
+    }
+
+    private async Task OnNotifyHandler(NotificationMessage msg)
+    {
+        if (ToastRef == null)
+            return;
+
+        var model = new ToastModel
+        {
+            Title = msg.Title,
+            Content = msg.Message,
+            // API uses "Timeout" (milliseconds) for duration
+            Timeout = msg.Duration
+        };
+
+        switch (msg.Type)
+        {
+            case NotificationType.Success:
+                model.CssClass = "e-toast-success";
+                break;
+            case NotificationType.Info:
+                model.CssClass = "e-toast-info";
+                break;
+            case NotificationType.Warning:
+                model.CssClass = "e-toast-warning";
+                break;
+            case NotificationType.Error:
+                model.CssClass = "e-toast-danger";
+                break;
+        }
+
+    // Show the single model
+    await ToastRef.ShowAsync(model);
+    }
+
+    public void Dispose()
+    {
+        NotificationService.OnNotify -= OnNotifyHandler;
+    }
+}

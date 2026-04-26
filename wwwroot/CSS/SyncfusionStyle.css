@@ -1,0 +1,273 @@
+/* Import Bootstrap Icons */
+@import url("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css");
+
+/* Enhanced Syncfusion Grid Styles */
+
+.e-grid {
+    width: 99%;
+    margin: auto;
+    position: relative;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    letter-spacing: 1px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+/* Header Styles */
+.e-gridheader {
+    font-size: 12px;
+    padding: 0;
+    height: 28px;
+}
+
+.e-gridheader .e-table th {
+    letter-spacing: 2px;
+    height: 28px;
+    padding: 5px;
+    background: linear-gradient(180deg, #a1c4fd 0%, #c2e9fb 100%);
+    border: none;
+    color: #2c3e50;
+    text-transform: uppercase;
+}
+
+.e-gridheader .e-table .e-headertext {
+    font-weight: 600;
+    font-size: 13px;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+/* Content Styles */
+.e-gridcontent {
+    height: auto;
+    background-color: #e6f3ff; /* Changed to light blue */
+}
+
+.e-gridcontent .e-table .e-row {
+    background-color: transparent;
+    padding: 0;
+    transition: background-color 0.2s ease;
+}
+
+.e-gridcontent .e-table .e-row:nth-child(even) {
+    background-color: rgba(173, 216, 255, 0.3); /* Changed to light blue variant */
+}
+
+.e-gridcontent .e-table .e-row:hover {
+    background-color: rgba(135, 206, 250, 0.4); /* Changed to light blue hover */
+}
+
+.e-gridcontent .e-table .e-rowcell {
+    border: 1px solid #e8e8e8;
+    padding: 8px 6px;
+    font-weight: 400 !important;
+    color: #434040 !important;
+    vertical-align: middle;
+    transition: all 0.2s ease;
+}
+
+.e-gridcontent .e-table .e-templatecell {
+    color: #434040 !important;
+    font-weight: 400 !important;
+}
+
+/* Selection Styles */
+.e-grid .e-rowcell.e-selectionbackground {
+    background-color: rgb(30, 144, 255) !important; /* Changed to blue for selection */
+    color: #fff !important;
+    font-weight: 500 !important;
+}
+
+.e-grid .e-row.e-active .e-rowcell {
+    background-color: rgba(30, 144, 255, 0.2); /* Changed to light blue for active row */
+    border-color: rgb(30, 144, 255);
+}
+
+/* Button Styles */
+.grd-button {
+    width: 30px;
+    height: 20px;
+    border: none;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(185, 217, 255, 1), rgba(154, 221, 236, 0.8));
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.grd-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(135deg, rgba(135, 206, 250, 1), rgba(100, 180, 255, 0.8)); /* Changed to light blue gradient */
+}
+
+.grd-button:active {
+    transform: translateY(0);
+}
+
+.grd-img {
+    width: 20px;
+    height: 20px;
+    filter: brightness(0.8);
+}
+
+/* Email Button Styles */
+.email-btn {
+    border: 1px solid rgb(30, 144, 255); /* Changed to blue border */
+    background-color: rgb(230, 243, 255); /* Changed to light blue background */
+    border-radius: 8px;
+    width: 60px;
+    height: 30px;
+    overflow: hidden;
+    padding: 6px 0 0 8px !important;
+    color: rgb(30, 100, 200); /* Changed to blue text */
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    font-size: 12px;
+}
+
+.email-btn:hover {
+    background-color: rgb(30, 144, 255); /* Changed to blue hover */
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(30, 144, 255, 0.3); /* Changed to blue shadow */
+}
+
+.email-btn:active {
+    transform: translateY(0);
+}
+
+/* Input Styles */
+::-webkit-outer-spin-button,
+::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type=number] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+/* Toast Notification Styles */
+.e-toast-container .e-toast .e-toast-message .e-toast-content {
+    color: #2c3e50;
+    font-size: 13px;
+    font-weight: 500;
+    text-shadow: none;
+}
+
+.e-toast-container .e-toast {
+    background: linear-gradient(135deg, #87ceeb, #b0e0e6) !important; /* Changed to light blue gradient */
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(135, 206, 235, 0.3); /* Changed to light blue shadow */
+    border: none;
+}
+
+/* Dialog Close Button Styles */
+.e-control.e-btn.e-lib.e-dlg-closeicon-btn.e-flat.e-icon-btn {
+    font-size: 16px !important;
+    color: #6c757d !important;
+    background-color: transparent !important;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    transition: all 0.2s ease;
+}
+
+.e-control.e-btn.e-lib.e-dlg-closeicon-btn.e-flat.e-icon-btn:hover {
+    background-color: rgba(220, 53, 69, 0.1) !important;
+    color: #dc3545 !important;
+}
+
+.e-control.e-btn.e-lib.e-dlg-closeicon-btn.e-flat.e-icon-btn span {
+    font-size: 14px !important;
+    color: inherit !important;
+}
+
+/* Dropdown Styles */
+.e-ddl .e-input-group-icon.e-ddl-icon.e-icons,
+.e-ddl .e-input-group-icon.e-ddl-icon.e-icons:hover {
+    color: rgb(30, 144, 255);              /* Blue icon */
+    font-size: 13px;                       /* Icon size */
+    background-color: rgb(230, 243, 255);  /* Light blue bg */
+    width: 10px;                           /* Fixed width */
+    height: 28px;                          /* Fixed height */
+    display: flex;                         /* Center align */
+    align-items: center;                   /* Vertical center */
+    justify-content: center;               /* Horizontal center */
+    border-radius: 6px;                    /* Rounded corners */
+    transition: all 0.2s ease;
+}
+
+
+.e-ddl .e-input-group-icon.e-ddl-icon.e-icons:hover {
+    background-color: rgb(30, 144, 255); /* Changed to blue hover */
+    color: #fff;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .e-grid {
+        width: 100%;
+        margin: 0;
+        border-radius: 0;
+    }
+    
+    .e-gridheader .e-table th {
+        padding: 4px;
+        font-size: 11px;
+    }
+    
+    .e-gridcontent .e-table .e-rowcell {
+        padding: 6px 4px;
+        font-size: 12px;
+    }
+    
+    .grd-button {
+        width: 35px;
+        height: 35px;
+    }
+    
+    .grd-img {
+        width: 18px;
+        height: 18px;
+    }
+}
+
+/* Loading States */
+.e-grid.e-masked {
+    position: relative;
+}
+
+.e-grid .e-spinner-pane {
+    background-color: rgba(230, 243, 255, 0.9); /* Changed to light blue with transparency */
+    backdrop-filter: blur(2px);
+}
+
+/* Focus States */
+.e-grid .e-rowcell:focus {
+    outline: 2px solid rgb(30, 144, 255); /* Changed to blue outline */
+    outline-offset: -2px;
+}
+
+/* Custom Scrollbar */
+.e-gridcontent::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.e-gridcontent::-webkit-scrollbar-track {
+    background: #e6f3ff; /* Changed to light blue track */
+    border-radius: 4px;
+}
+
+.e-gridcontent::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgb(135, 206, 250), rgb(30, 144, 255)); /* Changed to blue gradient */
+    border-radius: 4px;
+}
+
+.e-gridcontent::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgb(30, 144, 255), rgb(0, 100, 200)); /* Changed to darker blue hover */
+}

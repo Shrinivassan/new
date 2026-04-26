@@ -1,0 +1,206 @@
+@page "/sample-collection"
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.Buttons
+@using Syncfusion.Blazor.Inputs
+@using Syncfusion.Blazor.DropDowns
+@using Syncfusion.Blazor.Calendars
+@using LIMS.Model
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject HttpClient http
+@inject AppSettings AppSettings
+@inject ProtectedSessionStorage _sessionStorage
+
+@using Lims.Components.Model
+
+@using System.Net.Http.Headers
+@using Newtonsoft.Json
+@using System.Text.Json.Serialization
+
+
+@inject HttpClient http
+@inject ProtectedSessionStorage _sessionStorage
+@inject AppSettings appSettings
+
+<div class="sample-collection-container">
+    <div class="header-section">
+        <h3 class="page-title">
+            <i class="sf-icon-sample"></i>
+            Sample Collection
+        </h3>
+<div class="filter-group">
+            <label class="filter-label">Branch</label>
+            <SfDropDownList TValue="int" TItem="Branch_Master"
+                            DataSource="@BranchData"
+                            @bind-Value="@SelectedBranchCode"
+                            Placeholder="Select Branch"
+                            CssClass="filter-dropdown">
+                <DropDownListFieldSettings Text="Name" Value="BHCode"></DropDownListFieldSettings>
+            </SfDropDownList>
+</div>
+    </div>
+
+    <div class="filter-section">
+        <div class="filter-row">
+      
+
+            <div class="filter-group">
+    <label class="filter-label">From Date</label>
+    <InputDate @bind-Value="FromDate" class="filter-datepicker" />
+</div>
+
+<div class="filter-group">
+    <label class="filter-label">To Date</label>
+    <InputDate @bind-Value="ToDate" class="filter-datepicker" />
+</div>
+
+
+
+                <div class="filter-group">
+                <SfButton IsPrimary="true" 
+                         Content="View" 
+                         CssClass="view-button"
+                         OnClick="@OnViewClick">
+                </SfButton>
+            </div>
+
+            <div class="filter-group radio-group">
+                <SfRadioButton Label="Not Collected" 
+                              Name="CollectionStatus" 
+                              Value="NotCollected" 
+                              @bind-Checked="@CollectionStatus"
+                              CssClass="radio-button">
+                </SfRadioButton>
+                <SfRadioButton Label="Collected" 
+                              Name="CollectionStatus" 
+                              Value="Collected" 
+                              @bind-Checked="@CollectionStatus"
+                              CssClass="radio-button">
+                </SfRadioButton>
+            </div>
+
+        
+        </div>
+
+        <div class="search-section">
+            <SfTextBox Placeholder="Search" 
+                      @bind-Value="@SearchText"
+                      CssClass="search-textbox">
+            </SfTextBox>
+        </div>
+    </div>
+
+    <div class="grid-section">
+        <div class="grid-container">
+            <div class="left-grid">
+                <SfGrid DataSource="@SampleData" 
+                       Height="400"
+                       AllowSelection="true"
+                       CssClass="sample-grid">
+                    <GridSelectionSettings Type="Syncfusion.Blazor.Grids.SelectionType.Single"></GridSelectionSettings>
+                    <GridColumns>
+                        <GridColumn Field="SNo" HeaderText="S.No." Width="80" TextAlign="TextAlign.Center"></GridColumn>
+                        <GridColumn Field="SID" HeaderText="SID" Width="100" TextAlign="TextAlign.Center"></GridColumn>
+                        <GridColumn Field="PatId" HeaderText="Pat. ID" Width="100" TextAlign="TextAlign.Center"></GridColumn>
+                        <GridColumn Field="Name" HeaderText="Name" Width="150"></GridColumn>
+                        <GridColumn Field="ReferredBy" HeaderText="Referred By" Width="150"></GridColumn>
+                    </GridColumns>
+                </SfGrid>
+                <div class="no-records">No records to display</div>
+            </div>
+
+            <div class="right-grid">
+                <div class="right-header">
+                    <div class="header-item">Select</div>
+                    <div class="header-item">Sample</div>
+                    <div class="header-item">Collected Date</div>
+                </div>
+                <div class="no-records-right">No records to display</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-section">
+        <div class="billed-test-container">
+            <div class="billed-test-header">
+                <span class="billed-test-title">Billed Test</span>
+                <div class="action-buttons">
+                    <SfButton IsPrimary="true" 
+                             Content="Save" 
+                             CssClass="save-button">
+                    </SfButton>
+                    <SfButton Content="Print Barcode" 
+                             CssClass="print-button">
+                    </SfButton>
+                </div>
+            </div>
+            <div class="billed-test-content">
+                <!-- Billed test content area -->
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int SelectedBranchCode;
+    private DateTime? FromDate = DateTime.Now;
+    private DateTime? ToDate = DateTime.Now;
+    private string CollectionStatus = "NotCollected";
+    private string SearchText = "";
+
+    private List<SampleItem> SampleData = new List<SampleItem>();
+
+    private List<Branch_Master> BranchData = new List<Branch_Master>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBranches();
+    }
+
+    private async Task LoadBranches()
+    {
+        try
+        {
+            var sessionBranches = await _sessionStorage.GetAsync<List<Branch_Master>>("branch");
+            if (sessionBranches.Success && sessionBranches.Value != null && sessionBranches.Value.Any())
+            {
+                BranchData = sessionBranches.Value;
+            }
+            else
+            {
+                var res = await http.GetAsync($"{AppSettings.BaseUrl}masters/branches");
+                if (res.IsSuccessStatusCode)
+                {
+                    var branchList = await res.Content.ReadFromJsonAsync<List<Branch_Master>>();
+                    if (branchList != null && branchList.Any())
+                    {
+                        BranchData = branchList.Where(x => !x.Deleted).ToList();
+                    }
+                }
+            }
+
+            if (BranchData.Any())
+            {
+                SelectedBranchCode = BranchData.FirstOrDefault(b => b.IsMainBranch)?.BHCode ?? BranchData.First().BHCode;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading branches: {ex.Message}");
+        }
+    }
+
+    public class SampleItem
+    {
+        public int SNo { get; set; }
+        public string SID { get; set; } = "";
+        public string PatId { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string ReferredBy { get; set; } = "";
+    }
+
+    private void OnViewClick()
+    {
+        // Handle view button click
+        // Load data based on filters
+    }
+}

@@ -1,0 +1,524 @@
+@page "/prenatal-genetic"
+@using LIMS.Model
+@using System.Collections.ObjectModel
+@using System.Net.Http.Headers
+@using Lims.Components.Data
+@using Newtonsoft.Json
+@using Lims.Components.Model
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Syncfusion.Blazor.DropDowns
+@using System.Net.Http.Json
+
+@rendermode InteractiveServer
+
+@inject HttpClient http
+@inject AppSettings AppSettings
+@inject ProtectedSessionStorage _sessionStorage
+@inject Data.ApiData _apiData
+@inject Lims.Components.Data.NotificationService NotificationService
+@inject ExecutionClass exe
+@inject IJSRuntime JSRuntime
+
+<div class="genetic-page">
+    <!-- Header Section -->
+    <div class="page-header">
+        <div class="page-header-title">
+            <i class="fas fa-dna animate-pulse"></i>
+            <span>PreNatal Genetic Master</span>
+        </div>
+        <div class="page-header-accent"></div>
+    </div>
+
+    <div class="content-body">
+        <!-- Search Card -->
+        <div class="glass-card mb-3 selection-card">
+            <div class="card-header-premium">
+                <i class="fas fa-search-location"></i>
+                <span>Test Selection</span>
+            </div>
+            <div class="card-body-premium">
+                <div class="search-container-premium">
+                    <label class="premium-label">Search and Select PreNatal Genetic Test</label>
+                    <SfComboBox @ref="_testCombo" TValue="string" TItem="Test_Master"
+                                Placeholder="Enter test name, code or keyword..."
+                                AllowFiltering="true" AllowCustomValue="true"
+                                DataSource="@tm" @bind-Value="searchtest"
+                                CssClass="premium-autocomplete">
+                        <ComboBoxFieldSettings Text="Name" Value="Name"></ComboBoxFieldSettings>
+                        <ComboBoxEvents TValue="string" TItem="Test_Master"
+                                        Filtering="OnTestFiltering"
+                                        ValueChange="OnTestSelected">
+                        </ComboBoxEvents>
+                    </SfComboBox>
+                </div>
+            </div>
+        </div>
+
+        @if (pntm.TCode > 0)
+        {
+            <!-- Data Card -->
+            <div class="glass-card fade-in">
+                <div class="card-header-premium">
+                    <i class="fas fa-table-list"></i>
+                    <span>Parameter Mapping Details</span>
+                    <div class="ms-auto">
+                        <span class="badge-status success">
+                            <i class="fas fa-check-circle me-1"></i> @searchtest Active
+                        </span>
+                    </div>
+                </div>
+
+                <div class="card-body-premium">
+                    <div class="info-strip mb-3">
+                        <div class="info-item">
+                            <label>Display Name</label>
+                            <span>@searchtest</span>
+                        </div>
+                        <div class="info-divider"></div>
+                        <div class="info-item">
+                            <label>Internal Code</label>
+                            <span class="code-span">@pntm.TCode</span>
+                        </div>
+                    </div>
+
+                    <!-- Table 1: Biochemical Markers -->
+                    <div class="section-title-premium mt-1 mb-2">
+                        <i class="fas fa-vial"></i> Biochemical Marker Mapping
+                    </div>
+                    <div class="table-wrapper-premium mb-4">
+                        <table class="normal-premium-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 65px; text-align: center;">SL No</th>
+                                    <th>Biochemical Marker</th>
+                                    <th style="width: 200px;">Machine Code</th>
+                                    <th style="width: 100px; text-align: center;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @{
+                                    var markers = ptrm.Where(x => x.Title != "Result Table 2").ToList();
+                                    if (markers.Count > 0)
+                                    {
+                                        int slNo = 1;
+                                        @foreach (var item in markers)
+                                        {
+                                            var currentSl = slNo++;
+                                            <tr>
+                                                <td style="text-align: center; width: 65px;">@currentSl</td>
+                                                <td title="@item.BiochemicalMarker">@item.BiochemicalMarker</td>
+                                                <td style="width: 200px;">
+                                                    @if (editingId == item.PNTRID)
+                                                    {
+                                                        <input type="text" class="table-inline-input"
+                                                               @bind="item.MachineCode"
+                                                               @onblur="() => StopEditing()"
+                                                               autofocus />
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="display-value" @onclick="() => editingId = item.PNTRID"
+                                                             title="@(string.IsNullOrEmpty(item.MachineCode) ? "Click to enter machine code" : item.MachineCode)">
+                                                            @(string.IsNullOrEmpty(item.MachineCode) ? "---" : item.MachineCode)
+                                                        </div>
+                                                    }
+                                                </td>
+                                                <td style="text-align: center; width: 100px;">
+                                                    <div class="action-buttons-cell">
+                                                        <button class="btn-row-action edit" title="Edit Machine Code"
+                                                                @onclick="() => editingId = item.PNTRID">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                        <button class="btn-row-action delete" title="Delete Row"
+                                                                @onclick="() => DeleteTest(item.PNTRID)">
+                                                            <i class="fas fa-trash-alt"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <tr>
+                                            <td colspan="4" class="text-center py-4 text-muted">No biochemical markers found.</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Table 2: Risk / Disorders -->
+                    <div class="section-title-premium mt-4 mb-2">
+                        <i class="fas fa-exclamation-triangle"></i> Risk & Disorder Mapping
+                    </div>
+                    <div class="table-wrapper-premium">
+                        <table class="normal-premium-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 65px; text-align: center;">SL No</th>
+                                    <th>Disorder</th>
+                                    <th style="width: 200px;">Machine Code</th>
+                                    <th style="width: 100px; text-align: center;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @{
+                                    var disorders = ptrm.Where(x => x.Title == "Result Table 2").ToList();
+                                    if (disorders.Count > 0)
+                                    {
+                                        int slNo = 1;
+                                        @foreach (var item in disorders)
+                                        {
+                                            var currentSl = slNo++;
+                                            <tr>
+                                                <td style="text-align: center; width: 65px;">@currentSl</td>
+                                                <td title="@item.Disorder">@item.Disorder</td>
+                                                <td style="width: 200px;">
+                                                    @if (editingId == item.PNTRID)
+                                                    {
+                                                        <input type="text" class="table-inline-input"
+                                                               @bind="item.MachineCode"
+                                                               @onblur="() => StopEditing()"
+                                                               autofocus />
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="display-value" @onclick="() => editingId = item.PNTRID"
+                                                             title="@(string.IsNullOrEmpty(item.MachineCode) ? "Click to enter machine code" : item.MachineCode)">
+                                                            @(string.IsNullOrEmpty(item.MachineCode) ? "---" : item.MachineCode)
+                                                        </div>
+                                                    }
+                                                </td>
+                                                <td style="text-align: center; width: 100px;">
+                                                    <div class="action-buttons-cell">
+                                                        <button class="btn-row-action edit" title="Edit Machine Code"
+                                                                @onclick="() => editingId = item.PNTRID">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                        <button class="btn-row-action delete" title="Delete Row"
+                                                                @onclick="() => DeleteTest(item.PNTRID)">
+                                                            <i class="fas fa-trash-alt"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <tr>
+                                            <td colspan="5" class="text-center py-4 text-muted">No risk mappings found.</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="footer-actions mt-3">
+                        <button class="btn-modern-save" @onclick="SaveMaster" disabled="@isSaving">
+                            @if (isSaving)
+                            {
+                                <i class="fas fa-spinner fa-spin me-2"></i>
+                                <span>SAVING...</span>
+                            }
+                            else
+                            {
+                                <i class="fas fa-cloud-arrow-up me-2"></i>
+                                <span>SAVE CONFIGURATION</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="empty-selection-state">
+                <div class="empty-illustration">
+                    <i class="fas fa-dna scale-up"></i>
+                </div>
+                <h3>PreNatal Genetic Configuration</h3>
+                <p>Please search and select a test from the dropdown above to view and modify machine mappings.</p>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    // Notification System
+    public enum NotificationType { Success, Error, Warning, Info }
+    public class Notification
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string Title { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public NotificationType Type { get; set; }
+        public bool IsRemoving { get; set; }
+        public Timer? AutoRemoveTimer { get; set; }
+    }
+
+    private List<Notification> notifications = new();
+
+    // Variables
+    IList<Test_Master> tm = new List<Test_Master>();
+    PreNatal_Test_Master pntm = new PreNatal_Test_Master();
+    string searchtest = string.Empty;
+    private Syncfusion.Blazor.DropDowns.SfComboBox<string, Test_Master>? _testCombo;
+
+    IList<PreNatal_Test_Result_Master> ptrm = new List<PreNatal_Test_Result_Master>();
+    string token = string.Empty;
+    private System.Timers.Timer? debounceTimer;
+    private bool isSaving = false;
+    private Guid editingId = Guid.Empty;
+
+    protected override async Task OnAfterRenderAsync(bool first)
+    {
+        if (first)
+        {
+            http.DefaultRequestHeaders.Clear();
+            http.DefaultRequestHeaders.Add("X-Tenant-ID", AppSettings.ClientId);
+            debounceTimer = new System.Timers.Timer(10);
+            debounceTimer.Elapsed += async (s, e) => await OnDebounceTimerElapsed();
+            debounceTimer.AutoReset = false;
+
+            var tkn = await _sessionStorage.GetAsync<UserAuth>("claim");
+            if (tkn.Success && tkn.Value != null)
+            {
+                token = tkn.Value.token;
+                http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+
+            StateHasChanged();
+        }
+    }
+
+    // Notification Methods
+    private void ShowNotification(string message, NotificationType type = NotificationType.Info, int autoRemoveSeconds = 5)
+    {
+        ShowNotification(string.Empty, message, type, autoRemoveSeconds);
+    }
+
+    private void ShowNotification(string title, string message, NotificationType type = NotificationType.Info, int autoRemoveSeconds = 5)
+    {
+        var notification = new Notification
+        {
+            Title = title,
+            Message = message,
+            Type = type
+        };
+
+        notifications.Add(notification);
+
+        if (autoRemoveSeconds > 0)
+        {
+            notification.AutoRemoveTimer = new Timer(async _ => await AutoRemoveNotification(notification.Id),
+                null, autoRemoveSeconds * 1000, Timeout.Infinite);
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task AutoRemoveNotification(string notificationId)
+    {
+        var notification = notifications.FirstOrDefault(n => n.Id == notificationId);
+        if (notification != null)
+        {
+            notification.IsRemoving = true;
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(300);
+            notifications.Remove(notification);
+            notification.AutoRemoveTimer?.Dispose();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task RemoveNotification(string notificationId)
+    {
+        var notification = notifications.FirstOrDefault(n => n.Id == notificationId);
+        if (notification != null)
+        {
+            notification.AutoRemoveTimer?.Dispose();
+            notification.IsRemoving = true;
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(300);
+            notifications.Remove(notification);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task SearchTests()
+    {
+        if (string.IsNullOrWhiteSpace(searchtest))
+        {
+            tm.Clear();
+        }
+        else
+        {
+            try
+            {
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{AppSettings.BaseUrl}request/SearchTest?testname={Uri.EscapeDataString(searchtest)}");
+                if (!string.IsNullOrEmpty(token))
+                {
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                }
+                var response = await http.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var res = await response.Content.ReadAsStringAsync();
+                    tm = JsonConvert.DeserializeObject<List<Test_Master>>(res) ?? new();
+
+                    if (tm.Any())
+                    {
+                        try
+                        {
+                            if (_testCombo != null)
+                                await InvokeAsync(async () => await _testCombo.ShowPopup());
+                        }
+                        catch { }
+                    }
+                }
+                else
+                {
+                    tm.Clear();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error searching tests: {ex.Message}");
+                tm.Clear();
+            }
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SelectTestItem(Test_Master test)
+    {
+        if (test == null) return;
+
+        pntm.TCode = test.TCode;
+        searchtest = test.Name;
+        tm.Clear();
+
+        var res = await http.GetAsync($"{AppSettings.BaseUrl}genetics/prenataltest?TCode={test.TCode}");
+        if (res.IsSuccessStatusCode)
+        {
+            var tt1 = await res.Content.ReadFromJsonAsync<PreNatalMasterData>();
+            if (tt1 != null)
+            {
+                pntm = tt1.ptm ?? new PreNatal_Test_Master { TCode = test.TCode };
+                ptrm = tt1.ptrm ?? new List<PreNatal_Test_Result_Master>();
+
+                    foreach (var it in ptrm)
+                    {
+                        it.Method = it.Method ?? "";
+                        it.MachineCode = it.MachineCode ?? "";
+                        it.RiskValueMachineCode = it.RiskValueMachineCode ?? "";
+                        it.CutOffMachineCode = it.CutOffMachineCode ?? "";
+                    }
+            }
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnTestFiltering(Syncfusion.Blazor.DropDowns.FilteringEventArgs args)
+    {
+        args.PreventDefaultAction = true;
+        searchtest = args.Text;
+
+        debounceTimer?.Stop();
+        debounceTimer?.Dispose();
+        debounceTimer = new System.Timers.Timer(300);
+        debounceTimer.AutoReset = false;
+        debounceTimer.Elapsed += async (_, __) => await InvokeAsync(SearchTests);
+        debounceTimer.Start();
+    }
+
+    private async Task OnTestSelected(Syncfusion.Blazor.DropDowns.ChangeEventArgs<string, Test_Master> args)
+    {
+        if (args.ItemData != null)
+        {
+            await SelectTestItem(args.ItemData);
+        }
+    }
+
+    private async Task OnDebounceTimerElapsed()
+    {
+        await InvokeAsync(SearchTests);
+    }
+
+    public void Dispose()
+    {
+        debounceTimer?.Dispose();
+        foreach (var notification in notifications)
+        {
+            notification.AutoRemoveTimer?.Dispose();
+        }
+    }
+
+    private async Task SaveMaster()
+    {
+        isSaving = true;
+        StateHasChanged();
+
+        pntm.Method = pntm.Method ?? "";
+        pntm.Interpretation = pntm.Interpretation ?? "";
+        pntm.Abnormal = pntm.Abnormal ?? "";
+        pntm.Normal = pntm.Normal ?? "";
+        pntm.Comments = pntm.Comments ?? "";
+        pntm.Disclaimer = pntm.Disclaimer ?? "";
+
+        foreach (var item in ptrm)
+        {
+            item.PNCode = pntm.PNCode;
+        }
+
+        PreNatalMasterData preNatalMaster = new PreNatalMasterData
+        {
+            ptm = this.pntm,
+            ptrm = ptrm.ToList()
+        };
+
+        var res = await http.PostAsJsonAsync($"{AppSettings.BaseUrl}Genetics/PrenatalMaster", preNatalMaster);
+        if (res.IsSuccessStatusCode)
+        {
+            _ = NotificationService.ShowSuccess("Configuration saved successfully!");
+            pntm = new();
+            ptrm.Clear();
+            searchtest = string.Empty;
+        }
+        else
+        {
+            var errorContent = await res.Content.ReadAsStringAsync();
+            _ = NotificationService.ShowError("Error saving: " + errorContent);
+        }
+
+        isSaving = false;
+        StateHasChanged();
+    }
+
+    private async Task DeleteTest(Guid tid)
+    {
+        var itemToRemove = ptrm.FirstOrDefault(x => x.PNTRID == tid);
+        if (itemToRemove != null)
+        {
+            ptrm.Remove(itemToRemove);
+            _ = NotificationService.ShowSuccess("Row deleted successfully!");
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void StopEditing()
+    {
+        // Add a small delay to allow click events on buttons to fire before the input disappears
+        Task.Delay(200).ContinueWith(_ =>
+        {
+            editingId = Guid.Empty;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+}

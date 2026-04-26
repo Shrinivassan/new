@@ -1,0 +1,1267 @@
+@page "/referral"
+@using Microsoft.AspNetCore.Components
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
+
+@using System.Text
+@using System.Globalization
+@using Lims.Components.Model
+@using LIMS.Model
+@using System.Net.Http.Headers
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Linq
+
+
+@inject LIMS.Model.AppSettings AppSettings
+@inject HttpClient http
+@inject ProtectedSessionStorage _sessionStorage
+@using Syncfusion.Blazor.Grids
+@inject Lims.Components.Data.NotificationService Notifier
+ 
+<link href="Components/Pages/Billing/Referral/Referral.razor.css" rel="stylesheet" />
+ 
+<div class="referral-container">
+<div class="page-header-custom">
+    <i class="fa-solid fa-user-doctor page-header-icon"></i>
+    <span class="page-header-title">REFERRAL MASTER</span>
+</div>
+
+
+
+
+    <EditForm Model="formModel" OnSubmit="OnSubmitHandler" id="ReferralForm" class="form-container">
+        <DataAnnotationsValidator />
+
+        <!-- ✅ MAIN 4 SECTION LAYOUT WRAPPER -->
+        <div class="layout-wrapper">
+
+            <!-- 1️⃣ Primary Information -->
+            <div class="form-card primary-info">
+                <h3 class="card-header">Primary Information</h3>
+                <div class="card-body">
+                    <div class="form-grid">   
+                        <div class="span-2 d-flex gap-4">
+
+                            <!-- Doctor Type -->
+                            <div class="flex-grow-1">
+                                <div class="form-group">
+                                    <label>
+                                        <i class="fas fa-user-md"></i> Doctor Type <span class="text-danger">*</span>
+                                    </label>
+
+                                    <InputSelect class="form-control" @bind-Value="formModel.EntryType">
+                                        <option value="0">Select Type</option>
+                                        @foreach (var docType in DoctorTypes)
+                                        {
+                                            <option value="@docType">@docType</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+
+                            <!-- Pay Type -->
+                            <div class="flex-grow-1">
+                                <div class="form-group">
+                                    <label>
+                                        <i class="fas fa-credit-card"></i> Pay Type <span class="text-danger">*</span>
+                                    </label>
+
+                                    <div class="d-flex align-items:center; gap:25px; margin-top:3px;">
+                                        <label class="d-flex align-items-center gap:6px;">
+                                            <InputCheckbox @bind-Value="formModel.IsCash" /> Cash
+                                        </label>
+
+                                        <label class="d-flex align-items-center gap:6px;">
+                                            <InputCheckbox @bind-Value="formModel.IsCredit" /> Credit
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+
+                        <div class="form-group span-2">
+
+                            <label class="form-label-bold">
+                                <i class="fas fa-user form-label-icon"></i> Name<span class="text-danger">*</span>
+                            </label>
+
+                            <div class="name-input-group">
+                                <InputSelect class="form-control form-control-sm name-title-select" @bind-Value="formModel.NameTitle">
+                                    <option value="">Select Title</option>
+                                    @if (DoctorTitles != null)
+                                    {
+                                        @foreach (var title in DoctorTitles)
+                                        {<option value="@title">@title</option>}
+                                    }
+                                </InputSelect>
+
+
+                                <InputText class="form-control form-control-sm name-initial-input"
+                                           @bind-Value="formModel.Initial"
+                                           placeholder="Initial" />
+                            </div>
+                            <InputText class="form-control form-control-sm name-full-name-input" @bind-Value="formModel.Name"
+                                       @oninput="FilterReferrals"
+                                       placeholder="Enter full name" />
+
+                        </div>
+
+
+
+                        <div class="form-group">
+                            <label><i class="fas fa-graduation-cap"></i> Qualification<span style="color:red;">*</span></label>
+                            <InputSelect class="form-control" @bind-Value:get="formModel.Qualification_Dr" @bind-Value:set="val => formModel.Qualification_Dr = Convert.ToInt32(val)">
+                                <option value="0">Select Qualification</option>
+                                @foreach (var qual in Qualifications)
+                                {
+                                    <option value="@qual.QualificationId">@qual.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                 
+
+
+                        <div class="d-flex gap-3 w-100">
+                            <!-- Area -->
+                            <div class="form-group form-group-flex-1">
+                                <label class="form-label-bold">
+                                    <i class="fas fa-map-signs form-label-icon"></i> Area<span class="text-danger">*</span>
+                                </label>
+                                <InputSelect class="form-control form-control-sm" @bind-Value="formModel.AreaCode">
+                                    <option value="0">Select Area</option>
+                                    @foreach (var area in Areas)
+                                    {
+                                        <option value="@area.AreaCode">@area.AreaName</option>
+                                    }
+                                </InputSelect>
+                            </div>
+
+                        </div>
+                        <!-- Address -->
+                        <div class="form-group span-2">
+                            <label class="form-label-bold">
+                                <i class="fas fa-map-marker-alt form-label-icon"></i> Address<span class="text-danger">*</span>
+                            </label>
+                            <InputTextArea class="form-control form-control-sm"
+                                           @bind-Value="formModel.Address"
+                                           placeholder="Enter complete address" />
+                        </div>
+
+                        <div class="form-group"><label><i class="fas fa-city"></i> City</label><InputText class="form-control"  @bind-Value="formModel.City" /></div>
+                        <div class="form-group"><label><i class="fas fa-thumbtack"></i> Pincode</label><InputText class="form-control" @bind-Value="formModel.ZipCode" /></div>
+                        <div class="form-group"><label><i class="fas fa-map"></i> State</label><InputText class="form-control" @bind-Value="formModel.State" /></div>
+                        <div class="form-group"><label><i class="fas fa-globe"></i> Country</label><InputText class="form-control" @bind-Value="formModel.Country" /></div>
+                        <div class="form-group"><label><i class="fas fa-link"></i> Reference</label><InputText class="form-control" @bind-Value="formModel.Reference" /></div>
+
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- 2️⃣ Contact & Communication -->
+            <div class="form-card two-per-row">
+                <h3 class="card-header">Contact & Communication</h3>
+                <div class="card-body">
+                    <div class="form-grid">
+                        <div class="form-group"><label><i class="fas fa-phone"></i> Phone No </label><InputText class="form-control" @bind-Value="formModel.Phone" /></div>
+                        <div class="form-group"><label><i class="fas fa-mobile-alt"></i> Mobile No<span class="text-danger">*</span></label><InputText class="form-control" @bind-Value="formModel.Mobile" /></div>
+                        @* <div class="form-group"><label><i class="fas fa-fax"></i> Fax</label><InputText class="form-control" @bind-Value="formModel.Fax" /></div> *@
+                        <div class="form-group"><label><i class="fas fa-envelope"></i> E-mail</label><InputText class="form-control" @bind-Value="formModel.Email" /></div>
+                        <div class="form-group"><label><i class="fas fa-globe-americas"></i> Website</label><InputText class="form-control" @bind-Value="formModel.Website" /></div>
+                        <div class="form-group"><label><i class="fas fa-user-friends"></i> Contact Person</label><InputText class="form-control" @bind-Value="formModel.ContactPerson" /></div>
+                        <div class="form-group"><label><i class="fas fa-file-invoice-dollar"></i> Accounts Mobile</label><InputText class="form-control" @bind-Value="formModel.AccountsMobileNo" /></div>
+                    </div>
+
+
+                    <div class="form-grid">
+                        <div class="form-group"><label><i class="fas fa-mobile-alt"></i> Result Mobile</label><InputText class="form-control" @bind-Value="formModel.ResultMobile" /></div>
+                        <div class="form-group"><label><i class="fas fa-tags"></i> Offers Mobile</label><InputText class="form-control" @bind-Value="formModel.OffersMobile" /></div>
+                        <div class="form-group"><label><i class="fas fa-receipt"></i> Bill Info Mobile</label><InputText class="form-control" @bind-Value="formModel.BillInfoMobile" /></div>
+                    </div>
+                    <div class="checkbox-row">
+    <label><i class="fas fa-upload"></i> Upload Online</label>
+    <InputCheckbox @bind-Value="UploadOnline" />
+
+    <label><i class="fas fa-star"></i> Special Rate</label>
+    <InputCheckbox @bind-Value="formModel.IsSpecialRate" />
+
+
+    <label><i class="fas fa-hospital-user"></i> IC</label>
+    <InputCheckbox @bind-Value="formModel.IsIC" />
+    <label><i class="fas fa-columns"></i> Separate Special Rate</label>
+    <InputCheckbox @bind-Value="formModel.IsSeparateSpecialRate" />
+       
+</div>
+                </div>
+            </div>
+
+
+            <!-- 3️⃣ Financial & Rates -->
+<div class="form-card two-per-row">
+    <h3 class="card-header">Financial & Rates</h3>
+    <div class="card-body">
+
+        <div class="form-grid">
+
+            <div class="form-group">
+                <label><i class="fas fa-money-bill-wave"></i> Fee Type</label>
+                <InputSelect class="form-control" @bind-Value="formModel.SchemeFTCode">
+                    <option value="0">Select Fee Type</option>
+                    @foreach (var ft in FeeTypes)
+                    {
+                        <option value="@ft.FTCode">@ft.Name</option>
+                    }
+                </InputSelect>
+            </div>
+
+            <div class="form-group">
+                <label><i class="fas fa-hand-holding-usd"></i> Credit Limit</label>
+                <InputNumber class="form-control" @bind-Value="formModel.CreditLimit" />
+            </div>
+
+            <div class="form-group">
+                <label><i class="far fa-calendar-alt"></i> Credit Days</label>
+                <InputNumber class="form-control" @bind-Value="formModel.CreditDays" />
+            </div>
+
+            <div class="form-group">
+                <label><i class="fas fa-file-invoice"></i> Monthly A/c</label>
+                <InputSelect class="form-control" @bind-Value="formModel.ICChequeName">
+                    <option value="">Select Monthly A/c</option>
+                    @foreach (var ft in FeeTypes)
+                    {
+                        <option value="@ft.FTCode">@ft.Name (@ft.FTCode)</option>
+                    }
+                </InputSelect>
+            </div>
+
+            <div class="form-group">
+                <label><i class="fas fa-book"></i> Ledger</label>
+                <InputSelect class="form-control" @bind-Value="formModel.LCode">
+                    <option value="0">Default Cash</option>
+                </InputSelect>
+            </div>
+
+            <div class="form-group">
+                <label><i class="fas fa-percent"></i> IC Rate</label>
+                <InputSelect class="form-control" @bind-Value="formModel.ICRate">
+                    <option value="0">Select IC Rate</option>
+                    @foreach (var ft in FeeTypes.Where(f => f.CommissionPercentage > 0))
+                    {
+                        <option value="@ft.CommissionPercentage">
+                            @ft.Name (@ft.CommissionPercentage.ToString("F2"))
+                        </option>
+                    }
+                </InputSelect>
+            </div>
+
+        </div>
+
+        <!-- Send SMS To -->
+        <div class="mt-2">
+            <label class="form-label-bold">
+                <i class="fas fa-sms form-label-icon"></i> Send SMS To
+            </label>
+
+            <div class="d-flex flex-wrap gap-3 mt-1">
+                <label class="d-flex align-items-center gap-2"><InputCheckbox @bind-Value="formModel.SendAccounts" /> Accounts</label>
+                <label class="d-flex align-items-center gap-2"><InputCheckbox @bind-Value="formModel.SendResults" /> Results</label>
+                <label class="d-flex align-items-center gap-2"><InputCheckbox @bind-Value="formModel.SendOffer" /> Offers</label>
+                <label class="d-flex align-items-center gap-2"><InputCheckbox @bind-Value="formModel.SendBillInfo" /> Bill Info</label>
+            </div>
+        </div>
+
+        <!-- PRO & ROUTE -->
+        <div class="d-flex gap-4 mt-3">
+            <div class="form-group-column">
+                <label><i class="fas fa-user-tie"></i> PRO</label>
+                <InputNumber @bind-Value="formModel.ProCode" class="form-control pro-route-input" />
+            </div>
+
+            <div class="form-group-column">
+                <label><i class="fas fa-route"></i> Route</label>
+                <InputNumber @bind-Value="formModel.ROTCode" class="form-control pro-route-input" />
+            </div>
+        </div>
+
+        <!-- Scheme + Special FT -->
+        <div class="d-flex gap-4 mt-3">
+            <div class="form-group-column">
+                <label><i class="fas fa-percentage form-label-icon"></i> Scheme Rate</label>
+                <InputSelect @bind-Value="formModel.SchemeRate" class="form-control scheme-rate-select">
+                    <option value="">Select Scheme Rate</option>
+                    @foreach (var ft in FeeTypes.Where(f => f.IsScheme))
+                    {
+                        <option value="@ft.CommissionPercentage.ToString()">@ft.Name (@ft.CommissionPercentage)</option>
+                    }
+                </InputSelect>
+            </div>
+
+            <div class="form-group-column">
+                <label><i class="fas fa-cog form-label-icon"></i> Special FT Code</label>
+                <InputNumber @bind-Value="formModel.SpecialFTCode" class="form-control special-ft-input" />
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+
+            <!-- 4️⃣ Other Settings & Photo -->
+            <div class="form-card two-per-row">
+                <h3 class="card-header">Other Settings & Photo</h3>
+                <div class="card-body">
+                    <div class="form-grid">
+                        <div class="form-group span-2">
+                            <label><i class="fas fa-camera"></i> Photo</label>
+                            <div class="photo-area">
+                                <div class="photo-container">
+                                    @if (!string.IsNullOrEmpty(PhotoPreview))
+                                    {
+                                        <img src="@PhotoPreview" class="photo-preview" />
+                                    }
+                                    else
+                                    {
+                                        <div class="photo-placeholder"><span>📷</span>No Photo</div>
+                                    }
+                                </div>
+                                <div class="photo-details">
+                                    @if (PhotoSize > 0)
+                                    {
+                                        <span>Size: @FormatFileSize(PhotoSize)</span>
+                                    }
+                                </div>
+
+                                <div class="photo-controls">
+                                    <InputFile OnChange="OnInputFileChange" accept="image/*" style="display: none;" id="fileInput" />
+                                    <label for="fileInput" class="btn btn-upload">
+                                        <i class="fas fa-upload"></i> Upload Photo
+                                    </label>
+                                    <button type="button" class="btn btn-webcam" @onclick="ToggleWebcam">
+                                        <i class="fas fa-camera"></i> @(ShowWebcam ? "Close Webcam" : "Capture from Webcam")
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group span-2 webcam-section @(ShowWebcam ? "" : "d-none")">
+                            <label><i class="fas fa-video"></i> Webcam Feed</label>
+                            <div class="webcam-container">
+                                <video id="webcamVideo" autoplay playsinline class="webcam-video"></video>
+                                <canvas id="webcamCanvas" class="webcam-canvas"></canvas>
+                            </div>
+                            <div class="webcam-controls">
+                                <button type="button" class="btn btn-capture" @onclick="CapturePhoto">
+                                    <i class="fas fa-camera-retro"></i> Take Photo
+                                </button>
+                            </div>
+                        </div>
+
+
+    
+
+                        <div class="form-group"><label><i class="fas fa-key"></i> Password</label><InputText class="form-control" @bind-Value="formModel.Password" /></div>
+                        <div class="form-group"><label><i class="fas fa-barcode"></i> Code</label><InputText class="form-control" @bind-Value="formModel.Code" /></div>
+                    </div>
+                </div>
+            </div>
+
+        </div> 
+
+    </EditForm>
+
+
+<!-- Form Actions -->
+<div class="form-actions">
+
+    <!-- Save Referral -->
+    <!-- Add Qualification -->
+    <button type="button" @onclick="ShowQualificationMaster" class="btn-add-qualification">
+    <i class="fas fa-plus-circle"></i> Add Qualification
+</button>
+    <button type="submit" form="ReferralForm" class="btn-save-referral-main">
+        <i class="fas fa-save"></i> Save
+    </button>
+
+    <!-- Clear Form -->
+    <button type="button" @onclick="ClearForm" class="btn-clear-form-main">
+        <i class="fas fa-eraser"></i> Clear
+    </button>
+
+
+
+</div>
+
+
+    <!-- ✅ Custom Data Table -->
+    <div class="custom-table-container">
+        <table class="custom-referral-table">
+            <thead>
+                <tr>
+                    <th style="width: 60px;">S.No</th>
+                    <th style="width: 250px;">Doctor Details</th>
+                    <th style="width: 180px;">Qualification</th>
+                    <th style="width: 150px;">Mobile</th>
+                    <th style="width: 200px;">Area & City</th>
+                    <th style="width: 120px;">Reference</th>
+                    <th style="width: 100px; text-align: center;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (filteredReferrals != null && filteredReferrals.Any())
+                {
+                    @foreach (var (doctor, index) in filteredReferrals.Select((d, i) => (d, i)))
+                    {
+                        <tr @onclick="() => EditReferral(doctor)" class="table-row">
+                            <td class="text-center">@(index + 1)</td>
+                            <td>
+                                <div class="doctor-profile-cell">
+                                    <div class="table-avatar">
+                                        @if (doctor.DoctorImage != null && doctor.DoctorImage.Length > 0)
+                                        {
+                                            <img src="@GetDoctorImageUrl(doctor.DoctorImage)" alt="Doctor" />
+                                        }
+                                        else
+                                        {
+                                            <div class="avatar-placeholder">
+                                                <i class="fas fa-user-md"></i>
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="doctor-info-text">
+                                        <span class="doctor-name">@doctor.DoctorFullName</span>
+                                        <span class="doctor-type">@doctor.EntryType</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="qualification-cell">
+                                    @{
+                                        var qualId = doctor.Qualification_Dr != 0 ? doctor.Qualification_Dr : doctor.Qualification;
+                                        var qualName = Qualifications.FirstOrDefault(q => q.QualificationId == qualId)?.Name;
+                                    }
+                                    <span class="qual-text">@(qualName ?? "N/A")</span>
+                                    <span class="spec-text">@doctor.SPCode</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="contact-cell">
+                                    <i class="fas fa-mobile-alt"></i> @doctor.Mobile
+                                </div>
+                            </td>
+                            <td>
+                                <div class="location-cell">
+                                    <span class="area-text"><i class="fas fa-map-marker-alt"></i> @doctor.Area</span>
+                                    <span class="city-text">@doctor.City</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="ref-badge">@doctor.Reference</span>
+                            </td>
+                            <td class="text-center">
+                                <div class="action-buttons">
+                                    <button class="btn-table-edit" @onclick="() => EditReferral(doctor)" @onclick:stopPropagation="true" title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn-table-delete" @onclick="() => ShowDeleteConfirmation(doctor)" @onclick:stopPropagation="true" title="Delete">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="8" class="no-data-cell">
+                            <div class="no-data-wrapper">
+                                <i class="fas fa-folder-open"></i>
+                                <p>No referral records found.</p>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+@if (QualificationMaster)
+{
+    <div class="modal-overlay" @onclick="ClosePage">
+        <div class="qualification-modal" @onclick:stopPropagation="true">
+<div class="modal-header modal-header-custom qual-modal-header">
+
+    <h2 class="header-title modal-title-custom qual-modal-title" style = "color:white;">
+        <i class="fas fa-graduation-cap" style="color:#f1c40f;"></i> 
+        Qualification Master
+    </h2>
+
+    <button type="button" class="close-btn qual-close-btn" @onclick="ClosePage">
+        <i class="fas fa-times"></i>
+    </button>
+</div>
+
+
+            <div class="modal-body">
+                <EditForm Model="@qualificationModel" OnValidSubmit="SaveQualification" id="QualificationForm">
+                <div class="form-grid" style="max-width: 500px;">
+
+                    <div class="form-group">
+                        <label>
+                            <i class="fas fa-sort-numeric-up" style="color: var(--brand-accent);"></i> Order No
+                        </label>
+                        <InputNumber @bind-Value="qualificationModel.OrderNo"
+                                     class="form-control"
+                                     placeholder="Order No" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <i class="fas fa-signature" style="color: var(--text-success);"></i> Short Name
+                        </label>
+                        <InputText @bind-Value="qualificationModel.ShortName"
+                                   class="form-control"
+                                   placeholder="Short Name" />
+                    </div>
+
+                    <div class="form-group span-4">
+                        <label>
+                            <i class="fas fa-user-graduate" style="color: var(--brand-accent);"></i> Name
+                        </label>
+                        <InputText @bind-Value="qualificationModel.Name"
+                                   class="form-control"
+                                   placeholder="Full Name" />
+                    </div>
+
+                    <div class="form-group span-4">
+                        <label>
+                            <i class="fas fa-align-left" style="color: var(--text-muted);"></i> Narration
+                        </label>
+                        <InputText @bind-Value="qualificationModel.Description"
+                                   class="form-control"
+                                   placeholder="Description" />
+                    </div>
+
+                    <div class="form-group span-4">
+                        <label class="d-flex align-items-center gap-2" style="color: var(--text-danger);">
+                            <InputCheckbox @bind-Value="qualificationModel.Deleted" />
+                            <i class="fas fa-trash-alt"></i> Remove
+                        </label>
+                    </div>
+
+                </div>
+
+ </EditForm>
+                <div class="qual-table-container">
+                    <table class="qual-table">
+                        <thead>
+                            <tr>
+                                <th>S.No</th>
+                                <th>Order No</th>
+                                <th>Short Name</th>
+                                <th>Name</th>
+                                <th>Description</th>
+                                <th>Entered Date</th>
+                                <th>IBS Date</th>
+                                <th>UserCode</th>
+                                <th>Computer</th>
+                                <th style="text-align:center;">Deleted</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (qualificationList.Any())
+                            {
+                                @foreach (var (item, index) in qualificationList.Select((x, i) => (x, i)))
+                                {
+                                    <tr @onclick="() => qualificationModel = item">
+                                        <td>@(index + 1)</td>
+                                        <td>@item.OrderNo</td>
+                                        <td>@item.ShortName</td>
+                                        <td>@item.Name</td>
+                                        <td>@item.Description</td>
+                                        <td>@item.EnteredDate.ToString("dd-MM-yyyy")</td>
+                                        <td>@item.IBSDate.ToString("dd-MM-yyyy")</td>
+                                        <td>@item.UserCode</td>
+                                        <td>@item.ComputerCode</td>
+                                        <td style="text-align:center;">
+                                            <InputCheckbox @bind-Value="item.Deleted" disabled />
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="10" class="text-center">No qualifications found.</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+
+            </div>
+            <div class="modal-footer">
+                @* <button type="button" @onclick="NewRecord" class="btn btn-secondary"><i class="fas fa-plus"></i> New</button> *@
+<div class="qual-footer-actions">
+    <button type="submit" form="QualificationForm" class="btn btn-primary btn-save-qual">
+        Save 
+        <i class="fas fa-save" style="margin-left:6px;"></i>
+    </button>
+</div>
+
+                @* <button type="button" class="btn btn-danger" @onclick="ClosePage"><i class="fas fa-times"></i> Close</button> *@
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ✅ Delete Confirmation Modal -->
+@if (ShowDeleteModal)
+{
+    <div class="modal-overlay">
+        <div class="confirmation-modal">
+            <div class="modal-header">
+                <h3>Confirm Delete</h3>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong>@DoctorToDelete?.Name</strong>?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="cancel-btn" @onclick="CancelDelete">Cancel</button>
+                <button type="button" class="confirm-delete-btn" @onclick="ConfirmDelete">Delete</button>
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+    private Doctor_Master formModel = new Doctor_Master();
+    // Photo support
+    private byte[]? PhotoData;
+    private string PhotoPreview = string.Empty;
+    private string PhotoFileName = string.Empty;
+    private string PhotoContentType = string.Empty;
+    private long PhotoSize = 0;
+    private bool ShowWebcam = false;
+    private bool IsServerPhoto = false;
+    private bool UploadOnline = false;
+    private const long MaxPhotoFileSize = 10 * 1024 * 1024; // 10 MB
+    private bool QualificationMaster = false;
+    private bool ShowDeleteModal = false;    private Doctor_Master? DoctorToDelete = null;
+ 
+    // Additional form fields 
+
+
+    // Titles extracted from Doctor_Master (computed `Title`) to populate the title dropdown
+    private List<string> DoctorTitles = new();
+
+    private List<string> DoctorTypes = new List<string>
+    {
+        "",
+        "Doctor",
+        "Lab",
+        "Clinic",
+        "Hospital",
+        "Others"
+    };
+    private List<Area_Master> Areas = new();
+    private List<Doctor_Master> allDoctors = new(); // Store the full doctor objects
+    private List<FeeType_Master> FeeTypes = new();
+    private List<Speciality_Master> Specialities = new();
+    private List<Qualification_Master> Qualifications = new();
+    // Local working list for the Qualification Master UI
+    private List<Qualification_Master> qualificationList = new();
+    // Model used by the qualification modal to avoid colliding with the main formModel
+    private Qualification_Master qualificationModel = new Qualification_Master();
+    // Photo details modal flag (used elsewhere when showing qualification master)
+    private bool ShowPhotoDetails = false;
+    [Inject] private IJSRuntime JSRuntime { get; set; }
+    private List<Doctor_Master> filteredReferrals = new();
+    private bool isSaving = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        InitializeDropdownData();
+        await LoadReferralsFromApi();
+    }
+
+    private void InitializeDropdownData()
+    {
+        // Data is now loaded from the API in OnInitializedAsync
+    }
+
+    private async Task LoadReferralsFromApi()
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(AppSettings?.ClientId) && !http.DefaultRequestHeaders.Contains("X-Tenant-ID"))
+            {
+                http.DefaultRequestHeaders.Add("X-Tenant-ID", AppSettings.ClientId);
+            }
+
+            var requestUrl = $"{(AppSettings?.BaseUrl ?? string.Empty)}referral/referralmaster";
+            var response = await http.GetAsync(requestUrl);
+            if (!response.IsSuccessStatusCode) return;
+
+            var content = await response.Content.ReadAsStringAsync();
+            var root = JObject.Parse(content);
+
+            // Parse doctor_Masters
+            if (root.TryGetValue("doctor_Masters", StringComparison.OrdinalIgnoreCase, out var doctorToken) && doctorToken is JArray doctorArray)
+            {
+                allDoctors = doctorArray.ToObject<List<Doctor_Master>>(new JsonSerializer { NullValueHandling = NullValueHandling.Ignore }) ?? new List<Doctor_Master>();
+                // Use the computed Title property on Doctor_Master to populate the title dropdown
+                DoctorTitles = allDoctors.Select(d => d.Title).Where(t => !string.IsNullOrEmpty(t)).Distinct().ToList();
+                
+                var apiDoctorTypes = allDoctors.Select(d => d.EntryType).Where(t => !string.IsNullOrEmpty(t)).Distinct();
+                DoctorTypes.AddRange(apiDoctorTypes.Except(DoctorTypes, StringComparer.OrdinalIgnoreCase));
+
+                filteredReferrals = new List<Doctor_Master>(allDoctors);
+            }
+
+            
+
+            // Parse feeType_Masters
+            if (root.TryGetValue("feeType_Masters", StringComparison.OrdinalIgnoreCase, out var feeToken) && feeToken is JArray feeArray)
+            {
+                FeeTypes = feeArray.ToObject<List<FeeType_Master>>() ?? new List<FeeType_Master>();
+            }
+
+            // Parse area_Masters
+            if (root.TryGetValue("area_Masters", StringComparison.OrdinalIgnoreCase, out var areaToken) && areaToken is JArray areaArray)
+            {
+                Areas = areaArray.ToObject<List<Area_Master>>() ?? new List<Area_Master>();
+            }
+
+            // Parse speciality_Masters
+            if (root.TryGetValue("speciality_Masters", StringComparison.OrdinalIgnoreCase, out var specToken) && specToken is JArray specArray)
+            {
+                Specialities = specArray.ToObject<List<Speciality_Master>>() ?? new List<Speciality_Master>();
+            }
+
+            // Parse qualification_Masters
+            if (root.TryGetValue("qualification_Masters", StringComparison.OrdinalIgnoreCase, out var qualToken) && qualToken is JArray qualArray)
+            {
+                Qualifications = qualArray.ToObject<List<Qualification_Master>>() ?? new List<Qualification_Master>();
+                // Keep a local editable copy used by the Qualification Master modal/table
+                qualificationList = new List<Qualification_Master>(Qualifications);
+            }
+
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to load referrals from API: {ex.Message}");
+        }
+    }
+
+    private void FilterReferrals(ChangeEventArgs e)
+    {
+        var searchTerm = e.Value?.ToString() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            filteredReferrals = new List<Doctor_Master>(allDoctors);
+        }
+        else
+        {
+            filteredReferrals = allDoctors.Where(r => r.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+    }
+    
+    private void RowSelectHandler(RowSelectEventArgs<Doctor_Master> args)
+    {
+        EditReferral(args.Data);
+    }
+
+
+    private string GetInitial(string name)
+    {
+        return !string.IsNullOrEmpty(name) ? name.Substring(0, 1).ToUpper() + "." : string.Empty;
+    }
+
+    private string GetAreaName(int areaCode)
+    {
+        return Areas.FirstOrDefault(a => a.AreaCode == areaCode)?.AreaName ?? areaCode.ToString();
+    }
+
+    private void OpenAreaMap() => Console.WriteLine("Area map opened");
+
+    private async Task OnSubmitHandler(EditContext editContext)
+    {
+        // Prevent submission if the form is empty (e.g., Name is required).
+        if (string.IsNullOrWhiteSpace(formModel.Name))
+        {
+            return; // Or show a validation message
+        }
+        await SaveData();
+    }
+
+    private async Task ClearForm()
+    {
+        formModel = new Doctor_Master();
+        PhotoData = null;
+        PhotoPreview = string.Empty;
+        UploadOnline = false;
+        filteredReferrals = new List<Doctor_Master>(allDoctors); // Reset filter
+        await InvokeAsync(StateHasChanged); 
+    } 
+    
+    private void SanitizeFormModel()
+    {
+        formModel.NameTitle ??= "";
+        formModel.Name ??= "";
+        formModel.Reference ??= "";
+        formModel.Address ??= "";
+        formModel.ICChequeName ??= "";
+        formModel.Email ??= "";
+        formModel.Website ??= "";
+        formModel.City ??= "";
+        formModel.ZipCode ??= "";
+        formModel.State ??= "";
+        formModel.Country ??= "";
+        formModel.Phone ??= "";
+        formModel.Mobile ??= "";
+        formModel.ContactPerson ??= "";
+        formModel.ICPayMode ??= "";
+        formModel.AccountsMobileNo ??= "";
+        formModel.Bedno ??= "";
+        formModel.Password ??= "";
+        formModel.Code ??= "";
+        formModel.Narration ??= "";
+        formModel.Fax ??= "";
+        formModel.EntryType ??= "";
+        formModel.SchemeRate ??= "";
+        formModel.ResultMobile ??= "";
+        formModel.OffersMobile ??= "";
+        formModel.BillInfoMobile ??= "";
+        formModel.SendSMSTo ??= "";
+        formModel.MonthlyAccount ??= "";
+        if (string.IsNullOrWhiteSpace(formModel.Area))
+        {
+            formModel.Area = Areas.FirstOrDefault(a => a.AreaCode == formModel.AreaCode)?.AreaName ?? "NotSpecified";
+        }
+
+        // DoctorFullName: build from title + name if missing
+        if (string.IsNullOrWhiteSpace(formModel.DoctorFullName))
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(formModel.NameTitle)) parts.Add(formModel.NameTitle);
+            if (!string.IsNullOrWhiteSpace(formModel.Name)) parts.Add(formModel.Name);
+            formModel.DoctorFullName = parts.Any() ? string.Join(" ", parts) : "NotSpecified";
+        }
+
+        // Standard codes and short names: provide safe defaults
+        formModel.SkyCode ??= "NotSpecified";
+        formModel.FaxStdCode ??= "0";
+        formModel.PhoneStdCode ??= "0";
+        formModel.SMSLabName ??= (AppSettings?.ClientId ?? "LIMS") as string ?? "LIMS";
+        formModel.ImportReference ??= "0";
+
+        // DoctorImage: prefer any newly selected photo (PhotoData). If no new photo
+        // was provided, keep the existing DoctorImage when present; otherwise send
+        // an empty array so the server receives a non-null value.
+        if (PhotoData != null && PhotoData.Length > 0)
+        {
+            formModel.DoctorImage = PhotoData;
+        }
+        else if (formModel.DoctorImage == null || formModel.DoctorImage.Length == 0)
+        {
+            formModel.DoctorImage = Array.Empty<byte>();
+        }
+
+        if (formModel.EnteredDate == default)
+        {
+            formModel.EnteredDate = DateTime.Now;
+        }
+    }
+
+    private async Task SaveData()
+    {
+        isSaving = true;
+        SanitizeFormModel();
+
+        if (!string.IsNullOrEmpty(AppSettings?.ClientId) && !http.DefaultRequestHeaders.Contains("X-Tenant-ID"))
+        {
+            http.DefaultRequestHeaders.Add("X-Tenant-ID", AppSettings.ClientId);
+        }
+
+        try
+        {
+            // Ensure IBSDate is a valid DateTime (server expects a DateTime value for 'ibsDate')
+            // and ensure DeliveredMode is present (server validation requires 'dm').
+            if (formModel.IBSDate == null || formModel.IBSDate == default)
+            {
+                // Set to now if not provided to avoid server conversion errors.
+                formModel.IBSDate = DateTime.Now;
+            }
+
+            if (string.IsNullOrWhiteSpace(formModel.DeliveredMode))
+            {
+                // Provide a sensible default so server-side required validation for 'dm' passes.
+                // If your API expects specific values here, adjust accordingly.
+                formModel.DeliveredMode = "NotSpecified";
+            }
+
+            // Use Newtonsoft JObject to build a payload with the property names the server expects
+            // (server error referenced 'dm' and 'ibsDate' in lowercase).
+            var payload = JObject.FromObject(formModel);
+
+            // Add lower-case aliases expected by the API
+            payload["dm"] = payload["DeliveredMode"] ?? JValue.CreateString(formModel.DeliveredMode);
+            // Ensure ibsDate is a DateTime token (not an empty string)
+            payload["ibsDate"] = formModel.IBSDate.HasValue ? JToken.FromObject(formModel.IBSDate.Value) : JValue.CreateNull();
+
+            // Include photo if provided (base64)
+            if (PhotoData != null && PhotoData.Length > 0)
+            {
+                payload["photoBase64"] = Convert.ToBase64String(PhotoData);
+                payload["photoContentType"] = PhotoPreview?.Split(':').Skip(1).FirstOrDefault()?.Split(';').FirstOrDefault() ?? "image/jpeg";
+            }
+
+            // UploadOnline flag
+            payload["uploadOnline"] = UploadOnline;
+
+            // Optionally remove the PascalCase properties to avoid duplicates (not strictly necessary)
+            var dmProp = payload.Property("DeliveredMode");
+            if (dmProp != null) dmProp.Remove();
+            var ibsProp = payload.Property("IBSDate");
+            if (ibsProp != null) ibsProp.Remove();
+
+            var json = payload.ToString(Newtonsoft.Json.Formatting.None);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await http.PostAsync($"{(AppSettings?.BaseUrl ?? string.Empty)}referral/savereferral", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await ClearForm();
+                await LoadReferralsFromApi();
+                _ = Notifier.ShowSuccess("Referral saved successfully.");
+            }
+            else
+            {
+                var msg = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Save failed: {msg}");
+                _ = Notifier.ShowError($"Failed to save: {msg}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception during save: {ex.Message}");
+            _ = Notifier.ShowError($"An error occurred while saving: {ex.Message}");
+        }
+
+    isSaving = false;
+        await InvokeAsync(StateHasChanged); 
+    }
+
+    private async Task OnInputFileChange(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file != null)
+            {
+                if (file.Size > MaxPhotoFileSize)
+                {
+                    Console.WriteLine($"File size exceeds maximum allowed size of {MaxPhotoFileSize / 1024 / 1024} MB");
+                    return;
+                }
+
+                using var stream = file.OpenReadStream(MaxPhotoFileSize);
+                using var memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+                PhotoData = memoryStream.ToArray();
+
+                // store metadata
+                PhotoFileName = file.Name ?? string.Empty;
+                PhotoContentType = file.ContentType ?? string.Empty;
+                PhotoSize = file.Size;
+                IsServerPhoto = false;
+                ShowWebcam = false; // Close webcam if a file is uploaded
+
+                var base64 = Convert.ToBase64String(PhotoData);
+                PhotoPreview = $"data:{PhotoContentType};base64,{base64}";
+
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading photo: {ex.Message}");
+        }
+    }
+
+    private async Task ClearPhoto()
+    {
+        PhotoData = null;
+        PhotoPreview = string.Empty;
+        PhotoFileName = string.Empty;
+        PhotoContentType = string.Empty;
+        PhotoSize = 0;
+        IsServerPhoto = false;
+        ShowWebcam = false; // Close webcam when clearing photo
+        UploadOnline = false;
+
+      
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ShowPhotoDetailsClicked()
+    {
+        QualificationMaster = true;
+        StateHasChanged();
+    }
+
+
+    private void EditReferral(Doctor_Master doctor)
+    {
+ 
+        if (doctor == null) return;
+ 
+        // Create a deep copy of the doctor object to avoid modifying the original list directly
+        formModel = JsonConvert.DeserializeObject<Doctor_Master>(JsonConvert.SerializeObject(doctor));
+        
+  
+        // If the doctor record already contains an image, restore it so it isn't lost on save.
+        if (doctor.DoctorImage != null && doctor.DoctorImage.Length > 0)
+        {
+            PhotoData = doctor.DoctorImage;
+            try
+            {
+                var base64 = Convert.ToBase64String(doctor.DoctorImage);
+                // Assume jpeg if server didn't provide a content type
+                PhotoPreview = $"data:image/jpeg;base64,{base64}";
+                PhotoFileName = $"Doctor_{doctor.DCode}.jpg";
+                PhotoContentType = "image/jpeg";
+                PhotoSize = doctor.DoctorImage.LongLength;
+                ShowWebcam = false; // Close webcam if an existing photo is loaded
+                IsServerPhoto = true;
+            }
+            catch
+            {
+                PhotoPreview = string.Empty;
+            }
+        }
+        else
+        {
+            PhotoPreview = string.Empty;
+            PhotoData = null;
+            PhotoFileName = string.Empty;
+            PhotoContentType = string.Empty;
+            PhotoSize = 0;
+            IsServerPhoto = false;
+        }
+ 
+        StateHasChanged();
+    }
+
+    private void ShowDeleteConfirmation(Doctor_Master doctor)
+    {
+        DoctorToDelete = doctor;
+        ShowDeleteModal = true;
+        StateHasChanged();
+    }
+
+    private void CancelDelete()
+    {
+        ShowDeleteModal = false;
+        DoctorToDelete = null;
+        StateHasChanged();
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (DoctorToDelete == null) return;
+
+        try
+        {
+            if (!string.IsNullOrEmpty(AppSettings?.ClientId) && !http.DefaultRequestHeaders.Contains("X-Tenant-ID"))
+            {
+                http.DefaultRequestHeaders.Add("X-Tenant-ID", AppSettings.ClientId);
+            }
+
+            var response = await http.DeleteAsync($"{(AppSettings?.BaseUrl ?? string.Empty)}referral/deletereferral/{DoctorToDelete.DCode}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadReferralsFromApi();
+                _ = Notifier.ShowSuccess("Referral deleted successfully.");
+            }
+            else
+            {
+                var msg = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Delete failed: {msg}");
+                _ = Notifier.ShowError($"Failed to delete: {msg}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception during delete: {ex.Message}");
+            _ = Notifier.ShowError($"An error occurred while deleting: {ex.Message}");
+        }
+        finally
+        {
+            ShowDeleteModal = false;
+            DoctorToDelete = null;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // Qualification master helpers
+    private void NewRecord()
+    {
+        qualificationModel = new Qualification_Master();
+    }
+
+    private void QualificationRowSelectHandler(RowSelectEventArgs<Qualification_Master> args)
+    {
+        qualificationModel = args.Data;
+    }
+
+    private async Task SaveQualification()
+    {
+        if (qualificationModel == null) return;
+
+        // Simple in-memory add/update. API integration can be added later.
+        if (qualificationModel.QualificationId == 0)
+        {
+            var nextId = qualificationList.Any() ? qualificationList.Max(q => q.QualificationId) + 1 : 1;
+            qualificationModel.QualificationId = nextId;
+            qualificationModel.EnteredDate = qualificationModel.EnteredDate == default ? DateTime.Now : qualificationModel.EnteredDate;
+            qualificationModel.IBSDate = qualificationModel.IBSDate == default ? DateTime.Now : qualificationModel.IBSDate;
+            qualificationList.Insert(0, qualificationModel);
+        }
+        else
+        {
+            var existing = qualificationList.FirstOrDefault(q => q.QualificationId == qualificationModel.QualificationId);
+            if (existing != null)
+            {
+                existing.OrderNo = qualificationModel.OrderNo;
+                existing.ShortName = qualificationModel.ShortName;
+                existing.Name = qualificationModel.Name;
+                existing.Description = qualificationModel.Description;
+                existing.Deleted = qualificationModel.Deleted;
+                existing.EnteredDate = qualificationModel.EnteredDate == default ? DateTime.Now : qualificationModel.EnteredDate;
+                existing.IBSDate = qualificationModel.IBSDate == default ? DateTime.Now : qualificationModel.IBSDate;
+            }
+        }
+
+        // Keep the main Qualifications list in sync for dropdowns
+        Qualifications = new List<Qualification_Master>(qualificationList);
+
+        // Notify user of success
+        await Notifier.ShowSuccess("Qualification saved successfully!");
+
+        // Reset the model for the next entry but keep the modal open
+        qualificationModel = new Qualification_Master();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ClosePage()
+    {
+        QualificationMaster = false;
+        qualificationModel = new Qualification_Master();
+    }
+
+    private void ShowQualificationMaster()
+    {
+        QualificationMaster = true;
+        StateHasChanged();
+    }
+
+    private async Task ToggleWebcam()
+    {
+        ShowWebcam = !ShowWebcam;
+        // Ensure the component re-renders so the <video> and <canvas> elements exist
+        await InvokeAsync(StateHasChanged);
+
+        if (ShowWebcam)
+        {
+            // Small delay to allow browser layout to finish (video dimensions may be 0 otherwise)
+            await Task.Delay(100);
+            await JSRuntime.InvokeVoidAsync("limsWebcam.startWebcam", "webcamVideo", "webcamCanvas");
+        }
+        else
+        {
+            await JSRuntime.InvokeVoidAsync("limsWebcam.stopWebcam", "webcamVideo");
+        }
+        // final render
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task CapturePhoto()
+    {
+        try
+        {
+            // Use a CancellationToken with a timeout to prevent long waits or TaskCanceledException on slow devices.
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            var base64Image = await JSRuntime.InvokeAsync<string>("limsWebcam.capturePhoto", cts.Token, "webcamVideo", "webcamCanvas");
+
+            if (!string.IsNullOrEmpty(base64Image))
+            {
+                // Extract base64 data and content type
+                var parts = base64Image.Split(',');
+                if (parts.Length == 2)
+                {
+                    PhotoPreview = base64Image;
+                    PhotoData = Convert.FromBase64String(parts[1]);
+                    PhotoContentType = parts[0].Replace("data:", "").Replace(";base64", "");
+                    PhotoFileName = $"webcam_capture_{DateTime.Now:yyyyMMddHHmmss}.jpg";
+                    PhotoSize = PhotoData.LongLength;
+                    IsServerPhoto = false;
+                    ShowWebcam = false; // Close webcam after capturing
+                    await JSRuntime.InvokeVoidAsync("limsWebcam.stopWebcam", "webcamVideo");
+                    StateHasChanged();
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("Error capturing photo from webcam: The operation timed out.");
+            if (Notifier != null)
+            {
+                await Notifier.ShowError("Could not capture photo from webcam. The operation timed out. Please try again.", "Webcam Timeout");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error capturing photo from webcam: {ex.Message}");
+            if (Notifier != null)
+            {
+                await Notifier.ShowError($"An error occurred while capturing the photo: {ex.Message}", "Webcam Error");
+            }
+        }
+    }
+
+    private string GetDoctorImageUrl(byte[]? image)
+    {
+        if (image == null || image.Length == 0) return string.Empty;
+        try
+        {
+            return $"data:image/jpeg;base64,{Convert.ToBase64String(image)}";
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        if (bytes <= 0) return "0 B";
+        var units = new[] { "B", "KB", "MB", "GB", "TB" };
+        int digitGroups = (int)(Math.Log10(bytes) / Math.Log10(1024));
+        return $"{bytes / Math.Pow(1024, digitGroups):F2} {units[digitGroups]}";
+    }
+
+}

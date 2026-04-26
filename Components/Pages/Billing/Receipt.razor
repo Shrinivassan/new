@@ -1,0 +1,457 @@
+@* @page "/receipt"
+@rendermode InteractiveServer
+@using Lims.Components.Pages.Billing
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject ProtectedSessionStorage _sessionStorage
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+
+@if (isLoading)
+{
+    <div class="loading-container">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">Loading bill details...</p>
+    </div>
+}
+else if (bill != null)
+{
+    <!-- Language Switcher -->
+    <div class="language-switcher d-print-none" style="margin-bottom: 15px; text-align: right;">
+        <button class="btn btn-sm @(currentLanguage == "en" ? "btn-primary" : "btn-secondary")" @onclick='() => SetLanguage("en")'>English</button>
+        <button class="btn btn-sm @(currentLanguage == "ta" ? "btn-primary" : "btn-secondary")" @onclick='() => SetLanguage("ta")'>தமிழ்</button>
+        <button class="btn btn-sm @(currentLanguage == "hi" ? "btn-primary" : "btn-secondary")" @onclick='() => SetLanguage("hi")'>हिन्दी</button>
+        <button class="btn btn-sm @(currentLanguage == "ml" ? "btn-primary" : "btn-secondary")" @onclick='() => SetLanguage("ml")'>മലയാളം</button>
+        <button class="btn btn-sm @(currentLanguage == "te" ? "btn-primary" : "btn-secondary")" @onclick='() => SetLanguage("te")'>తెలుగు</button>
+    </div>
+
+<div class="print-actions d-print-none" 
+     style="display: flex; justify-content: flex-end; gap: 12px; margin-bottom: 15px;">
+
+    <button class="btn btn-print" @onclick="PrintReceipt" 
+            style="background-color: #007bff; color: white; 
+                   border: none; padding: 8px 16px; 
+                   border-radius: 6px; cursor: pointer; 
+                   display: flex; align-items: center; gap: 6px;">
+        <i class="bi bi-printer"></i> Print Receipt
+    </button>
+
+    <button class="btn btn-back" @onclick="GoBack" 
+            style="background-color: #6c757d; color: white; 
+                   border: none; padding: 8px 16px; 
+                   border-radius: 6px; cursor: pointer; 
+                   display: flex; align-items: center; gap: 6px;">
+        <i class="bi bi-arrow-left"></i> Back to Billing
+    </button>
+</div>
+
+<!-- 🔹 Toggle Option -->
+<div class="toggle-header-option d-print-none" 
+     style="display: flex; justify-content: flex-end; align-items: center; 
+            margin-top: 10px; font-size: 14px; gap: 6px;">
+
+    <input type="checkbox" id="toggleHeader" @bind="showHeader" 
+           style="width: 16px; height: 16px; cursor: pointer;" />
+    <label for="toggleHeader" 
+           style="cursor: pointer; font-weight: 500; color: #333;">
+        @T("ShowHeader")
+    </label>
+</div>
+
+
+    <div class="receipt-wrapper">
+        <div class="receipt-container" id="receipt">
+
+            <!-- 🔹 Header Section (optional) -->
+            @if (showHeader)
+            {
+           <div class="receipt-header" 
+     style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+
+    <!-- 🔹 Left: Logo + Name -->
+    <div class="lab-logo" 
+         style="display: flex; flex-direction: column; align-items: flex-start;">
+        <img src="https://img.freepik.com/premium-vector/health-care-medical-logo-vector-design_990473-2554.jpg"
+             alt="Lab Logo" 
+             style="width: 80px; height: 80px; object-fit: contain; border-radius: 10px; margin-bottom: 6px;" />
+
+        <h2 class="lab-name" 
+            style="font-size: 22px; font-weight: 600; color: #2c3e50; margin: 0;">
+            lims Lab Center
+        </h2>
+    </div>
+
+    <!-- 🔹 Right: Lab Info -->
+    <div class="lab-info" 
+         style="text-align: right; font-size: 14px; color: #444;">
+        <p style="margin: 0;">123 Medical Street, Health District</p>
+        <p style="margin: 0;">Chennai, Tamil Nadu - 600001</p>
+        <div style="margin-top: 4px;">
+            <span style="display: block;">📞 +91 98765 43210</span>
+            <span style="display: block;">📧 info@limslab.com</span>
+        </div>
+    </div>
+</div>
+
+            }
+            
+       
+
+            <!-- Bill Details Section -->
+            <div class="bill-info-section">
+                <div class="bill-header-row">
+                    <div class="bill-number">
+                        <span class="label">@T("InvoiceNo")</span>
+                        <span class="value">#@bill.RequestSno</span>
+                    </div>
+                    <div class="bill-date">
+                        <span class="label">@T("Date")</span>
+                        <span class="value">@bill.RequestDatetime.ToString("dd MMM yyyy")</span>
+                    </div>
+                </div>
+
+                <div class="patient-info-card">
+                    <h4 class="card-title">Patient Information</h4>
+                    <div class="patient-details">
+                        <div class="detail-row">
+                            <span class="detail-label">@T("PatientID")</span>
+                            <span class="detail-value">@bill.CUSTCode</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">@T("Name")</span>
+                            <span class="detail-value">@bill.Name</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">@T("Mobile")</span>
+                            <span class="detail-value">@(bill.Mobile ?? T("NotProvided"))</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">@T("ReferredBy")</span>
+                            <span class="detail-value">@(bill.DOCTOR ?? T("Self"))</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tests Section -->
+            <div class="tests-section">
+                <h4 class="section-title">@T("LaboratoryTests")</h4>
+                <div class="tests-table-container">
+                    <table class="tests-table">
+                        <thead>
+                            <tr>
+                                <th class="sl-no">@T("SNo")</th>
+                                <th class="test-name">@T("TestName")</th>
+                                <th class="amount">@T("Amount")</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (addedTests != null && addedTests.Any())
+                            {
+                                var index = 1;
+                                foreach (var test in addedTests)
+                                {
+                                    <tr class="test-row">
+                                        <td class="sl-no">@(index++)</td>
+                                        <td class="test-name">@(test.Name ?? "Unknown Test")</td>
+                                        <td class="amount">@test.Amount.ToString("N2")</td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="3" class="no-tests">@T("NoTestsFound")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Payment Summary -->
+            <div class="payment-summary">
+                <div class="summary-row">
+                    <span class="summary-label">@T("GrossAmount")</span>
+                    <span class="summary-value">₹ @bill.RequestAmount.ToString("N2")</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">@T("Discount")</span>
+                    <span class="summary-value discount">- ₹ @bill.DiscountAmount.ToString("N2")</span>
+                </div>
+                <div class="summary-divider"></div>
+                <div class="summary-row total-row">
+                    <span class="summary-label">@T("NetAmount")</span>
+                    <span class="summary-value">₹ @bill.TotalAmount.ToString("N2")</span>
+                </div>
+                <div class="summary-row paid-row">
+                    <span class="summary-label">@T("PaidAmount")</span>
+                    <span class="summary-value">₹ @bill.PaidAmount.ToString("N2")</span>
+                </div>
+                @if (bill.Balance > 0)
+                {
+                    <div class="summary-row balance-row">
+                        <span class="summary-label">@T("BalanceDue")</span>
+                        <span class="summary-value balance">₹ @bill.Balance.ToString("N2")</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="payment-status paid-status">
+                        ✓ @T("FullyPaid")
+                    </div>
+                }
+            </div>
+
+      
+
+            <!-- Footer -->
+            <div class="receipt-footer">
+                <div class="thank-you">
+                    <p>@T("ThankYou")</p>
+                    <p class="sub-text">@T("GetWellSoon")</p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="no-bill-container">
+        <div class="no-bill-icon">📋</div>
+        <h3>@T("NoBillDataFound")</h3>
+        <p>@T("NoBillDetailsFound")</p>
+        <button class="btn btn-primary" @onclick="GoBack">
+            <i class="bi bi-arrow-left"></i> @T("GoToBilling")
+        </button>
+    </div>
+}
+
+@code {
+    Lab_Request_Master lab_Request_Master=new()
+    private List<Billing.TestItem>? addedTests;
+    private bool isLoading = true;
+    private bool showHeader = true; // 🔹 toggle for header
+
+    // --- Localization Start ---
+    private string currentLanguage = "en";
+    private Dictionary<string, string> translations = new Dictionary<string, string>();
+
+    private readonly Dictionary<string, string> en = new()
+    {
+        { "LoadingBillDetails", "Loading bill details..." },
+        { "ShowHeader", "Show Header" },
+        { "InvoiceNo", "Invoice No:" },
+        { "Date", "Date:" },
+        { "PatientInformation", "Patient Information" },
+        { "PatientID", "Patient ID:" },
+        { "Name", "Name:" },
+        { "Mobile", "Mobile:" },
+        { "ReferredBy", "Referred By:" },
+        { "LaboratoryTests", "Laboratory Tests" },
+        { "SNo", "S.No" },
+        { "TestName", "Test Name" },
+        { "Amount", "Amount (₹)" },
+        { "NoTestsFound", "No tests found" },
+        { "GrossAmount", "Gross Amount:" },
+        { "Discount", "Discount:" },
+        { "NetAmount", "Net Amount:" },
+        { "PaidAmount", "Paid Amount:" },
+        { "BalanceDue", "Balance Due:" },
+        { "FullyPaid", "FULLY PAID" },
+        { "ThankYou", "Thank you for choosing lims Lab Center!" },
+        { "GetWellSoon", "Get well soon and stay healthy" },
+        { "NoBillDataFound", "No Bill Data Found" },
+        { "NoBillDetailsFound", "No bill details found. Please go back to billing and create/save a bill first." },
+        { "GoToBilling", "Go to Billing" },
+        { "NotProvided", "Not provided" },
+        { "Self", "Self" }
+    };
+
+    private readonly Dictionary<string, string> ta = new()
+    {
+        { "LoadingBillDetails", "பில் விவரங்கள் ஏற்றப்படுகின்றன..." },
+        { "ShowHeader", "தலைப்பைக் காட்டு" },
+        { "InvoiceNo", "விலைப்பட்டியல் எண்:" },
+        { "Date", "தேதி:" },
+        { "PatientInformation", "நோயாளி தகவல்" },
+        { "PatientID", "நோயாளி ஐடி:" },
+        { "Name", "பெயர்:" },
+        { "Mobile", "கைபேசி:" },
+        { "ReferredBy", "பரிந்துரைத்தவர்:" },
+        { "LaboratoryTests", "ஆய்வக சோதனைகள்" },
+        { "SNo", "வ.எண்" },
+        { "TestName", "சோதனை பெயர்" },
+        { "Amount", "தொகை (₹)" },
+        { "NoTestsFound", "சோதனைகள் எதுவும் இல்லை" },
+        { "GrossAmount", "மொத்த தொகை:" },
+        { "Discount", "தள்ளுபடி:" },
+        { "NetAmount", "நிகரத் தொகை:" },
+        { "PaidAmount", "செலுத்திய தொகை:" },
+        { "BalanceDue", "நிலுவைத் தொகை:" },
+        { "FullyPaid", "முழுவதும் செலுத்தப்பட்டது" },
+        { "ThankYou", "லிம்ஸ் ஆய்வக மையத்தைத் தேர்ந்தெடுத்ததற்கு நன்றி!" },
+        { "GetWellSoon", "விரைவில் குணமடையுங்கள், ஆரோக்கியமாக இருங்கள்" },
+        { "NoBillDataFound", "பில் தரவு எதுவும் இல்லை" },
+        { "NoBillDetailsFound", "பில் விவரங்கள் எதுவும் இல்லை. தயவுசெய்து பில்லிங்கிற்குச் சென்று முதலில் ஒரு பில்லை உருவாக்கவும்/சேமிக்கவும்." },
+        { "GoToBilling", "பில்லிங்கிற்குச் செல்க" },
+        { "NotProvided", "வழங்கப்படவில்லை" },
+        { "Self", "சுயம்" }
+    };
+
+    private readonly Dictionary<string, string> hi = new()
+    {
+        { "LoadingBillDetails", "बिल विवरण लोड हो रहा है..." },
+        { "ShowHeader", "हेडर दिखाएं" },
+        { "InvoiceNo", "चालान संख्या:" },
+        { "Date", "दिनांक:" },
+        { "PatientInformation", "रोगी की जानकारी" },
+        { "PatientID", "रोगी आईडी:" },
+        { "Name", "नाम:" },
+        { "Mobile", "मोबाइल:" },
+        { "ReferredBy", "द्वारा பரிந்துரைக்கப்பட்ட:" },
+        { "LaboratoryTests", "प्रयोगशाला परीक्षण" },
+        { "SNo", "क्र.सं." },
+        { "TestName", "परीक्षण का नाम" },
+        { "Amount", "राशि (₹)" },
+        { "NoTestsFound", "कोई परीक्षण नहीं मिला" },
+        { "GrossAmount", "सकल राशि:" },
+        { "Discount", "छूट:" },
+        { "NetAmount", "कुल राशि:" },
+        { "PaidAmount", "भुगतान की गई राशि:" },
+        { "BalanceDue", "बकाया राशि:" },
+        { "FullyPaid", "पूरी तरह से भुगतान" },
+        { "ThankYou", "लिम्स लैब सेंटर चुनने के लिए धन्यवाद!" },
+        { "GetWellSoon", "जल्द स्वस्थ हों और स्वस्थ रहें" },
+        { "NoBillDataFound", "कोई बिल डेटा नहीं मिला" },
+        { "NoBillDetailsFound", "कोई बिल विवरण नहीं मिला। कृपया बिलिंग पर वापस जाएं और पहले एक बिल बनाएं/सहेजें।" },
+        { "GoToBilling", "बिलिंग पर जाएं" },
+        { "NotProvided", "नहीं दिया गया" },
+        { "Self", "स्वयं" }
+    };
+
+    private readonly Dictionary<string, string> ml = new()
+    {
+        { "LoadingBillDetails", "ബിൽ വിശദാംശങ്ങൾ ലോഡ് ചെയ്യുന്നു..." },
+        { "ShowHeader", "ഹെഡർ കാണിക്കുക" },
+        { "InvoiceNo", "ഇൻവോയ്സ് നമ്പർ:" },
+        { "Date", "തീയതി:" },
+        { "PatientInformation", "രോഗിയുടെ വിവരങ്ങൾ" },
+        { "PatientID", "രോഗിയുടെ ഐഡി:" },
+        { "Name", "പേര്:" },
+        { "Mobile", "മൊബൈൽ:" },
+        { "ReferredBy", "ശുപാർശ ചെയ്തത്:" },
+        { "LaboratoryTests", "ലബോറട്ടറി പരിശോധനകൾ" },
+        { "SNo", "ക്രമ നമ്പർ" },
+        { "TestName", "പരിശോധനയുടെ പേര്" },
+        { "Amount", "തുക (₹)" },
+        { "NoTestsFound", "പരിശോധനകൾ ഒന്നും കണ്ടെത്തിയില്ല" },
+        { "GrossAmount", "മൊത്തം തുക:" },
+        { "Discount", "കിഴിവ്:" },
+        { "NetAmount", "അന്തിമ തുക:" },
+        { "PaidAmount", "അടച്ച തുക:" },
+        { "BalanceDue", "ബാക്കി തുക:" },
+        { "FullyPaid", "പൂർണ്ണമായി അടച്ചു" },
+        { "ThankYou", "ലിംസ് ലാബ് സെന്റർ തിരഞ്ഞെടുത്തതിന് നന്ദി!" },
+        { "GetWellSoon", "വേഗം സുഖം പ്രാപിക്കട്ടെ, ആരോഗ്യത്തോടെയിരിക്കുക" },
+        { "NoBillDataFound", "ബിൽ ഡാറ്റ ലഭ്യമല്ല" },
+        { "NoBillDetailsFound", "ബിൽ വിശദാംശങ്ങൾ ലഭ്യമല്ല. ദയവായി ബില്ലിംഗിലേക്ക് മടങ്ങി ഒരു ബിൽ ഉണ്ടാക്കുക/സേവ് ചെയ്യുക." },
+        { "GoToBilling", "ബില്ലിംഗിലേക്ക് പോകുക" },
+        { "NotProvided", "നൽകിയിട്ടില്ല" },
+        { "Self", "സ്വയം" }
+    };
+
+    private readonly Dictionary<string, string> te = new()
+    {
+        { "LoadingBillDetails", "బిల్లు వివరాలు లోడ్ అవుతున్నాయి..." },
+        { "ShowHeader", "శీర్షికను చూపించు" },
+        { "InvoiceNo", "ఇన్వాయిస్ నెం:" },
+        { "Date", "తేదీ:" },
+        { "PatientInformation", "రోగి సమాచారం" },
+        { "PatientID", "రోగి ఐడి:" },
+        { "Name", "పేరు:" },
+        { "Mobile", "మొబైల్:" },
+        { "ReferredBy", "సూచించినవారు:" },
+        { "LaboratoryTests", "ప్రయోగశాల పరీక్షలు" },
+        { "SNo", "క్ర.సం." },
+        { "TestName", "పరీక్ష పేరు" },
+        { "Amount", "మొత్తం (₹)" },
+        { "NoTestsFound", "పరీక్షలు కనుగొనబడలేదు" },
+        { "GrossAmount", "స్థూల మొత్తం:" },
+        { "Discount", "రాయితీ:" },
+        { "NetAmount", "నికర మొత్తం:" },
+        { "PaidAmount", "చెల్లించిన మొత్తం:" },
+        { "BalanceDue", "మిగిలిన మొత్తం:" },
+        { "FullyPaid", "పూర్తిగా చెల్లించబడింది" },
+        { "ThankYou", "లిమ్స్ ల్యాబ్ సెంటర్‌ను ఎంచుకున్నందుకు ధన్యవాదాలు!" },
+        { "GetWellSoon", "త్వరగా కోలుకోండి మరియు ఆరోగ్యంగా ఉండండి" },
+        { "NoBillDataFound", "బిల్లు డేటా కనుగొనబడలేదు" },
+        { "NoBillDetailsFound", "బిల్లు వివరాలు కనుగొనబడలేదు. దయచేసి బిల్లింగ్‌కు తిరిగి వెళ్లి ముందుగా ఒక బిల్లును సృష్టించండి/సేవ్ చేయండి." },
+        { "GoToBilling", "బిల్లింగ్‌కు వెళ్లండి" },
+        { "NotProvided", "అందించబడలేదు" },
+        { "Self", "స్వయం" }
+    };
+
+    private string T(string key) => translations.TryGetValue(key, out var value) ? value : key;
+
+    private void SetLanguage(string lang)
+    {
+        currentLanguage = lang;
+        translations = lang switch
+        {
+            "ta" => ta,
+            "hi" => hi,
+            "ml" => ml,
+            "te" => te,
+            _ => en,
+        };
+    }
+    // --- Localization End ---
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            SetLanguage("en"); // Set default language
+            try
+            {
+                var billResult = await _sessionStorage.GetAsync<Billing.ViewBills>("newBill");
+                if (billResult.Success && billResult.Value != null)
+                {
+                    bill = billResult.Value;
+                }
+
+                var testsResult = await _sessionStorage.GetAsync<List<Billing.TestItem>>("addedTestsForReceipt");
+                if (testsResult.Success && testsResult.Value != null)
+                {
+                    addedTests = testsResult.Value;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading receipt data: {ex.Message}");
+            }
+            finally
+            {
+                isLoading = false;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    private async Task PrintReceipt()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("window.print");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error printing receipt: {ex.Message}");
+        }
+    }
+
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo("/billing");
+    }
+} *@

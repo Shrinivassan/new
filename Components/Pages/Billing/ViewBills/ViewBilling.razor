@@ -1,0 +1,1021 @@
+@page "/viewbills"
+@page "/editbill/{SID:int}"
+@page "/viewbills/new/{NewSID:int}"
+@inject IJSRuntime JSRuntime
+@inject HttpClient http
+@using Lims.Components.Data
+@using Syncfusion.Blazor.DropDowns
+@inject NavigationManager NavigationManager 
+@using Microsoft.AspNetCore.Components.Web
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
+@using Lims.Components.Model
+@using System.Text.Json
+@using LIMS.Model
+@using System.Net.Http.Headers
+@using Newtonsoft
+@using Newtonsoft.Json
+@inject LIMS.Model.AppSettings AppSettings
+@implements IDisposable
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject ProtectedSessionStorage _sessionStorage
+@inject ExecutionClass exe
+@inject NotificationService NotificationService
+
+<div class="bills-container">
+
+    
+
+
+
+    @if (!string.IsNullOrEmpty(PrintMessage))
+    {
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            @PrintMessage
+            <button type="button" class="btn-close" @onclick="() => PrintMessage = string.Empty" aria-label="Close"></button>
+        </div>
+    }
+    
+
+    <div class="page-header-minimal">
+        <div class="header-left">
+            <button class="back-link-btn" title="Back to Billing" @onclick="GoToBilling">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <nav class="breadcrumb-container">
+                <a href="billing" class="breadcrumb-link">Billing</a>
+                <span class="breadcrumb-separator">/</span>
+                <span class="breadcrumb-active">View Billing</span>
+            </nav>
+        </div>
+
+        <div class="header-right">
+            <div class="control-group">
+                <label>Branch</label>
+                <select class="minimal-select" value="@branchID" @onchange="SelBranch">
+                    @foreach (var item in branches)
+                    {
+                        <option value="@item.BHCode">@item.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Report</label>
+                <select class="minimal-select" @bind="SelectedReport">
+                    <option value="">Select Report Type</option>
+                    <option value="bill-statement">Bill Statement</option>
+                    <option value="bill-statement-test">Bill Statement With Test</option>
+                    <option value="testwise-count">TestWise Count</option>
+                    <option value="groupwise-count">Groupwise Count</option>
+                    <option value="pro-referral">PRO Referral List</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards Row - Exact Image Style -->
+    <div class="inv-cards-row">
+        <!-- Total Bill Amount -->
+        <div class="inv-card">
+            <span class="inv-card-label inv-label--bill">Total Bill Amount</span>
+            <div class="inv-card-amount">@TotalRequestAmount.ToString("N2")</div>
+            <div class="inv-card-bar-track">
+                <div class="inv-card-bar inv-bar--bill" style="width:100%"></div>
+            </div>
+            <div class="inv-card-meta">
+                <i class="fas fa-receipt"></i>&nbsp;@(FilteredBills?.Count ?? 0) Invoice(s)
+            </div>
+        </div>
+
+        <!-- Total Discount -->
+        <div class="inv-card">
+            <span class="inv-card-label inv-label--discount">Discount</span>
+            <div class="inv-card-amount">@TotalDiscount.ToString("N2")</div>
+            <div class="inv-card-bar-track">
+                <div class="inv-card-bar inv-bar--discount" style="width:@(TotalRequestAmount > 0 ? Math.Min((TotalDiscount / TotalRequestAmount)*100,100).ToString("0") : "0")%"></div>
+            </div>
+            <div class="inv-card-meta inv-meta--neg">
+                <i class="fas fa-arrow-down"></i>&nbsp;~ @(TotalRequestAmount > 0 ? ((TotalDiscount / TotalRequestAmount)*100).ToString("0.00") : "0.00")% of bill
+            </div>
+        </div>
+
+        <!-- Total Paid -->
+        <div class="inv-card">
+            <span class="inv-card-label inv-label--paid">Total Paid</span>
+            <div class="inv-card-amount">@TotalPaid.ToString("N2")</div>
+            <div class="inv-card-bar-track">
+                <div class="inv-card-bar inv-bar--paid" style="width:@(TotalAmount > 0 ? Math.Min((TotalPaid/TotalAmount)*100,100).ToString("0") : "0")%"></div>
+            </div>
+            <div class="inv-card-meta inv-meta--pos">
+                <i class="fas fa-arrow-up"></i>&nbsp;~ @(TotalAmount > 0 ? ((TotalPaid/TotalAmount)*100).ToString("0.00") : "0.00")% collected
+            </div>
+        </div>
+
+        <!-- Balance Due -->
+        <div class="inv-card">
+            <span class="inv-card-label inv-label--balance">Balance Due</span>
+            <div class="inv-card-amount">@TotalBalance.ToString("N2")</div>
+            <div class="inv-card-bar-track">
+                <div class="inv-card-bar inv-bar--balance" style="width:@(TotalAmount > 0 ? Math.Min((TotalBalance/TotalAmount)*100,100).ToString("0") : "0")%"></div>
+            </div>
+            <div class="inv-card-meta inv-meta--neg">
+                <i class="fas fa-arrow-down"></i>&nbsp;~ @(TotalAmount > 0 ? ((TotalBalance/TotalAmount)*100).ToString("0.00") : "0.00")% pending
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Card -->
+    <div class="inv-table-card">
+        <!-- Table Toolbar - Single compact row -->
+        <div class="inv-table-toolbar">
+            <!-- Left: Title + Count -->
+            <span class="inv-table-title">Bills</span>
+            <span class="inv-count-badge">@(FilteredBills?.Count ?? 0) Bills</span>
+
+            <!-- Divider -->
+            <div style="flex:1"></div>
+
+            <!-- From Date -->
+            <span class="inv-date-label">From</span>
+            <input type="date" class="inv-date-input" @bind="FromDate" @bind:format="yyyy-MM-dd" />
+            <span class="inv-date-label">To</span>
+            <input type="date" class="inv-date-input" @bind="ToDate" @bind:format="yyyy-MM-dd" />
+
+            <!-- Refresh -->
+            <button class="inv-refresh-btn" @onclick="RefreshData" disabled="@isLoading">
+                @if (isLoading) { <span class="spinner-border spinner-border-sm"></span> } else { <i class="fas fa-sync-alt"></i> }
+                Refresh
+            </button>
+
+            <!-- Search -->
+            <div class="inv-search-wrap">
+                <i class="fas fa-search inv-search-icon"></i>
+                <input type="text" class="inv-search-input" placeholder="Search patient / doctor..."
+                       @bind="SearchTerm" @bind:event="oninput" />
+            </div>
+
+          
+      
+
+      
+        </div>
+
+        <!-- Table -->
+        <div class="inv-table-wrap">
+        <table class="inv-table">
+            <thead>
+                <tr>
+                    <!-- <th class="inv-th-check"><input type="checkbox" /></th> -->
+                    <th>Bill No.</th>
+                    <th>Name</th>
+                    <th>Date</th>
+                    <th class="inv-th-amt">Bill Amt</th>
+                    <th class="inv-th-amt">Discount</th>
+                    <th class="inv-th-amt">Total</th>
+                    <th class="inv-th-amt">Paid</th>
+                    <th class="inv-th-amt">Balance</th>
+                    <th>Referral</th>
+                    <th>Status</th>
+                    <th class="inv-th-actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (FilteredBills == null || !FilteredBills.Any())
+                {
+                    <tr>
+                        <td colspan="12" class="no-data">
+                            <div class="empty-state">
+                                <i class="fas fa-file-invoice-dollar"></i>
+                                <p>@(isLoading ? "Loading bills..." : "No records to display")</p>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @for (int i = 0; i < FilteredBills.Count; i++)
+                    {
+                        var bill = FilteredBills[i];
+                        var index = i;
+                        var gender2 = (bill.Gender ?? "").Trim().ToLower();
+                        var isMale2 = gender2 == "male" || gender2 == "m";
+                        var isFemale2 = gender2 == "female" || gender2 == "f";
+                        
+                        int ageY = 0;
+                        int.TryParse(bill.AgeYears, out ageY);
+                        // Consider child if AgeYears < 12 or if it's an infant (AgeYears 0 and AgeMonths/AgeDays has value)
+                        bool isChild = ageY < 12 || (ageY == 0 && (!string.IsNullOrEmpty(bill.AgeMonths) || !string.IsNullOrEmpty(bill.AgeDays)));
+                        
+                        var avatarSrc2 = isChild ? "/images/kid_avatar.png" : (isMale2 ? "/images/male_avatar.png" : isFemale2 ? "/images/female_avatar.png" : "/images/male_avatar.png");
+                        var hasBal = bill.Balance > 0;
+                        var statusLabel = hasBal ? "Balance" : "Paid";
+                        var statusCls   = hasBal ? "inv-badge inv-badge--balance" : "inv-badge inv-badge--paid";
+                        <tr class="inv-row @(processingBillId == bill.RequestSno.ToString() ? "processing" : "")">
+                            <!-- <td class="inv-td-check"><input type="checkbox" /></td> -->
+                            <td class="inv-td-billno">@bill.RequestSno</td>
+                            
+                            <!-- Name + Avatar cell -->
+                            <td class="inv-td-name">
+                                <div class="inv-name-cell">
+                                    <img src="@avatarSrc2" class="inv-avatar" alt="avatar" />
+                                    <div class="inv-name-info">
+                                        <span class="inv-name-main">@bill.Name</span>
+                                        <span class="inv-name-sub">@bill.CUSTCode @(bill.Mobile != null && bill.Mobile.Length > 0 ? "· " + bill.Mobile : "")</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="inv-td-date">@bill.RequestDatetime.ToString("dd MMM yyyy, hh:mm tt")</td>
+                            <td class="inv-td-amt">@bill.RequestAmount.ToString("N2")</td>
+                            <td class="inv-td-amt">@bill.DiscountAmount.ToString("N2")</td>
+                            <td class="inv-td-amt inv-amt-total">@bill.TotalAmount.ToString("N2")</td>
+                            <td class="inv-td-amt inv-amt-paid">@bill.PaidAmount.ToString("N2")</td>
+                            <td class="inv-td-amt inv-amt-bal">@bill.Balance.ToString("N2")</td>
+                            <td class="inv-td-referral">@bill.DOCTOR</td>
+                            <td><span class="@statusCls">@statusLabel</span></td>
+                            <td class="inv-td-actions">
+                                <button class="inv-icon-btn inv-icon-btn--view" title="Print Bill" @onclick="@(() => PrintBill(bill))" disabled="@(processingBillId == bill.RequestSno.ToString())">
+                                    @if (processingBillId == bill.RequestSno.ToString()) { <span class="spinner"></span> } else { <i class="fas fa-print"></i> }
+                                </button>
+                                <button class="inv-icon-btn inv-icon-btn--edit" title="Edit Bill" @onclick="@(() => EditBill(bill))" disabled="@(processingBillId == bill.RequestSno.ToString())">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="inv-icon-btn inv-icon-btn--due" title="Due Collection" @onclick="@(() => DueCollection(bill.RequestSno))" disabled="@(processingBillId == bill.RequestSno.ToString() || bill.Balance <= 0)">
+                                    <i class="fas fa-money-bill-wave"></i>
+                                </button>
+                                <button class="inv-icon-btn inv-icon-btn--del" title="Delete Bill" @onclick="@(() => DeleteBill(bill))" disabled="@(processingBillId == bill.RequestSno.ToString())">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+</div>
+
+<SfDialog Visible=@iseditbill IsModal=true Width="100%" Height="100vh" ShowCloseIcon="true">
+    <DialogTemplates>
+      
+        <Content>
+            <Billing rid="@rid" OnBillSaved="HandleBillSaved"></Billing>
+        </Content>
+    </DialogTemplates>
+    <DialogEvents Closed="@OnClose"></DialogEvents>
+</SfDialog>
+
+@if (showDeleteConfirmation)
+{
+    <div class="confirmation-overlay">
+        <div class="confirmation-dialog">
+            <h3>Confirm Delete</h3>
+            <p>@confirmationMessage</p>
+            <div class="dialog-buttons">
+                <button class="btn btn-confirm" @onclick="ConfirmDelete">Yes</button>
+                <button class="btn btn-cancel" @onclick="CancelDelete">No</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if(showreport)
+{
+    <div class="confirmation-overlay1">
+        <div class="bill-preview">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row">
+                        <div class="col-auto ms-0">
+                           <span>Bill Preview</span>
+                        </div>
+                        <div class="col-auto float-end ms-auto">
+                            <button type="button" class="float-end ms-auto btn btn-transparent" @onclick="@closepreview">Close</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    @if (base64.Length > 100)
+                    {
+                        <iframe src="@base641" width="100%" height="500px"> </iframe>
+                    }                   
+                </div>
+            </div>
+
+            
+          
+        </div>
+    </div>
+
+   
+}
+
+@code {
+    private void GoToBilling()
+    {
+        NavigationManager.NavigateTo("billing");
+    }
+
+    private string PrintMessage = string.Empty;
+    private List<ViewBills> viewbill = new List<ViewBills>();
+    private List<ViewBills> FilteredBills = new List<ViewBills>();
+    private List<Branch_Master> branches = new List<Branch_Master>();
+    bool showreport=false;
+    string selname = "";
+    string base64 = "";
+    string base641 = "";
+
+
+    // Only use the HTTP-based LoadBranchesAsync method
+
+    private DateTime _fromDate = DateTime.Now.AddMonths(0);
+    private DateTime _toDate = DateTime.Now;
+
+    private DateTime FromDate
+    {
+        get => _fromDate;
+        set
+        {
+            if (_fromDate != value)
+            {
+                _fromDate = value;
+                _ = RefreshData();
+            }
+        }
+    }
+
+    private DateTime ToDate
+    {
+        get => _toDate;
+        set
+        {
+            if (_toDate != value)
+            {
+                _toDate = value;
+                _ = RefreshData();
+            }
+        }
+    }
+    private string _searchTerm = "";
+    private string SearchTerm
+    {
+        get => _searchTerm;
+        set
+        {
+            _searchTerm = value;
+            _ = DebounceFilter();
+        }
+    }
+
+    private string _doctorSearchTerm = "";
+    private string DoctorSearchTerm
+    {
+        get => _doctorSearchTerm;
+        set
+        {
+            _doctorSearchTerm = value;
+            _ = DebounceFilter();
+        }
+    }
+    private string SelectedReport = "";
+    private int branchID = 0;
+    private string? processingBillId = null;
+    private bool isLoading = true;
+    private CancellationTokenSource? filterDebounceTokenSource;
+    private bool isEditMode = false;
+    private bool isSaving = false;
+    private ViewBills editBill = new ViewBills();
+
+    private bool showDeleteConfirmation = false;
+    private string confirmationMessage = "";
+    private ViewBills? billToDelete = null;
+
+    private double TotalRequestAmount => FilteredBills?.Sum(b => b.RequestAmount) ?? 0;
+    private double TotalDiscount => FilteredBills?.Sum(b => b.DiscountAmount) ?? 0;
+    private double TotalAmount => FilteredBills?.Sum(b => b.TotalAmount) ?? 0;
+    private double TotalPaid => FilteredBills?.Sum(b => b.PaidAmount) ?? 0;
+    private double TotalBalance => FilteredBills?.Sum(b => b.Balance) ?? 0;
+
+    [Parameter]
+    public int SID { get; set; }
+
+    [Parameter]
+    public int NewSID { get; set; }
+
+    private string token = "";
+
+
+    private List<Doctor_Master> referralResults = new();
+    private int selectedReferralIndex = -1;
+    private CancellationTokenSource? referralDebounceTokenSource;
+
+    protected override async Task OnInitializedAsync()
+    {
+        http.DefaultRequestHeaders.Add("X-Tenant-ID", AppSettings.ClientId);
+        _dotNetRef = DotNetObjectReference.Create(this);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var tkn = await _sessionStorage.GetAsync<UserAuth>("claim");
+            if (tkn.Success && tkn.Value != null && !string.IsNullOrEmpty(tkn.Value.token))
+            {
+                token = tkn.Value.token!;
+                // Set branchID from session if available
+                try
+                {
+                    var json = System.Text.Json.JsonSerializer.Serialize(tkn.Value);
+                    var doc = JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("BranchCode", out var branchCodeProp))
+                    {
+                        int branchCode = branchCodeProp.GetInt32();
+                        if (branchCode > 0)
+                        {
+                            branchID = branchCode;
+                        }
+                    }
+                }
+                catch { }
+                await LoadBranchesAsync();
+                await LoadBillsAsync();
+            }
+
+            // Always check for newly saved bill and local bills even if API/token is unavailable
+
+            await FilterBills();
+            StateHasChanged();
+        }
+    }
+
+    private async Task CheckForNewBill()
+    {
+        // This method is now obsolete and can be removed or left empty.
+        // The new logic is in CheckForNewBill(int newSid).
+        await Task.CompletedTask;
+    }
+
+
+
+
+
+    private async Task LoadBranchesAsync()
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{AppSettings.BaseUrl}request/branches");
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+
+            var res = await http.SendAsync(request);
+
+            if (res.IsSuccessStatusCode)
+            {
+                branches = await res.Content.ReadFromJsonAsync<List<Branch_Master>>() ?? new List<Branch_Master>();
+                if (!branches.Any(b => b.BHCode == 0))
+                {
+                    branches.Insert(0, new Branch_Master { BHCode = 0, Name = "All Branches" });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading branches: {ex.Message}");
+            branches = new List<Branch_Master>();
+        }
+    }
+
+
+
+
+    private async Task LoadBillsAsync()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            string sd = FromDate.ToString("yyyy-MM-dd") + " 12:00:00 AM";
+            string ed = ToDate.ToString("yyyy-MM-dd") + " 11:59:59 PM";
+
+            var request = new HttpRequestMessage(HttpMethod.Get,
+                $"{AppSettings.BaseUrl}request/ViewBills?DCode={branchID}&fromdate={Uri.EscapeDataString(sd)}&todate={Uri.EscapeDataString(ed)}");
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+
+            var res = await http.SendAsync(request);
+
+            if (res.IsSuccessStatusCode)
+            {
+                var content = await res.Content.ReadAsStringAsync();
+                var bills = JsonConvert.DeserializeObject<List<ViewBills>>(content);
+
+                if (bills != null)
+                {
+                    viewbill = bills.OrderBy(b => b.RequestDatetime).ThenBy(b => b.RequestSno).ToList();
+                    FilteredBills = viewbill.Where(x=>x.Deleted==false).ToList();
+                    StateHasChanged();
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Failed to load bills: {res.StatusCode}");
+                await JSRuntime.InvokeVoidAsync("alert", "Failed to load bills. Please try again.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading bills: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SelBranch(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out int val))
+        {
+            branchID = val;
+            await LoadBillsAsync();
+            await FilterBills();
+        }
+    }
+
+    private string GetBranchName(int branchCode)
+    {
+        var branch = branches.FirstOrDefault(b => b.BHCode == branchCode);
+        return branch?.Name ?? branchCode.ToString();
+    }
+
+    private async Task FilterBills()
+    {
+        try
+        {
+            // Remove isSearching related code
+
+            await Task.Delay(100);
+
+            if (viewbill == null || !viewbill.Any())
+            {
+                FilteredBills = new List<ViewBills>();
+                return;
+            }
+
+            var filtered = viewbill.AsEnumerable();
+
+            // Apply date filtering
+            filtered = filtered.Where(b => b.RequestDatetime.Date >= FromDate.Date && b.RequestDatetime.Date <= ToDate.Date);
+
+            // Apply patient search filtering
+            if (!string.IsNullOrEmpty(SearchTerm))
+            {
+                var searchLower = SearchTerm.ToLower();
+                filtered = filtered.Where(b =>
+                    (b.Name?.ToLower().Contains(searchLower) ?? false) ||
+                    (b.CUSTCode?.ToLower().Contains(searchLower) ?? false) ||
+                    (b.Mobile?.Contains(SearchTerm) ?? false) ||
+                    (b.DOCTOR?.ToLower().Contains(searchLower) ?? false));
+            }
+
+            // Apply doctor search filtering
+            if (!string.IsNullOrWhiteSpace(DoctorSearchTerm))
+            {
+                var doctorLower = DoctorSearchTerm.ToLower();
+                filtered = filtered.Where(b => (b.DOCTOR?.ToLower().Contains(doctorLower) ?? false));
+            }
+
+            FilteredBills = filtered.OrderBy(b => b.RequestDatetime).ThenBy(b => b.RequestSno).Where(x=>x.Deleted==false).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error filtering bills: {ex.Message}");
+        }
+        finally
+        {
+            // Remove isSearching related code
+        }
+    }
+
+    private async Task DebounceFilter()
+    {
+        filterDebounceTokenSource?.Cancel();
+        filterDebounceTokenSource = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(300, filterDebounceTokenSource.Token);
+            await FilterBills();
+        }
+        catch (TaskCanceledException)
+        {
+            // Ignore canceled tasks
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RefreshData()
+    {
+        isLoading = true;
+        StateHasChanged();
+        await LoadBillsAsync();
+        await FilterBills();
+        // Also check for any new bills that might have been saved or passed via URL
+
+        isLoading = false;
+        StateHasChanged();
+    }
+    bool isletterhead = false;
+    private async Task PrintBill(ViewBills args)
+    {
+        // processingBillId = requestSno.ToString();
+        // StateHasChanged();
+
+        // // This will open the receipt in a new browser tab.
+        // await JSRuntime.InvokeAsync<object>("open", $"/receipt/{requestSno}", "_blank");
+
+        // // A small delay to give the user feedback before resetting the spinner.
+        // await Task.Delay(1000);
+        // processingBillId = null;
+        // StateHasChanged();
+
+
+        RoutineReportDto parameters = new();
+        parameters.ClientID = AppSettings.ClientId;
+        parameters.DataSource = "DataSet1";
+        parameters.ReportName = "Billing_Protrait.rdlc";
+        parameters.RequestGUID = Convert.ToString(args.RequestGUID);
+        parameters.TCode = Convert.ToString("0");
+        List<ReportParameterDto> parameter = new List<ReportParameterDto>();
+
+
+
+        parameter.Add(new ReportParameterDto() { Name = "TCode", Values = new List<string>() { Convert.ToString("0") } });
+        parameter.Add(new ReportParameterDto() { Name = "IsLetterHead", Values = new List<string>() { Convert.ToString(isletterhead) } });
+        parameters.Parameters = parameter;
+        var res = await http.PostAsJsonAsync($"{AppSettings.BaseUrl}Report/Bill", parameters);
+        //var res = exe.GetStatement(parameters, "Report/Bill").Result ?? "";
+        if (res.IsSuccessStatusCode)
+        {
+            string res1 = res.Content.ReadAsStringAsync().Result;
+            if (res1.Length > 200)
+            {
+                showreport = true;
+                base64 = res1;
+                base641 = $"data:application/pdf;base64,{base64}";
+            }
+        }
+        else
+        {
+            var tt = res.Content.ReadAsStringAsync().Result;
+
+        }
+        OpenRowId = null;
+       
+        StateHasChanged();
+
+    }
+
+
+
+    private void CalculateDiscount()
+    {
+        try
+        {
+            editBill.DiscountAmount = (editBill.RequestAmount * editBill.DiscountPer) / 100;
+            editBill.TotalAmount = editBill.RequestAmount - editBill.DiscountAmount;
+            CalculateBalance();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error calculating discount: {ex.Message}");
+        }
+    }
+
+    private void CalculateFromDiscountAmount()
+    {
+        try
+        {
+            if (editBill.RequestAmount > 0)
+            {
+                editBill.DiscountPer = (editBill.DiscountAmount / editBill.RequestAmount) * 100;
+                editBill.TotalAmount = editBill.RequestAmount - editBill.DiscountAmount;
+                CalculateBalance();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error calculating from discount amount: {ex.Message}");
+        }
+    }
+
+    private void CalculateBalance()
+    {
+        try
+        {
+            editBill.Balance = editBill.TotalAmount - editBill.PaidAmount;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error calculating balance: {ex.Message}");
+        }
+    }
+
+    private async Task SaveBill()
+    {
+        try
+        {
+            isSaving = true;
+            StateHasChanged();
+
+            var existingBillIndex = viewbill.FindIndex(b => b.RequestSno == editBill.RequestSno);
+            if (existingBillIndex >= 0)
+            {
+                viewbill[existingBillIndex] = editBill;
+            }
+
+            await FilterBills();
+            _ = NotificationService.ShowSuccess("Bill saved successfully!");
+            PrintMessage = "Bill saved successfully!";
+
+            CancelEdit();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", $"Error saving bill: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "Error occurred while saving the bill.");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+    private void closepreview()
+    {
+        showreport = !showreport;
+    }
+    private void CancelEdit()
+    {
+        isEditMode = false;
+        editBill = new ViewBills();
+        NavigationManager.NavigateTo("/viewbills");
+    }
+    string rid = "";
+    bool iseditbill=false;
+    private async Task OnClose()
+    {
+        iseditbill = !iseditbill;
+        
+    }
+    private async Task EditBill(ViewBills args)
+    {
+        rid = args.RequestGUID;
+        iseditbill = true;
+        OpenRowId = null;
+        StateHasChanged();
+    }
+    private async Task HandleBillSaved()
+    {
+        try
+        { 
+            iseditbill = false; // Close the dialog
+            await RefreshData(); // Refresh the bill list
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error after saving bill: {ex.Message}");
+        }
+    }
+
+    private async Task DueCollection(int requestSno)
+    {
+        try
+        {
+            processingBillId = requestSno.ToString();
+            StateHasChanged();
+
+            await Task.Delay(1000);
+
+            var bill = FilteredBills?.FirstOrDefault(b => b.RequestSno == requestSno);
+            if (bill != null)
+            {
+                PrintMessage = $"Due Collection for {bill.Name} (SID: {bill.RequestSno}) Balance Amount: {bill.Balance:N2}";
+            }
+        }
+        catch (Exception ex)
+        {
+            PrintMessage = $"Error in due collection: {ex.Message}";
+        }
+        finally
+        {
+            OpenRowId = null;
+            processingBillId = null;
+            StateHasChanged();
+        }
+    }
+    ViewBills delete = new();
+    private Task DeleteBill(ViewBills args)
+    {
+        delete = args;
+        billToDelete = FilteredBills?.FirstOrDefault(b => b.RequestGUID == args.RequestGUID);
+        if (billToDelete != null)
+        {
+            confirmationMessage = $"Are you sure you want to delete bill for {billToDelete.Name} (SID: {billToDelete.RequestSno})?";
+            showDeleteConfirmation = true;
+            StateHasChanged();
+        }
+        OpenRowId = null;
+        return Task.CompletedTask;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        showDeleteConfirmation = false;
+
+        try
+        {
+            if (billToDelete != null)
+            {
+                processingBillId = billToDelete.RequestSno.ToString();
+                StateHasChanged();
+
+                viewbill.RemoveAll(b => b.RequestSno == delete.RequestSno);
+                FilteredBills.RemoveAll(b => b.RequestSno == delete.RequestSno);
+                var request = new HttpRequestMessage(HttpMethod.Get,
+       $"{AppSettings.BaseUrl}Request/CancelBill?rid={Uri.EscapeDataString(delete.RequestGUID)}");
+
+                // Add the Authorization header
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+                // Send the request
+                var res = await http.SendAsync(request);
+                if (res.IsSuccessStatusCode)
+                {
+                    _ = NotificationService.ShowSuccess("Bill deleted successfully!");
+                    PrintMessage = "Bill deleted successfully!";
+                }
+                else
+                {
+                    PrintMessage = $"Error deleting bill";
+                }
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            PrintMessage = $"Error deleting bill: {ex.Message}";
+        }
+        finally
+        {
+            processingBillId = null;
+            billToDelete = null;
+            StateHasChanged();
+        }
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirmation = false;
+        billToDelete = null;
+        StateHasChanged();
+    }
+
+    // Implement IDisposable to properly dispose of the timer
+    public void Dispose()
+    {
+        _dotNetRef?.Dispose();
+        filterDebounceTokenSource?.Dispose();
+        referralDebounceTokenSource?.Dispose();
+    }
+
+    // Remove duplicate Branch class since we're using Branch_Master from model
+
+
+
+    public class UserAuth
+    {
+        public string? token { get; set; }
+    }
+
+    // Add missing methods for referral search functionality
+    private async Task OnReferralInputChanged(ChangeEventArgs e)
+    {
+        var searchTerm = e.Value?.ToString() ?? "";
+
+        DoctorSearchTerm = searchTerm;
+
+        referralDebounceTokenSource?.Cancel();
+        referralDebounceTokenSource = new CancellationTokenSource();
+
+        try
+        {
+            await Task.Delay(300, referralDebounceTokenSource.Token);
+            await SearchReferralDoctors(searchTerm);
+        }
+        catch (TaskCanceledException)
+        {
+            // This is expected if the user types quickly.
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e, string type)
+    {
+        if (type == "ReferredBy" && referralResults.Any())
+        {
+            if (e.Key == "ArrowDown")
+            {
+                selectedReferralIndex = (selectedReferralIndex + 1) % referralResults.Count;
+            }
+            else if (e.Key == "ArrowUp")
+            {
+                selectedReferralIndex = (selectedReferralIndex - 1 + referralResults.Count) % referralResults.Count;
+            }
+            else if (e.Key == "Enter" && selectedReferralIndex >= 0)
+            {
+                SelectReferralDoctor(referralResults[selectedReferralIndex]);
+            }
+            StateHasChanged();
+        }
+    }
+
+    private async Task SearchReferralDoctors(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            referralResults.Clear();
+            selectedReferralIndex = -1;
+            StateHasChanged();
+            return;
+        }
+
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{AppSettings.BaseUrl}request/ReferralSearch?src={Uri.EscapeDataString(query)}");
+            if (!string.IsNullOrEmpty(token))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+            var response = await http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var res = await response.Content.ReadAsStringAsync();
+                var doctors = JsonConvert.DeserializeObject<List<Doctor_Master>>(res) ?? new();
+                referralResults = doctors;
+            }
+            else
+            {
+                referralResults.Clear();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error searching doctors: {ex.Message}");
+            referralResults.Clear();
+        }
+        selectedReferralIndex = -1;
+        StateHasChanged();
+    }
+
+    private void SelectReferralDoctor(Doctor_Master doctor)
+    {
+
+        DoctorSearchTerm = doctor.DoctorFullName;
+        referralResults.Clear();
+        selectedReferralIndex = -1;
+    }
+
+    string? OpenRowId = null;
+    private DotNetObjectReference<ViewBilling>? _dotNetRef;
+
+    async void ToggleDropdown(string rowId)
+    {
+        OpenRowId = OpenRowId == rowId ? null : rowId;
+        if(OpenRowId==rowId)
+        {
+            await JSRuntime.InvokeVoidAsync("dropdownHelper.registerOutsideClick", _dotNetRef, "drp-btn");
+        }
+    }
+    
+    [JSInvokable]
+    public void CloseDropdownById(string dropdownId)
+    {
+        if (dropdownId == "drp-btn")
+        {
+            OpenRowId = null;
+            InvokeAsync(StateHasChanged);
+        }
+    }
+    
+}

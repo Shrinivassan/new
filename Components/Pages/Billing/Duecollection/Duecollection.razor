@@ -1,0 +1,1301 @@
+@page "/duecollection"
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Forms
+@using LIMS.Model
+@using Lims.Components.Model
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject ProtectedSessionStorage _sessionStorage
+@inject HttpClient http
+@inject AppSettings appSettings
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Linq
+@using Lims.Components.Pages.Billing.Duecollection
+@using Lims.Components.Data
+@using System.Net.Http.Headers
+@using System.Text
+@inject NavigationManager NavigationManager
+@inject NotificationService NotificationService
+
+<div class="due-collection-container">
+    <div class="due-page-header">
+        <span class="due-page-title"><i class="fas fa-hand-holding-usd"></i> <span class="due-page-title-text">Due Collection</span></span>
+    </div>
+
+    <div class="due-content">
+        <div class="due-left-panel" style="">
+            <!-- Receipt Type Selection -->
+            <div class="due-form-group">
+                <label class="label-bold">Receipt Type</label>
+                <div class="due-radio-group">
+                    <InputRadioGroup @bind-Value="SelectedReceiptType">
+                        <label class="radio-label">
+                            <InputRadio Value='"Bill"' />
+                            Bill
+                        </label>
+                        <label class="radio-label">
+                            <InputRadio Value='"Patient"' />
+                            Patient
+                        </label>
+                        <label class="radio-label">
+                            <InputRadio Value='"Referral"' />
+                            Referral
+                        </label>
+                        <label class="radio-label">
+                            <InputRadio Value='"Monthly"' />
+                            Monthly
+                        </label>
+                    </InputRadioGroup>
+                </div>
+            </div>
+
+            <!-- Branch Selection -->
+            <div class="due-form-group">
+                <label class="label-bold" for="branchSelect">Branch</label>
+                <select id="branchSelect" class="input-select due-branch-select" @bind="selectedBranchId" @bind:after="HandleBranchChange" disabled="@showCurrentBranchBills">
+                    @foreach (var branch in branches)
+                    {
+                        <option value="@branch.BHCode">@branch.Name</option>
+                    }
+                </select>
+            </div>
+
+            <!-- Receipt Details Section -->
+            <div class="due-receipt-details-grid">
+                <!-- Counter -->
+                <div class="due-form-group">
+                    <label class="label-bold">Counter</label>
+                    <select class="input-select" @bind="Model.receipt_Master.CNTCode">
+                        @foreach (var counter in filteredCounters)
+                        {
+                            <option value="@counter.CNTCode">@counter.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Receipt No -->
+                <div class="due-form-group">
+                    <label class="label-bold">Receipt No</label>
+                    <input type="text" class="input-text" @bind="receiptNoString" readonly />
+                </div>
+
+                <!-- Receipt Date -->
+                <div class="due-form-group">
+                    <label class="label-bold">Receipt Dt.</label>
+                    <input type="date" class="input-date"
+                           @bind="Model.receipt_Master.ReceiptDate" @bind:after="SearchDueBills" />
+                </div>
+
+                <!-- Receipt Time -->
+                <div class="due-form-group">
+                    <label class="label-bold">Time</label>
+                    <input type="time" class="input-time"
+                           @bind="receiptTime" />
+                </div>
+            </div>
+
+            <!-- Bill Date Range -->
+            @if (SelectedReceiptType != "Bill")
+            {
+                <div class="due-form-group due-bill-date-group">
+
+    <label class="label-bold due-bill-date-label">
+        <i class="bi bi-calendar2-date" style="font-size:16px;"></i>
+        Bill Date
+    </label>
+
+    <div class="due-bill-date-inputs">
+
+                        <input type="checkbox" @bind="billDateEnabled" @bind:after="OnBillDateEnabledChanged" 
+                               class="due-bill-date-checkbox" />
+
+                        <input type="date"
+                               @bind="billDateFrom"
+                               disabled="@(!billDateEnabled)"
+                               class="due-bill-date-input" />
+
+                        <span style="font-weight:600;">To</span>
+
+                        <input type="date"
+                               @bind="billDateTo"
+                               disabled="@(!billDateEnabled)"
+                               class="due-bill-date-input" />
+
+    </div>
+</div>
+            
+            }
+
+            <!-- Dynamic Fields Based on Receipt Type -->
+            @if (SelectedReceiptType == "Patient")
+            {
+                <div class="due-form-group">
+                    <label class="label-bold">Patient</label>
+
+                    <div class="due-patient-search-row" style="display:flex; gap:8px; align-items:center;">
+                        <div style="flex:1; position:relative;">
+                            <i class="fas fa-search due-patient-search-icon"></i>
+                            <input type="text" class="input-text due-patient-search-input" 
+                                   @bind="PatientName" 
+                                   @oninput="OnPatientInputChanged"
+                                   @onkeydown="HandlePatientKeyDown"
+                                   placeholder="Patient Name or Mobile Num..."
+                                   autocomplete="off" />
+
+                            @if (patientSearchResults.Any())
+                            {
+                                <ul class="due-referral-results-list">
+                                    @for (int i = 0; i < patientSearchResults.Count; i++)
+                                    {
+                                        var patient = patientSearchResults[i];
+                                        var index = i; 
+                                        <li class="due-referral-item @(index == selectedPatientIndex ? "active" : "")" 
+                                            @onclick="() => SelectPatient(patient)">
+                                            @patient.Name
+                                            @if (!string.IsNullOrWhiteSpace(patient.Mobile)) {<span> - @patient.Mobile</span>}
+                                            @if (!string.IsNullOrWhiteSpace(patient.Email)) {<span> - @patient.Email</span>}
+                                            @if (patient.CUSTID > 0) {<span> (ID: @patient.CUSTID)</span>}
+
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                        </div>
+                    </div>
+
+                </div>
+            }
+            else if (SelectedReceiptType == "Referral")
+            {
+                <div class="due-form-group">
+                    <label class="label-bold">Doctor</label>                    
+                    <div class="due-patient-search-wrapper">
+                        <input type="text" class="input-text" 
+                               @bind="doctorName" 
+                               @oninput="OnReferralInputChanged"
+                               @onkeydown="HandleKeyDown"
+                               placeholder="Enter doctor name" />
+                        @if (referralResults?.Any() == true)
+                        {
+                            <ul class="due-referral-results-list">
+                                @for (int i = 0; i < referralResults.Count; i++)
+                                {
+                                    var doctor = referralResults[i];
+                                    var index = i;
+                                    <li class="due-referral-item @(index == selectedReferralIndex ? "active" : "")"
+                                        @onclick='() => SelectReferralDoctor(doctor)'>
+                                        @doctor.DoctorFullName
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+            }
+            else if (SelectedReceiptType == "Monthly")
+            {
+                <div class="due-form-group" style="display: flex; flex-direction: column; gap: 10px;">
+                    <label class="label-bold">Monthly Account</label>
+                    <div style="display: flex; gap: 10px;">
+                        <select class="input-select" @bind="selectedMonth" style="flex: 1;">
+                          
+                            @if(rcm!=null&& rcm.Count>0)
+                            {
+                                  
+                                @foreach (var it in rcm)
+                                {
+                                    <option value="@it.RICode">@it.Name</option>
+                                }
+                            }
+                        </select>
+                      
+                    </div>
+                    <button @onclick="SearchDueBills" class="due-search-button" style="align-self: flex-start;">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                </div>
+
+
+            }
+            else if (SelectedReceiptType == "Bill")
+            { 
+             <div class="due-form-group">
+    <label class="label-bold">Sample Id</label>
+
+    <div class="due-sample-id-group" >
+        <select class="input-select" @bind="samplePrefix">
+            <option value="Primary S">Primary S</option>
+            <option value="Secondary S">Secondary S</option>
+        </select>
+
+        <select class="input-select" @bind="selectedBillYear" @bind:after="SearchDueBills">
+            @foreach (var y in billYears)
+            {
+                <option value="@y">@y</option>
+            }
+        </select>
+
+        <input type="text" class="input-text" @bind="patientId" @oninput="DebounceSearch" placeholder="Pat.ID" />
+    </div>
+</div>
+
+            }
+            @* <div class="due-right-panel-options">
+
+    <!-- As per Bill Date -->
+    <label class="due-option-label">
+        <input type="checkbox" @bind="asPerBillDate" />
+        <i class="bi bi-calendar-check"></i>
+        <span>As per Bill Date</span>
+    </label>
+
+    <!-- Show Only Current Branch Bills -->
+    <label class="due-option-label">
+        <input type="checkbox" @bind="showCurrentBranchBills" />
+        <i class="bi bi-building"></i>
+        <span>Show Current Branch Bills</span>
+    </label>
+
+</div> *@
+
+        </div>
+        <div class="due-center-panel">
+            <!-- Combined Actions Row -->
+            <div class="due-actions-row">
+                <!-- Pay Mode -->
+                <div class="due-pay-mode-group">
+                    <label class="label-bold due-pay-mode-label">
+                        <i class="bi bi-credit-card"></i> Pay Mode
+                    </label>
+                    <select @bind="Model.receipt_Master.PMCode" class="due-pay-mode-select">
+                        @if (payModes.Any())
+                        {
+                            @foreach (var mode in payModes)
+                            {
+                                <option value="@mode.PMCode">@mode.Name</option>
+                            }
+                        }
+                    </select>
+                </div>
+                
+                @if (SelectedPayModeName?.Contains("Cheque", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    <div class="due-cheque-details-group">
+                        <!-- Bank Name -->
+                        <div class="due-form-group-inline">
+                            <label class="label-bold"><i class="fas fa-university"></i></label>
+                            <input type="text" @bind="Model.receipt_Master.BankName" class="input-text" placeholder="Bank Name" />
+                        </div>
+
+                        <!-- Cheque No -->
+                        <div class="due-form-group-inline">
+                            <label class="label-bold"><i class="fas fa-money-check"></i></label>
+                            <input type="text" @bind="Model.receipt_Master.ChequeNo" class="input-text" placeholder="Cheque No" />
+                        </div>
+
+                        <!-- Cheque Date -->
+                        <div class="due-form-group-inline">
+                            <label class="label-bold"><i class="fas fa-calendar-alt"></i></label>
+                            <input type="date" @bind="Model.receipt_Master.ChequeDate" class="input-date" />
+                        </div>
+                    </div>
+                }
+                else if (SelectedPayModeName?.Contains("Card", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                     <div class="due-form-group-inline">
+                            <label class="label-bold"><i class="fas fa-credit-card"></i></label>
+                            <input type="text" @bind="Model.receipt_Master.CardNo" class="input-text" placeholder="Card No" />
+                        </div>
+                }
+
+                <!-- Paid Amount (Conditional) -->
+                @if (SelectedReceiptType != "Bill")
+                {
+                    <div class="due-paid-amount-group">
+                        <label class="label-bold due-paid-amount-label">
+                            <i class="bi bi-cash-stack"></i> Paid Amount
+                        </label>
+                        <input type="number" @bind="paidAmount" step="0.01" class="due-paid-amount-input">
+                    </div>
+                }
+
+                <!-- Search Button -->
+                @if (SelectedReceiptType != "Bill")
+                {
+                    <button @onclick="SearchDueBills" class="due-search-button">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                }
+
+                <!-- Auto Select Button (Conditional) -->
+                @if (SelectedReceiptType == "Patient" || SelectedReceiptType == "Referral" || SelectedReceiptType == "Monthly")
+                {
+                    <button @onclick="AutoSelectBills" class="due-auto-select-button">
+                        <i class="bi bi-check2-circle"></i> Auto Select
+                    </button>
+                }
+            </div>
+
+            <!-- Data Grid -->
+            <div class="due-data-grid">
+                <div class="table-responsive">
+                    <table class="due-bills-table">
+                        <thead>
+                            <tr>
+                                <th>Sel</th>
+                                <th>Sample Id</th>
+                                <th>Date Time</th>
+                                <th>Pat.ID</th>
+                                <th>Customer Name</th>
+                                <th>Ref.By</th>
+                                <th>Balance</th>
+                                <th>Current Balance</th>
+                                <th>Collected</th>
+                                <th>Concession</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody style="overflow-y: auto;">
+                            @if (billRows == null || billRows.Count == 0)
+                            {
+                                <tr>
+                                    <td colspan="10" class="due-bills-table no-data">No bills found</td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var billRow in billRows)
+                                {
+                                    <tr>
+                                        <td><input type="checkbox" @bind="billRow.Selected" /></td>
+                                        <td>@billRow.SampleId</td>
+                                        <td>@billRow.BillDateTime</td>
+                                        <td>@billRow.PatientId</td>
+                                        <td>@billRow.CustomerName</td>
+                                        <td>@billRow.RefBy</td>
+                                        <td>@billRow.Balance.ToString("N2")</td>
+                                        <td>@billRow.CurrentBalance.ToString("N2")</td>
+                                        @if (billRow.Status == "Collected")
+                                        {
+                                            <td>@billRow.Collected.ToString("N2")</td>
+                                            <td>@billRow.Concession.ToString("N2")</td>
+                                        }
+                                        else
+                                        {
+                                            <td>
+                                                <input type="number" class="input-small" @bind="billRow.Collected" @bind:event="oninput" @bind:after="RecalculateTotals" step="0.01" />
+                                            </td>
+                                            <td>
+                                                <input type="number" class="input-small" @bind="billRow.Concession" @bind:event="oninput" @bind:after="RecalculateTotals" step="0.01" />
+                                            </td>
+                                        }
+                                        <td>
+                                            <span class="status-badge @(billRow.Status == "Collected" ? "status-collected" : "status-due")">
+                                                @billRow.Status
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+ <!-- Summary Section -->
+<div class="due-summary-section">
+
+    <!-- Balance -->
+    <div class="due-summary-item">
+        <label>Balance</label>
+        <span class="due-summary-balance">
+            @totalBalance
+        </span>
+    </div>
+
+    <!-- Bill Count -->
+        <div class="due-summary-item">
+            <label>Bill Count</label>
+            <span class="due-summary-count">
+                @(billRows?.Count ?? 0)
+            </span>
+        </div>
+    <!-- Collected Amount -->
+    <div class="due-summary-item">
+        <label>Collt_Amount</label>
+        <span class="due-summary-collected-amount">
+            @totalCollected
+        </span>
+    </div>
+
+    <!-- Concession -->
+    <div class="due-summary-item">
+        <label>Concession (Referral)</label>
+        <span class="due-summary-concession">
+            @totalConcession
+        </span>
+    </div>
+
+</div>
+<!-- Action Buttons -->
+<div class="due-action-buttons">
+    <button @onclick="NewReceipt" class="due-action-button due-action-new">
+        <i class="bi bi-plus-circle"></i> New
+    </button>
+    <button @onclick="SaveReceipt" class="due-action-button due-action-save">
+        <i class="bi bi-check-circle"></i> Save
+    </button>
+
+ 
+
+</div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private DueCollectionModel Model = new DueCollectionModel();
+    private string? errorMessage;
+    private string receiptNoString = "";    
+    private string _patientName = "";
+    private string selectedReceiptType = "Bill";
+    private string doctorName = "";
+    private int selectedReferralIndex = -1;
+    private int selectedPatientIndex = -1;
+    private string samplePrefix = "Primary S";
+    private int selectedBillYear = DateTime.Now.Year;
+    private string patientId = "";
+    private int selectedMonth = DateTime.Now.Month;
+    private int selectedYear = DateTime.Now.Year;
+    private TimeOnly receiptTime = TimeOnly.FromDateTime(DateTime.Now);
+    private decimal paidAmount = 0;
+    private decimal totalBalance = 0;
+    private decimal totalCollected = 0;
+    private decimal totalConcession = 0;
+    private bool billDateEnabled = false;
+    private DateTime billDateFrom = DateTime.Now;
+    private DateTime billDateTo = DateTime.Now;
+    private string SelectedReceiptType
+    {
+        get => selectedReceiptType;
+        set
+        {
+            if (selectedReceiptType != value)
+            {
+                selectedReceiptType = value;
+                _ = SearchDueBills();
+            }
+        }
+    }
+
+    private string? SelectedPayModeName => payModes.FirstOrDefault(p => p.PMCode == Model.receipt_Master.PMCode)?.Name;
+
+    private string PatientName
+    {
+        get => _patientName;
+        set
+        {
+            if (_patientName != value)
+            {
+                _patientName = value;
+                _ = DebounceSearch();
+            }
+        }
+    }
+
+    // Selected year for filtering bills when Receipt Type is 'Bill'
+
+    // List of years to show in dropdown (2000..current year)
+    private List<int> billYears = Enumerable.Range(2020, DateTime.Now.Year - 2000 + 1).Reverse().ToList();
+    private bool asPerBillDate = false;
+    private bool showCurrentBranchBills = false;
+    private bool showOnlyToday = true;
+    private bool ShowOnlyToday
+    {
+        get => showOnlyToday;
+        set
+        {
+            if (showOnlyToday != value)
+            {
+                showOnlyToday = value;
+                _ = SearchDueBills();
+            }
+        }
+    }
+    private bool ShowCurrentBranchBills
+    {
+        get => showCurrentBranchBills;
+        set
+        {
+            if (showCurrentBranchBills != value)
+            {
+                showCurrentBranchBills = value;
+                _ = SearchDueBills();
+            }
+        }
+    }
+
+
+    private IList<REIMBURSEMENT_COMPANY_MASTER> rcm = new List<REIMBURSEMENT_COMPANY_MASTER>();
+    private List<Branch_Master> branches = new();
+    private int selectedBranchId;
+    private List<PayMode_Master> payModes = new();
+    private List<Counter_Master> allCounters = new();
+    private List<Counter_Master> filteredCounters = new();
+    private int selectedCounterId;
+    private List<Doctor_Master> referralResults = new();
+
+    private CancellationTokenSource? referralDebounceTokenSource;
+    private int? selectedDoctorId = null;
+
+    // Patient Search
+    private List<Customer_Master> patientSearchResults = new();
+    private string PatientMobile = "";
+    private CancellationTokenSource? patientDebounceTokenSource;
+
+    private string token = "";
+    private string userCode = "";
+
+    // Rows for the UI table (wraps server ViewBills)
+    private List<LIMS.Model.DueCollectionModel.DueBillRow> billRows = new();
+
+    protected override void OnInitialized()
+    {
+        Model.receipt_Master = new Receipt_Master
+        {
+            ReceiptDate = DateTime.Now,
+            ReceiptSNo = 0,
+            ReceiptTime = DateTime.Now.ToString("HH:mm"),
+            ChequeDate = DateTime.Now
+        };
+        receiptTime = TimeOnly.FromDateTime(DateTime.Now);
+        Model.receiptDetails = new List<Receipt_Details>();
+        base.OnInitialized();
+    }
+
+    protected override void OnParametersSet()
+    {
+        receiptNoString = Model.receipt_Master.ReceiptSNo > 0 ? Model.receipt_Master.ReceiptSNo.ToString() : "";
+    }
+
+    private void RecalculateTotals()
+    {
+        totalCollected = billRows.Where(r => r.Selected).Sum(r => r.Collected);
+        totalConcession = billRows.Where(r => r.Selected).Sum(r => r.Concession);
+        totalBalance = billRows.Sum(r => (decimal)r.Balance);
+        StateHasChanged();
+    }
+    private async Task SearchDueBills()
+    {
+        try
+        {
+            // If receipt type is Referral and no doctor is selected, clear the grid and exit.
+            if (SelectedReceiptType == "Referral" && !selectedDoctorId.HasValue)
+            {
+                billRows.Clear();
+                RecalculateTotals();
+                StateHasChanged();
+                return;
+            }
+
+            // If receipt type is Patient and no patient name is entered, clear the grid and exit.
+            if (SelectedReceiptType == "Patient" && string.IsNullOrWhiteSpace(PatientName))
+            {
+                billRows.Clear();
+                RecalculateTotals();
+                StateHasChanged();
+                return;
+            }
+
+            string sd;
+            string ed;
+
+            if (SelectedReceiptType == "Bill")
+            {
+                // When in Bill mode:
+                // - If the user selected the current year, return only today's bills.
+                // - Otherwise return the whole selected year.
+                if (selectedBillYear == DateTime.Now.Year)
+                {
+                    var today = DateTime.Today;
+                    sd = today.ToString("yyyy-MM-dd") + " 12:00:00 AM";
+                    ed = today.ToString("yyyy-MM-dd") + " 11:59:59 PM";
+                }
+                else
+                {
+                    sd = $"{selectedBillYear}-01-01 12:00:00 AM";
+                    ed = $"{selectedBillYear}-12-31 11:59:59 PM";
+                }
+            }
+            else if (SelectedReceiptType == "Monthly")
+            {
+                var fromDate = new DateTime(selectedYear, selectedMonth, 1);
+                sd = fromDate.ToString("yyyy-MM-dd") + " 12:00:00 AM";
+                ed = fromDate.AddMonths(1).AddDays(-1).ToString("yyyy-MM-dd") + " 11:59:59 PM";
+            }
+            else if (billDateEnabled)
+            {
+                sd = billDateFrom.ToString("yyyy-MM-dd") + " 12:00:00 AM";
+                ed = billDateTo.ToString("yyyy-MM-dd") + " 11:59:59 PM";
+            }
+            // For "Patient" search, always use a wide date range to get all due bills.
+            else if (SelectedReceiptType == "Patient")
+            {
+                sd = "1900-01-01 12:00:00 AM";
+                ed = "2099-12-31 11:59:59 PM";
+            }
+            else
+            {
+                // For non-"Bill" types, if date filtering is disabled,
+                // request a very wide range so bills aren't accidentally excluded.
+                sd = "1900-01-01 12:00:00 AM";
+                ed = "2099-12-31 11:59:59 PM";
+            }
+            // If "Show Current Branch Bills" is checked, use the selected branch; otherwise request across all branches (DCode=0)
+            var dcode = showCurrentBranchBills ? selectedBranchId : 0;
+
+            var url = $"{appSettings.BaseUrl}request/ViewBills?DCode={dcode}&fromdate={Uri.EscapeDataString(sd)}&todate={Uri.EscapeDataString(ed)}";
+
+            // Add doctor filter if a doctor is selected
+            if (selectedDoctorId.HasValue)
+            {
+                url += $"&doccode={selectedDoctorId.Value}";
+            }
+
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            if (!string.IsNullOrEmpty(token)) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var list = JsonConvert.DeserializeObject<List<ViewBills>>(content) ?? new List<ViewBills>();
+                // Filter for due bills only (where balance > 0)
+                var filtered = list.Where(b => b.Balance > 0);
+
+                // If searching by patient, filter by patient name
+                if (SelectedReceiptType == "Patient")
+                {
+                    if (!string.IsNullOrWhiteSpace(PatientName))
+                    {
+                        // ViewBills model does not contain Email or numeric CUSTID; use CUSTCode and Mobile/Name instead
+                        filtered = filtered.Where(b => (b.Name?.Contains(PatientName, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                                   (b.Mobile?.Contains(PatientName, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                                   (b.CUSTCode?.Contains(PatientName, StringComparison.OrdinalIgnoreCase) ?? false));
+                    }
+                }
+                if (SelectedReceiptType == "Referral" && selectedDoctorId.HasValue)
+                {
+                    filtered = filtered.Where(b => b.DCode == selectedDoctorId.Value);
+                }
+
+                // Filter by Patient ID if the receipt type is "Bill"
+                if (SelectedReceiptType == "Bill" && !string.IsNullOrWhiteSpace(patientId))
+                {
+                    filtered = filtered.Where(b => b.CUSTCode != null && b.CUSTCode.Contains(patientId, StringComparison.OrdinalIgnoreCase));
+                }
+
+                // Apply "ShowOnlyToday" filter for some searches, but skip this
+                // forced "today" filter when the user is searching by Receipt Date
+                // (for "Bill") or when explicitly searching for a Patient so we
+                // return all due bills for that patient/referral/month across all dates.
+                if (ShowOnlyToday && SelectedReceiptType != "Referral" && SelectedReceiptType != "Bill" && SelectedReceiptType != "Patient" && SelectedReceiptType != "Monthly")
+                {
+                    var today = DateTime.Today;
+                    filtered = filtered.Where(b => b.RequestDatetime.Date == today);
+                }
+                billRows = filtered.OrderBy(b => b.RequestDatetime)
+                                   .Select(v => new LIMS.Model.DueCollectionModel.DueBillRow { Bill = v, Selected = false, Collected = 0, Concession = 0 }).ToList();
+                RecalculateTotals();
+            }
+            else
+            {
+                // Log response for diagnostics and clear the grid
+                errorMessage = $"Failed to load due bills. Status: {response.StatusCode}";
+                billRows = new List<LIMS.Model.DueCollectionModel.DueBillRow>();
+                RecalculateTotals();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching bills: {ex.Message}");
+            errorMessage = $"An error occurred while fetching bills: {ex.Message}";
+            RecalculateTotals();
+        }
+        StateHasChanged();
+    }
+
+    private CancellationTokenSource? searchDebounceTokenSource;
+
+    private async Task DebounceSearch()
+    {
+        searchDebounceTokenSource?.Cancel();
+        searchDebounceTokenSource = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(300, searchDebounceTokenSource.Token);
+            await SearchDueBills();
+        }
+        catch (TaskCanceledException) { /* Ignore */ }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ResetFields()
+    {
+        Model.receipt_Master = new Receipt_Master { ReceiptDate = DateTime.Now, ReceiptSNo = 0, ReceiptTime = DateTime.Now.ToString("HH:mm"), ChequeDate = DateTime.Now };
+        receiptNoString = "";
+        receiptTime = TimeOnly.FromDateTime(DateTime.Now);
+        Model.receiptDetails.Clear();
+        billRows.Clear();
+        errorMessage = null;
+        RecalculateTotals();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            if (!string.IsNullOrEmpty(appSettings?.ClientId) && !http.DefaultRequestHeaders.Contains("X-Tenant-ID"))
+            {
+                http.DefaultRequestHeaders.Add("X-Tenant-ID", appSettings.ClientId);
+            }
+
+            // Load saved auth token (if any) from session and apply Authorization header
+            try
+            {
+                var userAuthResult = (await _sessionStorage.GetAsync<UserAuth>("claim")).Value ?? new UserAuth();
+                token = userAuthResult.token ?? "";
+                if (!string.IsNullOrEmpty(token))
+                {
+                    var payload = token.Split('.')[1];
+                    var jsonBytes = Convert.FromBase64String(payload.PadRight(payload.Length + (4 - payload.Length % 4) % 4));
+                    var json = Encoding.UTF8.GetString(jsonBytes);
+                    var jObject = JObject.Parse(json);
+                    userCode = jObject.SelectToken("UserCode")?.ToString() ?? "";
+                }
+
+                if (!string.IsNullOrEmpty(token))
+                {
+                    http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = "Could not read authentication token from session.";
+            }
+
+            var branchResult = await _sessionStorage.GetAsync<List<Branch_Master>>("branch");
+            if (branchResult.Success && branchResult.Value != null)
+            {
+                branches = branchResult.Value;
+                selectedBranchId = branches.FirstOrDefault()?.BHCode ?? 0;
+            }
+            //await LoadPayModesAsync();
+            await SearchDueBills();
+            await LoadDueAsync();
+
+            StateHasChanged();
+        }
+    }
+    private async Task LoadDueAsync()
+    {
+        try
+        {
+            var res = await http.GetAsync($"{appSettings.BaseUrl}DueCollection/DueLoad");
+            if (res.IsSuccessStatusCode)
+            {
+                var content = await res.Content.ReadAsStringAsync();
+                var dueData = JsonConvert.DeserializeObject<dynamic>(content);
+                if (dueData != null)
+                {
+                    // Convert counters JArray → List<Counter_Master>
+                    allCounters = JsonConvert.DeserializeObject<List<Counter_Master>>(
+                        dueData.data[0].counters.ToString()
+                    );
+
+                    // Convert payModes JArray → List<PayMode_Master>
+                    payModes = JsonConvert.DeserializeObject<List<PayMode_Master>>(
+                        dueData.data[0].payModes.ToString()
+                    );
+
+                   
+                    rcm = JsonConvert.DeserializeObject<IList<REIMBURSEMENT_COMPANY_MASTER>>(
+                        dueData.data[0].reimbursements.ToString()
+                    );
+
+                    Model.receipt_Master.PMCode = payModes.Where(x=>x.Name.Contains("Cash",StringComparison.OrdinalIgnoreCase)).Select(x=>x.PMCode).FirstOrDefault();
+                    receiptNoString = dueData.data[0].nextReceiptSno;
+                }
+                FilterCounters();
+                StateHasChanged();
+            }
+            else
+            {
+                errorMessage = $"Failed to load due collection data. Status: {await res.Content.ReadAsStringAsync()}";
+            }
+
+        }catch(Exception ex)
+        {
+            errorMessage = $"An error occurred while loading due collection data: {ex.Message}";
+        }
+    }
+
+    private async Task LoadPayModesAsync()
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, $"{appSettings.BaseUrl}request/billing");
+       // request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var response = await http.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            var tt = await response.Content.ReadAsStringAsync();
+            var tt1 = JsonConvert.DeserializeObject<BillRootObject>(tt);
+            if (tt1 != null)
+            {
+                payModes = tt1.paymode?.ToList() ?? new List<PayMode_Master>();
+                allCounters = tt1.counter?.ToList() ?? new List<Counter_Master>();
+
+                var cashMode = payModes.FirstOrDefault(p => p.Name.Equals("Cash", StringComparison.OrdinalIgnoreCase));
+                if (cashMode != null)
+                {
+                    Model.receipt_Master.PayLedgerCode = cashMode.PMCode;
+                }
+                FilterCounters();
+            }
+            StateHasChanged();
+        }
+    }
+
+    private void FilterCounters()
+    {
+        filteredCounters = allCounters.Where(c => c.BHCode == selectedBranchId).ToList();
+        if (filteredCounters.Any())
+        {
+            selectedCounterId = filteredCounters.First().CNTCode;
+            // Ensure the receipt master uses the same counter so server-side
+            // validation doesn't fail when the user doesn't explicitly change it.
+            if (Model?.receipt_Master != null)
+            {
+                Model.receipt_Master.CTCode = selectedCounterId;
+            }
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleBranchChange()
+    {
+        FilterCounters();
+        if (showCurrentBranchBills)
+        {
+            await SearchDueBills();
+        }
+    }
+
+    private async Task OnReferralInputChanged(ChangeEventArgs e)
+    {
+        doctorName = e.Value?.ToString() ?? "";
+        selectedDoctorId = null; // Clear selection when user types
+        billRows.Clear(); // Clear bills when starting a new search
+
+        referralDebounceTokenSource?.Cancel();
+        referralDebounceTokenSource = new CancellationTokenSource();
+
+        try
+        {
+            await Task.Delay(300, referralDebounceTokenSource.Token);
+            await SearchReferralDoctors(doctorName);
+        }
+        catch (TaskCanceledException)
+        {
+            // This is expected if the user types quickly.
+        }
+    }
+
+    private async Task SearchReferralDoctors(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            referralResults.Clear();
+            selectedReferralIndex = -1;
+            StateHasChanged();
+            return;
+        }
+
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{appSettings.BaseUrl}request/ReferralSearch?src={Uri.EscapeDataString(query)}");
+            if (!string.IsNullOrEmpty(token))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+            var response = await http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var res = await response.Content.ReadAsStringAsync();
+                referralResults = JsonConvert.DeserializeObject<List<Doctor_Master>>(res) ?? new();
+            }
+            else
+            {
+                referralResults.Clear();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred while searching for doctors: {ex.Message}";
+            referralResults.Clear();
+        }
+        selectedReferralIndex = -1;
+        StateHasChanged();
+    }
+
+    private async Task SelectReferralDoctor(Doctor_Master doctor)
+    {
+        doctorName = doctor.DoctorFullName;
+        selectedDoctorId = doctor.DCode;
+        referralResults.Clear();
+        selectedReferralIndex = -1;
+        // Refresh the due bills immediately for the selected doctor
+        await SearchDueBills();
+        StateHasChanged();
+    }
+
+    private async Task OnPatientInputChanged(ChangeEventArgs e)
+    {
+        PatientName = e.Value?.ToString() ?? "";
+        // The patient name property setter already calls DebounceSearch, so we don't need it here.
+        selectedPatientIndex = -1;
+
+        patientDebounceTokenSource?.Cancel();
+        patientDebounceTokenSource = new CancellationTokenSource();
+
+        try
+        {
+            await Task.Delay(300, patientDebounceTokenSource.Token);
+            await SearchPatients(PatientName);
+        }
+        catch (TaskCanceledException)
+        {
+            // This is expected if the user types quickly.
+        }
+    }
+
+    private async Task SearchPatients(string query)
+    {
+        // This method will be called by the debounced search
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            patientSearchResults.Clear();
+            StateHasChanged();
+            return;
+        }
+
+        try
+
+        {
+            var apiUrl = $"{appSettings.BaseUrl}request/PatientSearch?src={Uri.EscapeDataString(query)}";
+            var request = new HttpRequestMessage(HttpMethod.Get, apiUrl);
+            if (!string.IsNullOrEmpty(token))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+            var response = await http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var res = await response.Content.ReadAsStringAsync();
+                patientSearchResults = JsonConvert.DeserializeObject<List<Customer_Master>>(res) ?? new();
+            }
+            else
+            {
+                patientSearchResults.Clear();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred while searching for patients: {ex.Message}";
+            patientSearchResults.Clear();
+        }
+        StateHasChanged();
+    }
+
+    private async Task SelectPatient(Customer_Master patient)
+    {
+        PatientName = patient.Name;
+        PatientMobile = patient.Mobile ?? "";
+        // Clear search results and reset index
+        patientSearchResults.Clear();
+        selectedPatientIndex = -1;
+        // Trigger search for due bills for the selected patient
+        await DebounceSearch();
+        StateHasChanged();
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (referralResults.Any())
+        {
+            if (e.Key == "ArrowDown")
+            {
+                selectedReferralIndex = (selectedReferralIndex + 1) % referralResults.Count;
+            }
+            else if (e.Key == "ArrowUp")
+            {
+                selectedReferralIndex = (selectedReferralIndex - 1 + referralResults.Count) % referralResults.Count;
+            }
+            else if (e.Key == "Enter" && selectedReferralIndex >= 0)
+            {
+                await SelectReferralDoctor(referralResults[selectedReferralIndex]);
+            }
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandlePatientKeyDown(KeyboardEventArgs e)
+    {
+        if (patientSearchResults.Any())
+        {
+            if (e.Key == "ArrowDown")
+            {
+                selectedPatientIndex = (selectedPatientIndex + 1) % patientSearchResults.Count;
+            }
+            else if (e.Key == "ArrowUp")
+            {
+                selectedPatientIndex = (selectedPatientIndex - 1 + patientSearchResults.Count) % patientSearchResults.Count;
+            }
+            else if (e.Key == "Enter" && selectedPatientIndex >= 0)
+            {
+                await SelectPatient(patientSearchResults[selectedPatientIndex]);
+            }
+            // No need for Escape key handling, as clearing the input will clear results.
+            StateHasChanged();
+        }
+    }
+
+    private void AutoSelectBills()
+    {
+        if (paidAmount <= 0 || !billRows.Any())
+        {
+            return;
+        }
+
+        // Reset current selections and collected amounts
+        foreach (var row in billRows)
+        {
+            row.Selected = false;
+            row.Collected = 0;
+        }
+
+        var remainingAmountToCollect = paidAmount;
+
+        // Process bills, oldest first, to clear dues chronologically
+        foreach (var billRow in billRows.OrderBy(b => b.Bill.RequestDatetime))
+        {
+            if (remainingAmountToCollect <= 0) break;
+
+            var amountToCollectForThisBill = Math.Min(remainingAmountToCollect, (decimal)billRow.Balance);
+
+            billRow.Selected = true;
+            billRow.Collected = amountToCollectForThisBill;
+            remainingAmountToCollect -= amountToCollectForThisBill;
+        }
+
+        RecalculateTotals();
+        StateHasChanged();
+    }
+
+
+
+
+    private void NewReceipt()
+    {
+        errorMessage = null;
+        ResetFields();
+       
+    }
+
+    private async Task OnBillDateEnabledChanged()
+    {
+        await SearchDueBills();
+    }
+
+private async Task SaveReceipt()
+{
+    string successMessage = "";
+    errorMessage = null;
+    var selectedRows = billRows.Where(r => r.Selected).ToList();
+
+    if (!selectedRows.Any())
+    {
+        errorMessage = "No bills selected to save.";
+        StateHasChanged();
+        return;
+    }
+
+    SanitizeReceiptModel();
+
+    if (int.TryParse(receiptNoString, out var receiptSno))
+    {
+        Model.receipt_Master.ReceiptSNo = receiptSno;
+    }
+
+    // Pass UserCode; BHCode is not a property on Receipt_Master so include it in the payload when saving.
+        if (!string.IsNullOrWhiteSpace(userCode) && int.TryParse(userCode, out var parsedUserCode))
+        {
+            Model.receipt_Master.UserCode = parsedUserCode;
+        }
+        else
+        {
+            Model.receipt_Master.UserCode = 0; // default value when UserCode is not available or invalid
+        }
+
+    // Compute total to send in payload without requiring a ReceiptAmount member on Receipt_Master
+    var receiptAmount = (double)selectedRows.Sum(r => r.Collected);
+
+    Model.receipt_Master.IsBill = SelectedReceiptType == "Bill";
+    Model.receipt_Master.IsPatient = SelectedReceiptType == "Patient";
+    Model.receipt_Master.IsRefferal = SelectedReceiptType == "Referral";
+    Model.receipt_Master.IsMonthly = SelectedReceiptType == "Monthly";
+    Model.receipt_Master.IsRefund = false;
+
+    try
+    {
+        var consistentRequestGuid = string.IsNullOrWhiteSpace(Model.receipt_Master.ReceiptGUID)
+            ? Guid.NewGuid().ToString()
+            : Model.receipt_Master.ReceiptGUID;
+
+        Model.receipt_Master.ReceiptGUID = consistentRequestGuid;
+
+        // Build JSON payload manually so we can include the computed ReceiptAmount field
+        var masterObj = JObject.FromObject(Model.receipt_Master);
+        masterObj["ReceiptAmount"] = receiptAmount;
+        // Inject BHCode into the payload because Receipt_Master class does not expose a BHCode property
+        masterObj["BHCode"] = selectedBranchId;
+        var detailsArray = JArray.FromObject(selectedRows.Select(row => new
+        {
+            RequestSno = row.Bill.RequestSno,
+            RequestGUID = row.Bill.RequestGUID,
+            Collected = (double)row.Collected,
+            Concession = (double)row.Concession,
+            ReceiptGUID = consistentRequestGuid,
+            ReceiptSNo = Model.receipt_Master.ReceiptSNo
+        }).ToList());
+
+        var payloadObj = new JObject
+        {
+            ["receipt_Master"] = masterObj,
+            ["receipt_Details"] = detailsArray
+        };
+
+        var payloadJson = payloadObj.ToString(Newtonsoft.Json.Formatting.Indented);
+        errorMessage = $"Sending payload:\n{payloadJson}";
+
+        if (!string.IsNullOrEmpty(appSettings?.ClientId) &&
+            !http.DefaultRequestHeaders.Contains("X-Tenant-ID"))
+        {
+            http.DefaultRequestHeaders.Add("X-Tenant-ID", appSettings.ClientId);
+        }
+
+        var content = new StringContent(payloadJson, Encoding.UTF8, "application/json");
+
+        var response = await http.PostAsync($"{appSettings.BaseUrl}DueCollection/save", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var successContent = await response.Content.ReadAsStringAsync();
+                successMessage = $"Receipt saved successfully! Response: {successContent}\n\nPayload Sent:\n{payloadJson}";
+                _ = NotificationService.ShowSuccess("Receipt saved successfully!");
+                // Mark selected rows as collected and keep them in the grid so the
+                // user can see the status change. Do not remove rows from the
+                // table; switching to read-only display is handled in the UI.
+                foreach (var row in selectedRows)
+                {
+                    if (row.Collected >= (decimal)row.Bill.Balance)
+                    {
+                        row.Status = "Collected";
+                        row.Bill.Balance = 0; // Update local balance
+                    }
+                    // Clear selection after successful save
+                    row.Selected = false;
+                }
+                // Keep receipt details cleared for next entry but preserve the
+                // billRows so statuses remain visible.
+                Model.receiptDetails.Clear();
+                Model.receipt_Master.ReceiptSNo = 0;
+                Model.receipt_Master.ReceiptGUID = string.Empty;
+                receiptNoString = "";
+                paidAmount = 0;
+                RecalculateTotals();
+                // Apply optimistic local updates (done above) and update UI now
+                StateHasChanged();
+
+                // Schedule a short delayed refresh to pick up the authoritative
+                // state from the server. This avoids immediately overwriting
+                // the optimistic UI change if the server takes a moment to
+                // persist and propagate the update.
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await Task.Delay(800);
+                        await InvokeAsync(async () => await SearchDueBills());
+                    }
+                    catch { /* ignore background errors */ }
+                });
+            }
+        else
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            errorMessage = $"Save failed ({(int)response.StatusCode}): {errorContent}\n\nPayload Sent:\n{payloadJson}";
+        }
+    }
+    catch (Exception ex)
+    {
+        errorMessage = $"An exception occurred: {ex.Message}";
+    }
+
+    if (!string.IsNullOrEmpty(successMessage))
+    {
+        errorMessage = successMessage; // Use errorMessage to display success message as well
+    }
+
+    StateHasChanged();
+}
+
+
+    private void SanitizeReceiptModel()
+    {
+        // The properties like Narration, ChequeNo etc. are on the DueCollectionModel (Model)
+        // and not on the Receipt_Master. The ??= operator is for reference or nullable types.
+        // Value types like int don't need null checks as they default to 0.
+
+        Model.receipt_Master.CardNo = Model.receipt_Master.CardNo ?? "";
+        Model.receipt_Master.ReceiptGUID = string.IsNullOrWhiteSpace(Model.receipt_Master.ReceiptGUID) ? Guid.NewGuid().ToString() : Model.receipt_Master.ReceiptGUID;
+        Model.receipt_Master.BankName = Model.receipt_Master.BankName ?? "";
+        Model.receipt_Master.ChequeNo = Model.receipt_Master.ChequeNo ?? "";
+        Model.receipt_Master.Narration = Model.receipt_Master.Narration ?? "";
+        Model.receipt_Master.PaymentReference = Model.receipt_Master.PaymentReference ?? "";
+        Model.receipt_Master.ReceiptBarCode = Model.receipt_Master.ReceiptBarCode ?? "";
+        Model.receipt_Master.CardDate = (Model.receipt_Master.CardDate == DateTime.MinValue) ? DateTime.Now : Model.receipt_Master.CardDate;
+        Model.receipt_Master.ChequeDate = (Model.receipt_Master.ChequeDate == DateTime.MinValue) ? DateTime.Now : Model.receipt_Master.ChequeDate;
+        Model.receipt_Master.IBSDate = (Model.receipt_Master.IBSDate == DateTime.MinValue) ? DateTime.Now : Model.receipt_Master.IBSDate;
+        Model.receipt_Master.EnteredDate = (Model.receipt_Master.EnteredDate == DateTime.MinValue) ? DateTime.Now : Model.receipt_Master.EnteredDate;
+
+        Model.receipt_Master.ReceiptCovertedBarCode = Model.receipt_Master.ReceiptCovertedBarCode ?? "";
+
+        Model.receipt_Master.ReceiptTime = receiptTime.ToString("HH:mm");
+
+
+    }
+
+
+
+
+    public void Dispose()
+    {
+        referralDebounceTokenSource?.Dispose();
+        searchDebounceTokenSource?.Dispose();
+        patientDebounceTokenSource?.Dispose();
+    }
+
+}

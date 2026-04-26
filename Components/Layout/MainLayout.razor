@@ -1,0 +1,79 @@
+@inherits LayoutComponentBase
+@inject IJSRuntime JSRuntime
+
+@inject NavigationManager Nav
+@using System.ComponentModel.DataAnnotations
+@using LIMS.Model
+@using Lims.Components.Data
+@using Lims.Components.Model
+@using Lims.Components.Layout
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Newtonsoft.Json
+@inject CustomAuthStateProvider AuthProvider
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Text.Json
+@using System.Net.Http.Headers
+
+@inject LIMS.Model.AppSettings AppSettings
+@inject HttpClient http
+@inject ProtectedSessionStorage _sessionStorage
+@inject ApiData apidata
+@using Microsoft.AspNetCore.Components.Web
+
+<PageTitle>Lims</PageTitle>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<script src="js/main-layout.js"></script>
+<script src="js/lims-webcam.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+<div class="h-screen flex bg-main">
+
+   
+
+    <!-- Sidebar -->
+    <nav id="sidebar" class="sidebar-bg fixed left-0 top-0 bottom-0 z-40 flex flex-col" style="border: none;">
+     <NavMenu></NavMenu>
+     
+    </nav>
+
+
+    <main id="main-content" class="flex-1 flex flex-col min-h-screen bg-main">
+
+
+       
+        <article class="flex-1  md:p-8"> 
+            @Body
+        </article>
+      
+    </main>
+
+
+
+    <Lims.Components.Pages.UserLogin />
+
+</div>
+
+<!-- Global Toast Component -->
+<Lims.Components.Shared.ToastComponent />
+
+<!-- Dark / Light Mode Toggle Button — fixed on screen, outside flex layout -->
+<button id="dark-mode-toggle" title="Toggle Dark Mode"
+
+        onclick="limsTheme.toggle()">
+</button>
+
+
+
+@code {
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("sessionStorageManager.reloadOnFirstLoad", "hasReloaded");
+        }
+        await base.OnAfterRenderAsync(firstRender);
+    }
+   
+}

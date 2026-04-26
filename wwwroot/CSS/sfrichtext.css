@@ -1,0 +1,27 @@
+
+
+/* Ensure editor stays inside container */
+.e-richtexteditor {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box;
+    overflow-x: hidden !important;
+}
+
+/* Content area */
+.e-richtexteditor .e-rte-content,
+.e-richtexteditor .e-rte-content .e-content {
+    max-width: 100% !important;
+    width: 100% !important;
+    overflow-x: auto; /* scroll only if needed */
+}
+
+/* Toolbar */
+.e-richtexteditor .e-rte-toolbar {
+    flex-wrap: wrap !important; /* keep buttons on multiple rows if needed */
+}
+
+/* Optional: improve spacing */
+.e-richtexteditor .e-rte-toolbar .e-toolbar-item {
+    margin: 2px 0;
+}

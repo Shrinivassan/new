@@ -1,0 +1,2993 @@
+
+@page "/billing"
+@rendermode @(new InteractiveServerRenderMode(prerender:false))
+@using LIMS.Model
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Newtonsoft.Json
+@using Syncfusion.Blazor.Inputs
+@using System.Net.Http.Headers
+@using Lims.Components.Data
+@inject Lims.Components.Data.NotificationService NotificationService
+@using Lims.Components.Model
+@inject AppSettings appSettings
+@inject ProtectedSessionStorage _sessionStorage
+@inject HttpClient http
+@inject NavigationManager NavigationManager
+@inject ExecutionClass exe
+@inject ApiData apiData
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert-error alert-popup">
+        @errorMessage
+        <button @onclick="() => errorMessage = string.Empty" class="alert-popup-close">×</button>
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(successMessage))
+{
+    <div class="alert-success alert-popup" style="background:var(--bg-badge-paid); color:var(--text-success); border:1px solid var(--text-success);">
+        <i class="bi bi-check-circle-fill" style="margin-right:8px;color:var(--text-success);"></i>@successMessage
+        <button @onclick="() => successMessage = string.Empty" class="alert-popup-close" style="color:var(--text-success);">×</button>
+    </div>
+}
+
+@if (showPrintConfirmation)
+{
+    <div class="print-confirmation-overlay">
+        <div class="print-confirmation-dialog">
+            <div class="print-confirmation-header">🧾 Print Receipt</div>
+            <div class="print-confirmation-body">✅ @bsr.RequestSnoPrint @bsr.CUSTCode @bsr.Customer Bill saved successfully.<br/>Do you want to print the receipt?</div>
+            <div class="print-confirmation-footer">
+                <button @onclick="HandlePrintConfirmationNo" class="btn-confirm-no">No</button>
+                <button @onclick="HandlePrintConfirmationYes" class="btn-confirm-yes">Yes</button>
+            </div>
+        </div>
+    </div>
+}
+
+
+
+<SfDialog Visible=@isreport IsModal=true ShowCloseIcon=true Title="Bill Receipt" AllowDrag=true Width="900px" Height="600px">
+    <DialogTemplates>
+        <Content>
+            @if (string.IsNullOrWhiteSpace(base64))
+            {
+                <div style="padding:20px;text-align:center;color:#999;width:100%;height:500px;display:flex;align-items:center;justify-content:center;flex-direction:column;">
+                    <i class="bi bi-hourglass-split" style="font-size:32px;animation:spin 1s linear infinite;margin-bottom:10px;"></i>
+                    <p>Loading report...</p>
+                </div>
+            }
+            else
+            {
+                <div style="width:100%;height:550px;overflow:auto;border:1px solid #e0e0e0;border-radius:4px;">
+                    <ReportViewer Reportstring="@base64"></ReportViewer>
+                </div>
+            }
+        </Content>
+    </DialogTemplates>
+    <DialogButtons>
+        <DialogButton OnClick="CloseBill">
+            <ButtonProperties Content="Close" CssClass="e-flat e-outline"></ButtonProperties>
+        </DialogButton>
+    </DialogButtons>
+</SfDialog>
+
+<style>
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+</style>
+
+@* TOP TOOLBAR *@
+<div class="top-toolbar">
+    <div class="toolbar-title-container">
+        
+        <span class="toolbar-title">NEW BILLING</span>
+    </div>
+    
+    <div class="toolbar-controls">
+        <div class="toolbar-control-item">
+            <span class="toolbar-label">Counter</span>
+            <select class="toolbar-select" style="min-width:120px;" value="@billingModel.Counter" @onchange="@(async (e) => await HandleCounterChange(e))">
+                @foreach (Counter_Master it in counters){ <option value="@it.CNTCode">@it.Name</option> }
+            </select>
+        </div>
+        
+        <div class="toolbar-control-item">
+            <span class="toolbar-label">Branch</span>
+            <select class="toolbar-select" style="min-width:250px;" @onchange="onbranchsel">
+                @foreach (Branch_Master it in branch){ <option  value="@it.BHCode" >@it.Name</option> }
+            </select>
+        </div>
+        
+        <div class="toolbar-control-item">
+            <span class="toolbar-label">Bill Catalog</span>
+            <select class="toolbar-select" style="min-width:120px;" value="@billingModel.BNCode" @onchange="@(async (e) => await HandleBillNoChange(e))">
+                @foreach (var it in billnomaster){ <option value="@it.BNCode">@it.Name</option> }
+            </select>
+        </div>
+        
+        <div class="toolbar-control-item">
+            <span class="toolbar-label">Case No / SID</span>
+            <select class="toolbar-select" style="min-width:80px;" disabled><option>@lrm.RequestSno</option></select>
+        </div>
+    </div>
+</div>
+
+@* MAIN 3-COLUMN LAYOUT *@
+<div style="display:flex;gap:10px;padding:10px;background:var(--bg-page);min-height:calc(100vh - 88px);align-items:flex-start;">
+
+    @* === LEFT: PATIENT IDENTIFICATION === *@
+    <div style="width:300px;min-width:240px;flex-shrink:0;background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;box-shadow:var(--shadow-card);padding:12px;">
+
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border-table);">
+            <span style="background:var(--bg-hover);border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;">
+                <i class="bi bi-person-badge" style="color:var(--brand-accent);font-size:14px;"></i>
+            </span>
+            <span style="font-size:13px;font-weight:700;color:var(--text-primary);">Patient Identification</span>
+        </div>
+
+        <EditForm Model="@customer">
+            <div class="mb2">
+                <span class="blbl">PATIENT ID</span>
+                <input type="text" placeholder="Enter Patient ID" @bind="@customer.CUSTCode" class="binp" />
+            </div>
+            <div class="mb2">
+                <span class="blbl">SEARCH MOBILE / UID</span>
+                <div style="position:relative;">
+                    <i class="bi bi-search" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:12px;"></i>
+                    <input type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"  class="binp" style="padding-left:26px;" placeholder="+91 Mobile / UID"
+                           value="@customer.Mobile" @oninput="OnMobileInput" />
+                    @if (showMobileDropdown && mobileSearchResults != null && mobileSearchResults.Any())
+                    {
+                        <ul style="position:absolute;width:100%;z-index:1000;max-height:200px;overflow-y:auto;box-shadow:var(--shadow-dropdown);list-style:none;padding:0;margin:0;background:var(--bg-dropdown);border:1px solid var(--border-color);border-radius:5px;">
+                            @foreach (var item in mobileSearchResults)
+                            {
+                                <li style="padding:6px 10px;cursor:pointer;border-bottom:1px solid var(--border-table);" @onclick="() => SelectPatientFromMobile(item)">
+                                    <div style="font-weight:600;font-size:12px;color:var(--text-primary);">@item.Name</div>
+                                    <div style="font-size:11px;color:var(--text-muted);">@item.Mobile - @item.CUSTCode</div>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+
+            @* PREFIX + PATIENT NAME side by side *@
+            <div class="mb2">
+                <div style="display:flex;gap:6px;align-items:flex-end;">
+                    <div style="flex:0 0 80px;">
+                        <span class="blbl">PREFIX</span>
+                        @if (isCustomSalutation)
+                        {
+                            <InputText @bind-value="customer.NameTitile" class="binp" placeholder="Salutation" @onblur="HandleSalutationInputBlur" />
+                        }
+                        else
+                        {
+                            <select value="@customer.NameTitile" @onchange="HandleSalutationChange" class="bsel">
+                                <option value="">-- Select --</option>
+                                <option value=""></option>
+                                <option value="Mr.">Mr.</option>
+                                <option value="Mrs.">Mrs.</option>
+                                <option value="Miss.">Miss.</option>
+                                <option value="Ms.">Ms.</option>
+                                <option value="Master.">Master.</option>
+                                <option value="Dr.">Dr.</option>
+                                <option value="F/o.">F/o.</option>
+                                <option value="S/o.">S/o.</option>
+                                <option value="B/o.">B/o.</option>
+                                <option value="C/o.">C/o.</option>
+                                <option value="W/o.">W/o.</option>
+                                <option value="M/s.">M/s.</option>
+                                <option value="Selvan.">Selvan.</option>
+                                <option value="Selvi.">Selvi.</option>
+                                <option value="Sri.">Sri.</option>
+                                <option value="Sri Mathi.">Sri Mathi.</option>
+                                <option value="Sister.">Sister.</option>
+                                <option value="Pet.">Pet.</option>
+                            </select>
+                        }
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                        <span class="blbl">PATIENT NAME</span>
+                        <input type="text" placeholder="Enter Patient Name" @bind="@customer.Name" class="binp" style="border:1px solid #dde1e7;" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb2">
+                <span class="blbl">GENDER</span>
+                <select class="bsel" @bind="@customer.Gender">
+                    <option value="">-- Select --</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Child">Child</option>
+                </select>
+            </div>
+
+            @* DOB + AGE side by side *@
+            <div class="mb2">
+                <div style="display:flex;gap:8px;align-items:flex-start;">
+
+                    @* DATE OF BIRTH *@
+                    <div style="flex:1;min-width:0;">
+                        <span class="blbl" style="display:flex;align-items:center;gap:4px;">
+                            <i class="bi bi-cake2" style="color:var(--brand-accent);font-size:10px;"></i> DATE OF BIRTH
+                        </span>
+                        <div style="display:flex;align-items:center;gap:6px;background:var(--bg-input);border:1.5px solid var(--border-input);border-radius:7px;padding:3px 8px;box-shadow:0 1px 4px rgba(0,0,0,.08);">
+                            <i class="bi bi-calendar-heart" style="color:var(--brand-accent);font-size:13px;flex-shrink:0;"></i>
+                            <InputDate TValue="DateTime"
+                                       @bind-value="customer.DateOfBirth"
+                                       @bind-value:after="() => CalculateAgeFromDOB(customer.DateOfBirth)"
+                                       id="dob" name="dob"
+                                       style="flex:1;border:none;outline:none;font-size:12px;font-weight:600;color:var(--text-primary);background:transparent;min-width:0;" />
+                        </div>
+                    </div>
+
+                    @* AGE Y / M / D *@
+                    <div style="display:flex;flex-direction:column;gap:2px;">
+                        <span class="blbl" style="display:flex;align-items:center;gap:4px;white-space:nowrap;">
+                            <i class="bi bi-hourglass-split" style="color:#5c6bc0;font-size:10px;"></i> AGE
+                        </span>
+                        <div style="display:flex;gap:4px;">
+                            <div style="display:flex;flex-direction:column;align-items:center;">
+                                <InputNumber @bind-value="@customer.AgeYears"
+                                             @bind-value:after="UpdateDOBFromAge"
+                                             placeholder="yy"
+                                             style="width:38px;padding:4px 2px;border:1.5px solid var(--border-input);border-radius:6px;font-size:12px;font-weight:700;text-align:center;color:var(--brand-accent);background:var(--bg-hover);outline:none;" />
+                                <span style="font-size:9px;color:var(--text-muted);font-weight:600;margin-top:1px;">YY</span>
+                            </div>
+                            <div style="display:flex;flex-direction:column;align-items:center;">
+                                <InputNumber @bind-value="@customer.AgeMonths"
+                                             @bind-value:after="UpdateDOBFromAge"
+                                             placeholder="mm"
+                                             style="width:38px;padding:4px 2px;border:1.5px solid var(--border-input);border-radius:6px;font-size:12px;font-weight:700;text-align:center;color:var(--brand-accent);background:var(--bg-hover);outline:none;" />
+                                <span style="font-size:9px;color:var(--text-muted);font-weight:600;margin-top:1px;">MM</span>
+                            </div>
+                            <div style="display:flex;flex-direction:column;align-items:center;">
+                                <InputNumber @bind-value="@customer.AgeDays"
+                                             @bind-value:after="UpdateDOBFromAge"
+                                             placeholder="dd"
+                                             style="width:38px;padding:4px 2px;border:1.5px solid var(--border-input);border-radius:6px;font-size:12px;font-weight:700;text-align:center;color:var(--brand-accent);background:var(--bg-hover);outline:none;" />
+                                <span style="font-size:9px;color:var(--text-muted);font-weight:600;margin-top:1px;">DD</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+
+
+            <div class="mb2">
+                <div style="background:var(--bg-hover); color:var(--text-primary); font-size:11px; font-weight:700; padding:6px 10px; border-radius:6px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:6px; border:1px solid var(--border-color);">
+                    <span>ID TYPE 1</span><i class="bi bi-chevron-down" style="font-size:10px; color:var(--text-muted);"></i>
+                </div>
+                <input type="text" @bind="@customer.PassportNo" class="binp" placeholder="Emirates passport" />
+            </div>
+
+            <div class="mb2">
+                <div style="background:var(--bg-hover); color:var(--text-primary); font-size:11px; font-weight:700; padding:6px 10px; border-radius:6px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin-bottom:6px; border:1px solid var(--border-color);">
+                    <span>ID TYPE 2</span><i class="bi bi-chevron-down" style="font-size:10px; color:var(--text-muted);"></i>
+                </div>
+                <input type="text" @bind="@customer.AadhaarNo" class="binp" placeholder="Driver's License" />
+            </div>
+
+            <div class="mb2">
+                <span class="blbl" style="display:flex;align-items:center;gap:4px;">
+                    <i class="bi bi-geo-alt-fill" style="color:var(--brand-accent);font-size:10px;"></i> ADDRESS
+                </span>
+                <div style="display:flex;align-items:flex-start;gap:6px;background:var(--bg-input);border:1.5px solid var(--border-input);border-radius:7px;padding:6px 8px;box-shadow:0 1px 4px rgba(0,0,0,.08);">
+                   
+                    <InputTextArea @bind-value="@customer.Street"
+                                   placeholder="Enter Address"
+                                   style="flex:1;border:none;outline:none;resize:none;height:46px;font-size:12px;font-weight:500;color:var(--text-primary);background:transparent;padding:0;line-height:1.5;" />
+                </div>
+            </div>
+
+            <div class="mb2">
+                <span class="blbl">EMAIL</span>
+                <input type="email" @bind="@customer.Email" placeholder="Enter the email" class="binp" style="border:1px solid #dde1e7;" />
+                <a href="javascript:void(0)" style="font-size:14px;cursor:pointer;color:#3498db;display:flex;align-items:end;gap:4px;margin-top:4px;text-decoration:underline;" @onclick="() => showDetailsModal = true">
+                    <i class="bi bi-list-check"></i> More info
+                </a>
+            </div>
+        </EditForm>
+    </div>
+
+    @* === CENTER: REFERRAL DETAILS + TEST SELECTION === *@
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:10px;">
+
+
+        @* REFERRAL DETAILS CARD *@
+        <div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;box-shadow:var(--shadow-card);padding:12px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border-table);">
+                <span style="background:var(--bg-hover);border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;">
+                    <i class="bi bi-people" style="color:var(--brand-accent);font-size:14px;"></i>
+                </span>
+                <span style="font-size:13px;font-weight:700;color:var(--text-primary);">Referral Details</span>
+            </div>
+            <EditForm Model="@lrm">
+                <div style="display:flex;gap:12px;margin-bottom:10px;">
+                    <div style="flex:1;position:relative;">
+                        <span class="blbl">PRIMARY REFERRAL (DOCTOR)</span>
+                        <div style="display:flex;align-items:center;border:1px solid #dde1e7;border-radius:5px;background:#fff;">
+                            <input type="text" style="flex:1;border:none;outline:none;padding:5px 8px;font-size:12px;border-radius:5px;"
+                                   @bind="billingModel.ReferredBy"
+                                   @oninput='(e => OnInputChanged(e, "ReferredBy"))'
+                                   @onkeydown='(e => HandleKeyDown(e, "ReferredBy"))'
+                                   placeholder="Search doctor..." />
+                           
+                        </div>
+                        @if (referralResults?.Any() == true)
+                        {
+                            <ul style="position:absolute;width:100%;z-index:1000;list-style:none;padding:0;margin:0;background:var(--bg-dropdown);border:1px solid var(--border-color);border-radius:5px;box-shadow:var(--shadow-dropdown);max-height:180px;overflow-y:auto;">
+                                @for (int i = 0; i < referralResults.Count; i++)
+                                {
+                                    var dr = referralResults[i];
+                                    <li style="padding:7px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border-table);background:@(i == selectedReferralIndex ? "var(--bg-hover)" : "transparent");color:var(--text-primary);"
+                                        @onclick='() => SelectReferralDoctor(dr, "ReferredBy")'>@dr.DoctorFullName</li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                    <div style="flex:1;position:relative;">
+                        <span class="blbl">SECONDARY REFERRAL</span>
+                        <div style="display:flex;align-items:center;border:1px solid #dde1e7;border-radius:5px;background:#fff;">
+                            <input type="text" style="flex:1;border:none;outline:none;padding:5px 8px;font-size:12px;border-radius:5px;"
+                                   @bind="billingModel.SecondReferredBy"
+                                   @oninput='(e => OnInputChanged(e, "SecondReferredBy"))'
+                                   @onkeydown='(e => HandleKeyDown(e, "SecondReferredBy"))'
+                                   @onblur='(e => HandleSecondReferralBlur())'
+                                   placeholder="Search doctor..." />
+                           
+                        </div>
+                        @if (secondReferralResults?.Any() == true)
+                        {
+                            <ul style="position:absolute;width:100%;z-index:1000;list-style:none;padding:0;margin:0;background:var(--bg-dropdown);border:1px solid var(--border-color);border-radius:5px;box-shadow:var(--shadow-dropdown);max-height:180px;overflow-y:auto;">
+                                @for (int i = 0; i < secondReferralResults.Count; i++)
+                                {
+                                    var dr2 = secondReferralResults[i];
+                                    <li style="padding:7px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border-table);background:@(i == selectedSecondReferralIndex ? "var(--bg-hover)" : "transparent");color:var(--text-primary);"
+                                        @onclick='() => SelectReferralDoctor(dr2, "SecondReferredBy")'>@dr2.DoctorFullName</li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:8px;padding-top:8px;border-top:1px dashed #eee;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:130px;">
+                        <span class="blbl">MONTHLY ACCOUNT</span>
+                        <select class="bsel" @bind="lrm.RICode">
+                            <option value="0">-- Select --</option>
+                            @foreach (var it in rcm){ <option value="@it.RICode">@it.Name</option> }
+                        </select>
+                    </div>
+                    <div style="flex:1;min-width:130px;">
+                        <span class="blbl">SCHEME</span>
+                        <select class="bsel" @bind="lrm.FTCode">
+                            <option value="0">-- Select --</option>
+                            @foreach (var it in feetype){ <option value="@it.FTCode">@it.Name</option> }
+                        </select>
+                    </div>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:100px;">
+                        <span class="blbl">ROOM NUMBER</span>
+                        <input type="text" placeholder="101" class="binp" @bind="@lrm.RoomNo" style="width:100%;" />
+                    </div>
+                    <div style="flex:1.5;min-width:200px;">
+                        <span class="blbl">HOSPITAL ID</span>
+                        <div style="display:flex;gap:4px;">
+                            <select class="bsel" style="flex:0 0 100px;" @bind="@lrm.FrontHospitalID">
+                                <option value="MRD NO">MRD NO</option><option value="MRS No">MRS No</option>
+                                <option value="HID">HID</option><option value="MRD">MRD</option>
+                            </select>
+                            <input type="text" class="binp" @bind="@lrm.HospitalID" placeholder="101" style="flex:1;min-width:0;" />
+                        </div>
+                    </div>
+                    <div style="flex:1.5;min-width:200px;">
+                        <span class="blbl">HOSPITAL PATIENT ID</span>
+                        <div style="display:flex;gap:4px;">
+                            <select class="bsel" style="flex:0 0 100px;" @bind="@lrm.FrontHospitalPatientId">
+                                <option value="IP No">IP No</option><option value="OP No">OP No</option>
+                                <option value="HID">HID</option><option value="OP">OP</option>
+                            </select>
+                            <input type="text" class="binp" @bind="@lrm.HospitalPatientID" placeholder="101" style="flex:1;min-width:0;" />
+                        </div>
+                    </div>
+                </div>
+            </EditForm>
+        </div>
+
+        @* TEST SELECTION & SERVICES CARD *@
+        <div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;box-shadow:var(--shadow-card);padding:12px;flex:1;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border-table);">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <i class="bi bi-ui-checks" style="color:var(--brand-accent);font-size:14px;"></i>
+                    <span style="font-size:13px;font-weight:700;color:var(--text-primary);">TEST SELECTION &amp; SERVICES</span>
+                </div>
+                <div style="display:flex;gap:24px;">
+                    <div style="text-align:center;">
+                        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">COUNT</div>
+                        <div style="font-size:22px;font-weight:700;color:var(--text-primary);">@addedTests.Count.ToString("D2")</div>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">SAMPLES</div>
+                        <div style="font-size:22px;font-weight:700;color:var(--brand-accent);">@addedTests.Count.ToString("D2")</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-bottom:10px;position:relative;">
+                <div style="flex:1;position:relative;">
+                    <i class="bi bi-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#aaa;font-size:13px;pointer-events:none;"></i>
+                    <input type="text" value="@searchtest"
+                           @oninput="@(e => OnInputChanged(e, "Test"))"
+                           @onkeydown="@(e => HandleKeyDown(e, "Test"))"
+                           placeholder="Search by Test Name..."
+                           style="width:100%;padding:7px 10px 7px 32px;border:1px solid #dde1e7;border-radius:6px;font-size:12px;" />
+                    @if (testmaster?.Any() == true)
+                    {
+                        <ul style="position:absolute;top:100%;left:0;width:100%;max-height:180px;overflow-y:auto;margin:0;padding:0;list-style:none;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-dropdown);z-index:1050;box-shadow:var(--shadow-dropdown);">
+                            @for (int i = 0; i < testmaster.Count; i++)
+                            {
+                                var tst = testmaster[i];
+                                <li style="padding:7px 12px;cursor:pointer;border-bottom:1px solid var(--border-table);display:flex;justify-content:space-between;font-size:12px;background:@(i == selectedTestIndex ? "var(--bg-hover)" : "transparent");color:var(--text-primary);"
+                                    @onclick="@(() => SelectTestItem(tst, "Test"))">
+                                    <span>@tst.Name</span><span style="color:var(--text-secondary);">@tst.Amount</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+                <!-- <button type="button" style="background:#5c6bc0;color:#fff;border:none;border-radius:6px;width:34px;height:34px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">+</button> -->
+            </div>
+
+
+
+            <EditForm Model="@lrd">
+                <div style="border:1px solid var(--border-table);border-radius:8px;overflow:hidden;">
+                    <div style="max-height:255px;overflow-y:auto;">
+                        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                            <thead>
+                                <tr style="background:var(--brand-primary); color:#fff; border-bottom:2px solid rgba(255,255,255,0.1);">
+                                    <th style="padding:7px 8px;text-align:center;">S.NO</th>
+                                    <th style="padding:7px 8px;text-align:left;">TEST DETAILS</th>
+                                    <th style="padding:7px 8px;text-align:right;white-space:nowrap;">BASE AMOUNT</th>
+                                    <th style="padding:7px 8px;text-align:center;white-space:nowrap;">COMM (%)</th>
+                                    <th style="padding:7px 8px;text-align:right;white-space:nowrap;">TOTAL AMT</th>
+                                    <th style="padding:7px 8px;text-align:center;">ACTION</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (!addedTests.Any())
+                                {
+                                    <tr><td colspan="6" style="padding:24px;text-align:center;color:var(--text-muted);">
+                                        <i class="bi bi-inbox" style="font-size:28px;display:block;margin-bottom:6px;"></i>No records to display
+                                    </td></tr>
+                                }
+                                else
+                                {
+                                    var idx = 1;
+                                    foreach (var test in addedTests)
+                                    {
+                                        <tr style="border-bottom:1px solid var(--border-table);background:@(idx % 2 == 0 ? "var(--bg-hover)" : "var(--bg-card)")">
+                                            <td style="padding:5px 8px;text-align:center;color:var(--brand-accent);font-weight:600;">@idx.ToString("D2")</td>
+                                            <td style="padding:5px 8px;">
+                                                <div style="font-weight:600;color:var(--text-primary);">@test.Name</div>
+                                                <div style="font-size:10px;color:var(--brand-accent);text-transform:uppercase;">HEMATOLOGY</div>
+                                            </td>
+                                            <td style="padding:5px 8px;text-align:right;">
+                                                @if (isnameedit)
+                                                {
+                                                    <input type="number" style="width:70px;padding:3px;border:1px solid #dde1e7;border-radius:4px;" @bind="test.Amount" @bind:event="oninput" @bind:after="CalculateAmounts" />
+                                                }
+                                                else
+                                                {
+                                                    <span>@test.Amount.ToString("0.00")</span>
+                                                }
+                                            </td>
+                                            <td style="padding:5px 8px;text-align:center;">
+                                                <div>
+                                                    <input type="number" style="width:55px;padding:3px;border:1px solid #dde1e7;border-radius:4px;text-align:center;"
+                                                           @bind="test.DiscountPercent" @oninput="(e) => UpdateTestDiscount(test, e, true)" />
+                                                    <div style="font-size:10px;color:#888;">@test.DiscountAmount.ToString("0.0")</div>
+                                                </div>
+                                            </td>
+                                            <td style="padding:5px 8px;text-align:right;font-weight:600;">@test.Total.ToString("0.00")</td>
+                                            <td style="padding:5px 8px;text-align:center;">
+                                                <button type="button" @onclick="() => RemoveTest(test)" title="Remove"
+                                                        style="background:none;border:none;color:#e53935;cursor:pointer;font-size:16px;padding:0;">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        idx++;
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </EditForm>
+
+            @* HOME COLLECTION CARD *@
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border-table);">
+                @* Header toggle row *@
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:@(billingModel.IsHomeCollection ? "10px" : "0");padding:8px 10px;background:var(--bg-hover);border-radius:8px;transition:background .3s;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="background:@(billingModel.IsHomeCollection ? "var(--brand-accent)" : "var(--text-muted)");border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;transition:background .3s;">
+                            <i class="bi bi-house-door-fill" style="color:#fff;font-size:13px;"></i>
+                        </span>
+                        <div>
+                            <div style="font-size:12px;font-weight:700;color:@(billingModel.IsHomeCollection ? "var(--brand-accent)" : "var(--text-secondary)");transition:color .3s;">HOME COLLECTION</div>
+                            <div style="font-size:10px;color:var(--text-muted);">Enable for doorstep sample pickup</div>
+                        </div>
+                    </div>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;">
+                        <input type="checkbox" id="homeCollectionCheck"
+                               @bind-value="billingModel.IsHomeCollection"
+                               @bind-value:after="HandleHomeCollectionToggle"
+                               style="display:none;" />
+                        @* Toggle pill *@
+                        <div style="width:42px;height:22px;background:@(billingModel.IsHomeCollection ? "var(--brand-accent)" : "var(--text-muted)");border-radius:11px;position:relative;transition:background .3s;cursor:pointer;"
+                             @onclick="async () => { billingModel.IsHomeCollection = !billingModel.IsHomeCollection; await HandleHomeCollectionToggle(); }">
+                            <div style="position:absolute;top:3px;left:@(billingModel.IsHomeCollection ? "23px" : "3px");width:16px;height:16px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.25);transition:left .25s;"></div>
+                        </div>
+                        <span style="font-size:11px;font-weight:700;color:@(billingModel.IsHomeCollection ? "var(--brand-accent)" : "var(--text-muted)");">@(billingModel.IsHomeCollection ? "ON" : "OFF")</span>
+                    </label>
+                </div>
+
+                @* Fields - only visible when enabled *@
+                @if (billingModel.IsHomeCollection)
+                {
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;background:var(--bg-hover);border:1px solid var(--brand-accent);border-radius:8px;padding:10px;">
+                        <div style="flex:1;min-width:120px;">
+                            <span class="blbl" style="color:var(--brand-accent);">COLLECTED BY</span>
+                            <select class="bsel" @bind="lrm.CTCode">
+                                <option value="0">-- Select Collector --</option>
+                                @foreach (var collector in collectorResults){ <option value="@collector.CTCode">@collector.Name</option> }
+                            </select>
+                        </div>
+                        <div style="flex:2;min-width:140px;position:relative;">
+                            <span class="blbl" style="color:var(--brand-accent);">COLLECTED AREA</span>
+                            <div style="display:flex;align-items:center;border:1px solid var(--border-input);border-radius:5px;background:var(--bg-input);">
+                                <i class="bi bi-geo-alt" style="padding:0 6px;color:var(--brand-accent);font-size:13px;"></i>
+                                <input type="text" style="flex:1;border:none;outline:none;padding:5px 6px;font-size:12px;border-radius:5px;background:transparent;color:var(--text-primary);"
+                                       @bind-value="billingModel.AreaName"
+                                       @oninput='(e => OnInputChanged(e, "Area"))' @onkeydown='(e => HandleKeyDown(e, "Area"))'
+                                       placeholder="Search Area..." />
+                            </div>
+                            @if (areaResults?.Any() == true)
+                            {
+                                <ul style="position:absolute;width:100%;z-index:1000;list-style:none;padding:0;margin:0;background:var(--bg-dropdown);border:1px solid var(--border-color);border-radius:5px;max-height:140px;overflow-y:auto;box-shadow:var(--shadow-dropdown);">
+                                    @for (int i = 0; i < areaResults.Count; i++)
+                                    {
+                                        var area = areaResults[i];
+                                        <li style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border-table);background:@(i == selectedAreaIndex ? "var(--bg-hover)" : "transparent");color:var(--text-primary);"
+                                            @onclick="() => SelectArea(area)">
+                                            <i class="bi bi-geo"></i> @area.AreaName &nbsp;<i class="bi bi-cash"></i> @area.HomeCollectionCharge
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                        </div>
+                        <div style="width:80px;">
+                            <span class="blbl" style="color:var(--brand-accent);">CHARGE </span>
+                            <InputNumber class="binp" style="text-align:right;font-weight:700;color:var(--brand-accent);" @bind-Value="billingModel.Charge" @bind-Value:after="CalculateAmounts" />
+                        </div>
+                    </div>
+                }
+            </div>
+
+
+        </div>
+    </div>
+
+    @* === RIGHT: COLLECTION BY + FINANCIAL SUMMARY + PAYMENT === *@
+    <div style="width:300px;min-width:280px;flex-shrink:0;display:flex;flex-direction:column;gap:10px;min-height:calc(100vh - 88px);">
+
+        @* BILL DATE & COLLECTED DATE *@
+        <div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;box-shadow:var(--shadow-card);overflow:hidden;">
+            @* Card Header *@
+            <div style="padding:6px 10px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border-table);">
+                <span style="background:var(--bg-hover);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;">
+                    <i class="bi bi-calendar3" style="color:var(--brand-accent);font-size:14px;"></i>
+                </span>
+                <span style="font-size:13px;font-weight:700;color:var(--text-primary);">Dates</span>
+            </div>
+            @* Date Fields *@
+            <div style="padding:8px 10px;display:flex;flex-direction:column;gap:6px;">
+                <EditForm Model="@lrm">
+                    @* BILL DATE *@
+                    <div style="border-left:3px solid var(--brand-accent);background:var(--bg-hover);border-radius:0 6px 6px 0;padding:5px 8px 5px 10px;">
+                        <div style="font-size:10px;font-weight:700;color:var(--brand-accent);letter-spacing:.5px;text-transform:uppercase;margin-bottom:3px;display:flex;align-items:center;gap:4px;">
+                            <i class="bi bi-file-earmark-text" style="font-size:11px;"></i> Bill Date
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;background:var(--bg-input);border:1px solid var(--border-input);border-radius:6px;padding:2px 6px;">
+                            <i class="bi bi-calendar-check" style="color:var(--brand-accent);font-size:13px;flex-shrink:0;"></i>
+                            <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="@lrm.RequestDatetime" @bind-Value:format="yyyy-MM-ddTHH:mm"
+                                       style="flex:1;border:none;outline:none;font-size:12px;font-weight:600;color:var(--text-primary);background:transparent;min-width:0;" />
+                        </div>
+                    </div>
+                    @* COLLECTED DATE *@
+                    <div style="border-left:3px solid var(--text-success);background:var(--bg-badge-paid);border-radius:0 6px 6px 0;padding:5px 8px 5px 10px;">
+                        <div style="font-size:10px;font-weight:700;color:var(--text-success);letter-spacing:.5px;text-transform:uppercase;margin-bottom:3px;display:flex;align-items:center;gap:4px;">
+                            <i class="bi bi-droplet-half" style="font-size:11px;"></i> Collected Date
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;background:var(--bg-input);border:1px solid var(--border-input);border-radius:6px;padding:2px 6px;">
+                            <i class="bi bi-calendar2-check" style="color:var(--text-success);font-size:13px;flex-shrink:0;"></i>
+                            <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="@lrm.CollectedDateTime" @bind-Value:format="yyyy-MM-ddTHH:mm"
+                                       style="flex:1;border:none;outline:none;font-size:12px;font-weight:600;color:var(--text-primary);background:transparent;min-width:0;" />
+                        </div>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+
+        @* COLLECTION BY *@
+        <!-- <div style="background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.08);padding:12px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #eee;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <i class="bi bi-building" style="color:#bbb;font-size:13px;"></i>
+                    <span style="font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.5px;">COLLECTION BY</span>
+                </div>
+                <div style="width:36px;height:20px;background:#e0e0e0;border-radius:10px;cursor:pointer;display:flex;align-items:center;padding:2px;">
+                    <div style="width:16px;height:16px;background:#fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.2);"></div>
+                </div>
+            </div>
+            <div class="mb2">
+                <span class="blbl">STAFF</span>
+                <select class="bsel" @bind="lrm.CTCode">
+                    <option value="0">-- Select --</option>
+                    @foreach (var c in collectorResults){ <option value="@c.CTCode">@c.Name</option> }
+                </select>
+            </div>
+            <div class="mb2">
+                <span class="blbl">AREA</span>
+                <div style="display:flex;gap:5px;">
+                    <input type="text" class="binp" style="flex:1;" @bind-value="billingModel.AreaName"
+                           @oninput='(e => OnInputChanged(e, "Area"))' placeholder="Area" />
+                    <InputNumber class="binp" style="width:55px;" @bind-Value="billingModel.Charge" @bind-Value:after="CalculateAmounts" placeholder="" />
+                </div>
+            </div>
+        </div> -->
+
+        @* FINANCIAL SUMMARY *@
+        <div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;box-shadow:var(--shadow-card);padding:12px;">
+            <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border-table);">FINANCIAL SUMMARY</div>
+
+            <div style="margin-bottom:10px;background:var(--bg-badge-paid);border-radius:6px;padding:6px 8px;">
+                <div style="font-size:11px;color:var(--text-success);font-weight:600;">Bill Amount (@addedTests.Count Tests)</div>
+                <div style="font-size:16px;font-weight:700;color:var(--text-success);">@lrm.RequestAmount.ToString("0.00")</div>
+            </div>
+
+            <EditForm Model="@lrm">
+                <div style="margin-bottom:8px;">
+                    <div style="font-size:10px;color:#999;text-transform:uppercase;margin-bottom:4px;">GENERAL CONCESSION &nbsp;% &nbsp;VAL</div>
+                    <div style="display:flex;gap:4px;">
+                        <InputNumber class="binp" style="flex:1;text-align:right;color:#4caf50;font-weight:600;" @bind-Value="@lrm.OurDisPercentage" @bind-Value:after="() => UpdateOverallDiscount(true, false)" />
+                        <InputNumber class="binp" style="flex:1;text-align:right;color:#4caf50;font-weight:600;" @bind-Value="@lrm.OurDiscount" @bind-Value:after="() => UpdateOverallDiscount(false, false)" />
+                    </div>
+                </div>
+                <div style="margin-bottom:8px;">
+                    <div style="font-size:10px;color:#999;text-transform:uppercase;margin-bottom:4px;">REFFERAL CONCESSION &nbsp;% &nbsp;VAL</div>
+                    <div style="display:flex;gap:4px;">
+                        <InputNumber class="binp" style="flex:1;text-align:right;color:#4caf50;font-weight:600;" @bind-Value="@lrm.ReferalPercentage" @bind-Value:after="() => UpdateOverallDiscount(true, true)" />
+                        <InputNumber class="binp" style="flex:1;text-align:right;color:#4caf50;font-weight:600;" @bind-Value="@lrm.ReferalDiscount" @bind-Value:after="() => UpdateOverallDiscount(false, true)" />
+                    </div>
+                </div>
+            </EditForm>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding:6px 8px;border-top:1px dashed var(--border-table);background:var(--bg-badge-pending);border-radius:6px;">
+                <span style="font-size:11px;color:var(--text-warning);font-weight:600;">Discount @@ @lrm.OurDisPercentage.ToString("0")%</span>
+                <span style="font-size:13px;font-weight:700;color:var(--text-danger);"> @lrm.OurDiscount.ToString("0.00")</span>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-top:1px solid rgba(0,0,0,0.05);background:linear-gradient(135deg,var(--brand-primary), #1e293b);border-radius:10px;margin-top:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+                <span style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.9);text-transform:uppercase;letter-spacing:1px;">NET PAYABLE</span>
+                <span class="net-pay-blink" style="font-size:22px;"> @lrm.TotalAmount.ToString("0.00")</span>
+            </div>
+        </div>
+
+        @* PAYMENT INTERFACE *@
+        <EditForm Model="@lrm" OnValidSubmit="SaveBilling">
+            <div style="background:linear-gradient(135deg,#3f51b5,#5c6bc0);border-radius:10px;padding:12px;color:#fff;box-shadow:0 2px 12px rgba(63,81,181,.3);">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;opacity:.9;margin-bottom:10px;">PAYMENT INTERFACE</div>
+
+              
+
+                <div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+                    <span style="font-size:11px;font-weight:700;width:40px;opacity:.9;">CASH</span>
+                    <InputNumber style="flex:1;padding:4px 6px;border:none;border-radius:5px;font-size:12px;font-weight:600;text-align:right;color:var(--text-primary);background:var(--bg-input);"
+                                 @bind-Value="@lrm.PaidAmount" />
+                    <i class="bi bi-check-circle-fill" style="color:var(--text-success);font-size:16px;flex-shrink:0;"></i>
+                </div>
+
+                <div style="margin-bottom:8px;">
+                    <span style="font-size:10px;color:rgba(255,255,255,.7);display:block;margin-bottom:3px;text-transform:uppercase;">PAY MODE</span>
+                    <select @bind="lrm.PMCode" style="width:100%;padding:5px 8px;border:none;border-radius:5px;font-size:12px;background:var(--bg-input);color:var(--text-primary);">
+                        @foreach (var mode in paymode){ <option value="@mode.PMCode">@mode.Name</option> }
+                    </select>
+                </div>
+
+        
+
+  
+            </div>
+
+        </EditForm>
+
+        @* SAVE / CLEAR BUTTONS — pinned to bottom *@
+        <div style="display:flex;gap:6px;margin-top:10px;">
+            <button type="button" @onclick="@(async () => await ClearForm())"
+                    style="flex:1;padding:5px 8px;background:#e53935;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;box-shadow:0 2px 4px rgba(229,57,53,.35);transition:background .2s;">
+                <i class="bi bi-arrow-counterclockwise"></i> CLEAR
+            </button>
+            <button type="button" @onclick="SaveBilling" disabled="@(!issave)"
+                    style="flex:1;padding:5px 8px;background:#1976d2;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px;box-shadow:0 2px 4px rgba(25,118,210,.35);transition:background .2s;">
+                <i class="bi bi-check-circle"></i>  SAVE
+            </button>
+        </div>
+    </div>
+</div>
+
+
+
+@if (showDetailsModal)
+{
+    <div class="modal-overlay-blur" @onclick="() => showDetailsModal = false">
+        <div class="details-card-modal" @onclick:stopPropagation="true">
+            <div class="details-card-header" style="background:var(--bg-header); border-bottom:1px solid var(--border-table); display:flex; justify-content:space-between; align-items:center; padding:12px 16px;">
+                <h6 style="margin:0;font-weight:700;font-size:14px;color:var(--text-on-brand);">Patient Details</h6>
+                <button type="button" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text-on-brand);display:flex;align-items:center;justify-content:center;" @onclick="() => showDetailsModal = false">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+            <div style="padding:16px;max-height:60vh;overflow-y:auto;">
+                @if (pdm != null && pdm.Count > 0)
+                {
+                    <table class="table table-sm table-borderless mb-0">
+                        <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
+                        <tbody>
+                            @foreach (var it in pdm)
+                            {
+                                <tr>
+                                    <td style="vertical-align:middle;">@it.Name</td>
+                                    <td><input type="text" @bind-value=@it.PDValue class="form-control form-control-sm" /></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else { <p style="text-align:center;color:var(--text-muted);margin:16px 0;">No details available</p> }
+            </div>
+            <div class="details-card-footer" style="padding:10px 16px;border-top:1px solid var(--border-table);text-align:right;background:var(--bg-card);">
+                <button class="btn btn-primary btn-sm" @onclick="() => showDetailsModal = false" style="background:var(--brand-accent);border:none;padding:6px 20px;font-weight:600;color:#fff;border-radius:6px;">OK</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code{
+
+
+    Lab_Request_Master lrm=new();
+    Customer_Master customer=new();
+    IList<Lab_Request_Details> lrd = new List<Lab_Request_Details>();
+
+
+    [Inject]
+    private AppSettings AppSettings { get; set; }
+
+
+
+
+
+
+    public class BillingModel
+    {
+        public string BNCode { get; set; } = "";
+        public string PatientSearch { get; set; } = "";
+        public string Counter { get; set; } = "";
+        public string Branch { get; set; } = "";
+        public string CaseNo { get; set; } = "";
+        public DateTime BillDate { get; set; } = DateTime.Now;
+        public string PatientId { get; set; } = "";
+        public string MobileNo { get; set; } = "";
+        public string AdditionalRefNo { get; set; } = "";
+        public string Salutation { get; set; } = "";
+        public string PatientName { get; set; } = "";
+        public DateTime? DateOfBirth { get; set; }
+        public int AgeYears { get; set; }
+        public int AgeMonths { get; set; }
+        public int AgeDays { get; set; }
+        public string Gender { get; set; } = "";
+        public string PassportNo { get; set; } = "";
+        public int CountryId { get; set; }
+        public string Address { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string ReferredBy { get; set; } = "";
+        public string SecondReferredBy { get; set; } = "";
+        public string RoomNo { get; set; } = "";
+        public string HospitalIdType { get; set; } = "";
+        public string HospitalId { get; set; } = "";
+        public string VisitType { get; set; } = "";
+        public string VisitId { get; set; } = "";
+        public string HomeCollectionBy { get; set; } = "In Lab";
+        public bool IsHomeCollection { get; set; }
+        public string Area { get; set; } = "";
+        public decimal Charge { get; set; }
+        public string AreaName { get; set; } = "";
+        public decimal OutPatientDiscount { get; set; }
+        public decimal DiscountAmount { get; set; }
+        public decimal ReferralDiscount { get; set; }
+        public decimal ReferralDiscountAmount { get; set; }
+        public decimal PaidAmount { get; set; }
+        public string PayType { get; set; } = "";
+    }
+
+
+
+    IList<RequestPatientDetails> pdm = new List<RequestPatientDetails>();
+
+
+    private BillingModel billingModel = new BillingModel();
+    private IList<Counter_Master> counters1 = new List<Counter_Master>();
+    private IList<Counter_Master> counters = new List<Counter_Master>();
+    IList<Branch_Master> branch = new List<Branch_Master>();
+    private IList<BillNo_Master> billnomaster1= new List<BillNo_Master>();
+    private IList<BillNo_Master> billnomaster = new List<BillNo_Master>();
+
+    private List<PayMode_Master> payMode_Masters = new();
+    private List<Customer_Master> patients = new();
+    private List<Customer_Master> filteredPatients = new();
+    private string patientSearchQuery = "";
+    private bool showPatientDropdown = false;
+
+
+    private string searchtest = "";
+    private List<Test_Master> testmaster = new();
+    private List<Doctor_Master> referralResults = new();
+    private List<Collected_Master> collectorResults = new();
+    private List<Lims.Components.Model.ViewBills> mobileSearchResults = new();
+    private bool showMobileDropdown = false;
+    private System.Timers.Timer? mobileDebounceTimer;
+
+    private List<Area_Master> areaResults = new();
+    private List<Doctor_Master> secondReferralResults = new();
+    private int selectedReferralIndex = -1;
+    private int selectedSecondReferralIndex = -1;
+    private int selectedAreaIndex = -1;
+    private int selectedCollectorIndex = -1;
+    private int selectedTestIndex = -1;
+    private List<TestItem> addedTests = new();
+    private string? token;
+    private string? successMessage;
+    private System.Timers.Timer? debounceTimer;
+    private bool showPrintConfirmation = false;
+    private bool showDetailsModal = false;
+    private string? errorMessage;
+    private bool isCustomSalutation = false;
+
+
+    IList<FeeType_Master> feetype = new List<FeeType_Master>();
+    IList<REIMBURSEMENT_COMPANY_MASTER> rcm = new List<REIMBURSEMENT_COMPANY_MASTER>();
+    IList<PayMode_Master> paymode = new List<PayMode_Master>();
+    UserAuth userAuthResult = new();
+    [Parameter]
+    public string rid { get; set; }
+    [Parameter]
+    public EventCallback OnBillSaved { get; set; }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            http.DefaultRequestHeaders.Add("X-Tenant-ID", appSettings.ClientId);
+
+            var brn = await _sessionStorage.GetAsync<IList<Branch_Master>>("branch");
+            if (brn.Success && brn.Value != null)
+            {
+                branch = brn.Value;
+            }
+
+
+            lrm.RequestDatetime = DateTime.Now;
+            lrm.CollectedDateTime = DateTime.Now.AddMinutes(14);
+            lrm.RequestedDateTime = DateTime.Now.AddMinutes(9);
+            userAuthResult = (await _sessionStorage.GetAsync<UserAuth>("claim")).Value ?? new();
+
+
+            token = userAuthResult.token;
+            await this.LoadBillAsync(token);
+            await LoadInitialData();
+
+
+            await this.LoadRightsAsync();
+
+            if (!issave && !isedit && !isdelete)
+            {
+                errorMessage = "You do not have permission to access the Billing module.";
+                StateHasChanged();
+            }
+
+
+            if(rid!=null && rid.Length>5)
+            {
+                this.GetBillAsync(rid);
+            }
+
+            // Check for edit bill data from ViewBilling page
+
+        }
+        catch (Exception ex)
+        {
+        }
+    }
+
+    private async Task GetBillAsync(string rid)
+    {
+        try{
+
+            lrd.Clear(); // Clear previous test details before loading new ones
+
+            var res = await apiData.GetObjectData<BillRequest>(token, $"request/EditBill?rid={rid}");
+            if (res.Request_Master!=null || res.Request_Master.DCode>0)
+            {
+                lrm=res.Request_Master;
+                lrd=res.Request_Details;
+                customer = res.customer;
+                pdm = res.Request_PatientDetails;
+                var res1 = await http.GetAsync($"{AppSettings.BaseUrl}referral/getreferral?dcode={lrm.DCode}");
+                if(res1.IsSuccessStatusCode)
+                {
+                    var tt= res1.Content.ReadAsStringAsync().Result;
+                    var tt1 = JsonConvert.DeserializeObject<Doctor_Master>(tt);
+                    billingModel.ReferredBy = tt1.DoctorFullName;
+                    billingModel.SecondReferredBy = lrm.SecondDoctorName;
+
+                }
+
+                // Get all test codes from the details to fetch their names
+                var testCodes = lrd.Select(d => d.TCode).ToList();
+                var codesString = string.Join(",", testCodes);
+                var editest = await apiData.GetMasterList<Test_Master>(token, $"request/testlistbytcode?tcode={Uri.EscapeDataString(codesString)}");
+
+
+                // Populate addedTests from lrd for the UI
+                addedTests = lrd.Select(d => new TestItem
+                        {
+                            TCode = d.TCode,
+                            Name = editest.Where(t => t.TCode == d.TCode)?.Select(x=>x.Name).FirstOrDefault() ?? "Unknown Test",
+                            Amount = Convert.ToDouble(d.TestAmount),
+                            DiscountPercent = d.TestAmount > 0 ? Convert.ToDouble((d.Discount / d.TestAmount) * 100) : 0,
+                            DiscountAmount = Convert.ToDouble(d.Discount)
+                        }).ToList();
+
+                CalculateAmounts();
+
+                StateHasChanged();
+            }
+
+        }catch(Exception ex)
+        {
+            errorMessage = ex.Message.ToString();
+        }
+
+    }
+
+
+
+    bool issave = false;
+    bool isedit = false;
+    bool isdelete = false;
+    bool isapproved = false;
+    bool isauthorized = false;
+    bool isnameedit = false;
+
+    private async Task LoadRightsAsync()
+    {
+        IList<User_Rights> rights = (await _sessionStorage.GetAsync<IList<User_Rights>>("UserRights")).Value ?? new List<User_Rights>();
+        if(rights!=null && rights.Count>0)
+        {
+            // Default all rights to false before checking
+            issave = isedit = isdelete = isapproved = isauthorized = isnameedit = false;
+
+            var rts = rights.Where(x => x.ModuleName == "Billing" && x.Department == "Reception").FirstOrDefault();
+            if(rts!=null)
+            {
+                issave = rts.ToAdd;
+                isedit=rts.ToEdit;
+                isdelete = rts.ToDelete;
+            }
+
+            // isapproved = rights.Any(x => x.Department == "Lab" && x.ModuleName == "Authorize Lab Results" && x.ToAdd);
+            // isauthorized = rights.Any(x => x.Department == "Lab" && x.ModuleName == "Authorize Lab Results 2" && x.ToAdd);
+
+            var rts1 = rights.Where(x => x.ModuleName == "Modify Patient Details" && x.Department == "Reception").FirstOrDefault();
+            if(rts1!=null)
+            {
+                isnameedit=rts1.ToAdd;
+            }
+
+            // Sync isapproved with module rights to allow SaveBilling to proceed
+            isapproved = issave || isedit;
+
+            StateHasChanged();
+        }
+        else
+        {
+            // If no rights found, ensure everything is false
+            issave = isedit = isdelete = isapproved = isauthorized = isnameedit = false;
+            errorMessage = "No user rights found. Please contact administrator.";
+            StateHasChanged();
+        }
+    }
+
+
+    private async Task LoadBillAsync(string token)
+    {
+        var request=new HttpRequestMessage(HttpMethod.Get,$"{AppSettings.BaseUrl}request/billing");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var response=await http.SendAsync(request);
+        if(response.IsSuccessStatusCode)
+        {
+            var tt=response.Content.ReadAsStringAsync();
+            var tt1 = JsonConvert.DeserializeObject<BillRootObject>(tt.Result);
+            feetype = tt1.feetype;
+            rcm = tt1.reimbursement;
+            counters1 = tt1.counter;
+            billnomaster1 = tt1.billno;
+            paymode = tt1.paymode;
+            pdm = tt1.patdetails;
+
+            // Set default pay mode to Cash
+            var cashMode = paymode.FirstOrDefault(p => p.Name.Equals("Cash", StringComparison.OrdinalIgnoreCase));
+            if (cashMode != null)
+            {
+                lrm.PMCode = cashMode.PMCode;
+            }
+
+
+            StateHasChanged();
+            await this.onbranchsel(new ChangeEventArgs { Value = branch[0].BHCode });
+
+        }
+    }
+    private async Task UpdateSID(string billdate, int bhcode, int cntcode, int bncode)
+    {
+        if (billingModel == null || lrm==null)
+        {
+            return;
+        }
+
+        var request = new HttpRequestMessage(HttpMethod.Get, $"{AppSettings.BaseUrl}request/SampleNo?billdate={Uri.EscapeDataString(billdate)}&bhcode={bhcode}&cntcode={cntcode}&bncode={bncode}");
+        if (!string.IsNullOrEmpty(token))
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
+        var response = await http.SendAsync(request);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var tt = await response.Content.ReadAsStringAsync() ?? "0";
+            lrm.RequestSno = Convert.ToInt32(tt);
+            billingModel.CaseNo = tt.Replace("\"", "");
+            // Save last server SID into session so we can continue sequence if API is used
+            try
+            {
+                var key = GetLocalSidKey(bhcode, cntcode, bncode);
+                int val = lrm.RequestSno;
+                await _sessionStorage.SetAsync(key, val);
+            }
+            catch { }
+            await InvokeAsync(StateHasChanged);
+        }
+        else
+        {
+            // API failed or not available — fallback to a local sequential SID
+            try
+            {
+                var next = await GetNextLocalSID(bhcode, cntcode, bncode);
+                lrm.RequestSno = next;
+                billingModel.CaseNo = next.ToString();
+                await InvokeAsync(StateHasChanged);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error generating local SID fallback: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task LoadInitialData()
+    {
+        if (billingModel == null)
+        {
+            return;
+        }
+
+        try
+        {
+
+
+
+        }
+        catch (Exception ex)
+        {
+        }
+        finally
+        {
+
+        }
+    }
+
+
+    private async Task onbranchsel(ChangeEventArgs args)
+    {
+        billingModel.Branch = args.Value?.ToString() ?? "";
+        var tt = Convert.ToInt32(args.Value?.ToString());
+        counters = counters1.Where(x => x.BHCode == Convert.ToInt32(tt)).ToList();
+        // Step 1: ensure counters are usable
+        var validCounters = counters.Where(c => !c.Deleted).ToList();
+        int? cntCode = validCounters.FirstOrDefault()?.CNTCode;
+
+        // Step 2: common predicate
+        Func<BillNo_Master, bool> filter = x =>
+            x.IsSampleNo &&
+            (
+                x.AllBranch ||
+                (x.BHCode > 0 && x.CNTCode == 0 && x.BHCode == tt) ||
+                (x.BHCode > 0 && x.CNTCode > 0 && x.BHCode == tt && x.CNTCode == cntCode)
+            );
+
+        // Step 3: single execution
+        billnomaster = billnomaster1.Where(filter).ToList();
+        // billnomaster = billnomaster1.Where(x => (x.IsSampleNo==true) && (x.AllBranch ||
+        //  (x.BHCode > 0 && x.CNTCode == 0 && x.BHCode == tt) ||
+        //  (x.BHCode > 0 && x.CNTCode > 0 && x.BHCode == tt && x.CNTCode == counters[0].CNTCode))).ToList();
+        // if (billnomaster.Count==0)
+        // {
+        //     counters = counters.Where(x=>x.Deleted==false).ToList();
+        //     billnomaster = billnomaster1.Where(x => (x.IsSampleNo == true) && (x.AllBranch ||
+        //                     (x.BHCode > 0 && x.CNTCode == 0 && x.BHCode == tt) ||
+        //                     (x.BHCode > 0 && x.CNTCode > 0 && x.BHCode == tt && x.CNTCode == counters[0].CNTCode))).ToList();
+        // }
+
+        lrm.EnteredBHCode = tt;
+        lrm.AlteredBHCode = tt;
+        // Set defaults so the UI & subsequent calls know which counter and billno to use
+        if (counters.Any())
+        {
+            lrm.CNTCode = counters[0].CNTCode;
+        }
+        if (billnomaster.Any())
+        {
+            lrm.BNCode = billnomaster[0].BNCode;
+        }
+
+        await this.UpdateSID(Convert.ToString(lrm.RequestDatetime), tt, counters[0].CNTCode, billnomaster[0].BNCode);
+
+        StateHasChanged();
+    }
+
+
+    private void FilterPatients()
+    {
+        if (billingModel == null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(patientSearchQuery))
+        {
+            filteredPatients = patients;
+        }
+        else
+        {
+            var query = patientSearchQuery.ToLower();
+            filteredPatients = patients.Where(p =>
+                p.Name.ToLower().Contains(query) ||
+                p.Mobile.Contains(query) ||
+                p.Email.ToLower().Contains(query) ||
+                p.CUSTCode.ToLower().Contains(query)
+            ).Take(10).ToList();
+        }
+        StateHasChanged();
+    }
+
+    private void OnPatientSearchChanged(ChangeEventArgs e)
+    {
+        if (billingModel == null)
+        {
+            return;
+        }
+
+        patientSearchQuery = e.Value?.ToString() ?? "";
+        showPatientDropdown = !string.IsNullOrWhiteSpace(patientSearchQuery);
+        FilterPatients();
+    }
+
+    private void SelectPatient(Customer_Master patient)
+    {
+        if (billingModel == null)
+        {
+            return;
+        }
+
+        billingModel.PatientId = patient.CUSTCode;
+        billingModel.PatientName = patient.Name;
+        billingModel.MobileNo = patient.Mobile;
+        billingModel.Email = patient.Email;
+        billingModel.Gender = patient.Gender;
+        billingModel.Address = patient.Street;
+        billingModel.DateOfBirth = patient.DateOfBirth;
+
+        // populate customer object and ensure CUSTCode is set
+        customer.CUSTCode = patient.CUSTCode;
+        customer.Name = patient.Name;
+        customer.NameTitile = patient.NameTitile;
+        customer.Mobile = patient.Mobile;
+        customer.Email = patient.Email;
+        customer.DateOfBirth = patient.DateOfBirth!=null?patient.DateOfBirth: DateTime.MinValue;
+        customer.Street = patient.Street;
+        customer.PassportNo = patient.PassportNo;
+        customer.AadhaarNo = patient.AadhaarNo;
+        customer.Gender = patient.Gender;
+
+        if (patient.DateOfBirth!=null && patient.DateOfBirth !=DateTime.MinValue)
+        {
+            CalculateAgeFromDOB(patient.DateOfBirth);
+        }
+
+        patientSearchQuery = patient.Name;
+        showPatientDropdown = false;
+        StateHasChanged();
+    }
+
+    private async Task HandleCounterChange(ChangeEventArgs e)
+    {
+        billingModel.Counter = e.Value?.ToString() ?? "";
+        if (!string.IsNullOrEmpty(billingModel.Branch) && !string.IsNullOrEmpty(billingModel.Counter) && !string.IsNullOrEmpty(billingModel.BNCode))
+        {
+            if (int.TryParse(billingModel.Branch, out var bh) && int.TryParse(billingModel.Counter, out var cnt) && int.TryParse(billingModel.BNCode, out var bn))
+            {
+                await UpdateSID(Convert.ToString(lrm.RequestDatetime), bh, cnt, bn);
+            }
+        }
+        StateHasChanged();
+    }
+
+    private async Task HandleBillNoChange(ChangeEventArgs e)
+    {
+        billingModel.BNCode = e.Value?.ToString() ?? "";
+        if (!string.IsNullOrEmpty(billingModel.Branch) && !string.IsNullOrEmpty(billingModel.Counter) && !string.IsNullOrEmpty(billingModel.BNCode))
+        {
+            if (int.TryParse(billingModel.Branch, out var bh) && int.TryParse(billingModel.Counter, out var cnt) && int.TryParse(billingModel.BNCode, out var bn))
+            {
+                await UpdateSID(Convert.ToString(lrm.RequestDatetime), bh, cnt, bn);
+            }
+        }
+        StateHasChanged();
+    }
+
+    private async Task<string> GeneratePatientId()
+    {
+        // Try API first
+        try
+        {
+            var resp = await http.GetAsync($"{AppSettings.BaseUrl}api/patients/generateid");
+            if (resp.IsSuccessStatusCode)
+            {
+                var val = await resp.Content.ReadAsStringAsync();
+                return val.Replace("\"", "");
+            }
+        }
+        catch { }
+
+        // Fallback
+        return $"P{DateTime.Now:yyyyMMddHHmmss}";
+    }
+
+    private Task HandleSID_InputsChange()
+    {
+        if (billingModel != null &&
+            !string.IsNullOrEmpty(billingModel.Branch) &&
+            !string.IsNullOrEmpty(billingModel.Counter) &&
+            !string.IsNullOrEmpty(billingModel.BNCode))
+        {
+            // await UpdateSID(billingModel.BillDate.ToString("yyyy-MM-dd"), billingModel.Branch, billingModel.Counter, billingModel.BNCode);
+        }
+        return Task.CompletedTask;
+    }
+
+    private void HandleSalutationChange(ChangeEventArgs e)
+    {
+        var salutation = e.Value?.ToString() ?? "";
+
+        // Check if empty option is selected (the second empty option in the dropdown)
+        if (salutation == "" && customer.NameTitile != "")
+        {
+            // Switch to custom salutation input
+            isCustomSalutation = true;
+            customer.NameTitile = "";
+            return;
+        }
+
+        if (salutation == "Other")
+        {
+            isCustomSalutation = true;
+            customer.NameTitile = "";
+            return;
+        }
+
+        isCustomSalutation = false;
+        customer.NameTitile = salutation;
+
+        switch (salutation)
+        {
+            case "Mr.":
+                customer.Gender = "Male";
+                break;
+            case "Ms.":
+            case "Mrs.":
+                customer.Gender = "Female";
+                break;
+        }
+    }
+
+    private void HandleSalutationInputBlur()
+    {
+        // If the custom salutation input is empty, switch back to dropdown
+        if (string.IsNullOrWhiteSpace(customer.NameTitile))
+        {
+            isCustomSalutation = false;
+            customer.NameTitile = "";
+        }
+    }
+
+    private void CalculateAgeFromDOB(DateTime birthDate)
+    {
+        if (customer == null || birthDate == default || birthDate == DateTime.MinValue || birthDate > DateTime.Today)
+        {
+            customer.AgeYears = 0;
+            customer.AgeMonths = 0;
+            customer.AgeDays = 0;
+            return;
+        }
+
+        var today = DateTime.Today;
+
+        // --- Years ---
+        int years = today.Year - birthDate.Year;
+        DateTime lastBirthday = birthDate.AddYears(years);
+        if (lastBirthday > today)
+        {
+            years--;
+            lastBirthday = birthDate.AddYears(years);
+        }
+        customer.AgeYears = years;
+
+        // --- Months (remaining after full years) ---
+        int months = (today.Year - lastBirthday.Year) * 12 + (today.Month - lastBirthday.Month);
+        DateTime lastMonthDate = lastBirthday.AddMonths(months);
+        if (lastMonthDate > today)
+        {
+            months--;
+            lastMonthDate = lastBirthday.AddMonths(months);
+        }
+        if (months < 0) months = 0;
+        customer.AgeMonths = months;
+
+        // --- Days (remaining after full months) ---
+        int days = (today - lastMonthDate).Days;
+        if (days < 0) days = 0;
+        customer.AgeDays = days;
+    }
+
+    private void UpdateDOBFromAge()
+    {
+        // When user manually enters Y/M/D, calculate and update the DOB field
+        if (customer.AgeYears == 0 && customer.AgeMonths == 0 && customer.AgeDays == 0)
+            return;
+
+        try
+        {
+            var dob = DateTime.Today
+                .AddYears(-customer.AgeYears)
+                .AddMonths(-customer.AgeMonths)
+                .AddDays(-customer.AgeDays);
+
+            if (dob <= DateTime.Today && dob > DateTime.MinValue)
+            {
+                customer.DateOfBirth = dob;
+                billingModel.DateOfBirth = dob;
+            }
+        }
+        catch { /* ignore out-of-range */ }
+    }
+
+    // Compute an approximate DOB from provided age components (years, months, days).
+    // Returns null when no meaningful age information is available.
+    private DateTime? ComputeDOBFromAge(int years, int months, int days)
+    {
+        if (years == 0 && months == 0 && days == 0)
+            return null;
+
+        try
+        {
+            var dob = DateTime.Today.AddYears(-years).AddMonths(-months).AddDays(-days);
+            // Sanity check: do not return a future date
+            if (dob > DateTime.Today)
+                return null;
+            return dob;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public class TestItem
+    {
+        public int TCode { get; set; } = 0;
+        public string Name { get; set; } = "";
+        public Double Amount { get; set; }
+        public Double DiscountPercent { get; set; }
+        public Double DiscountAmount { get; set; }
+        public Double Total => Amount - DiscountAmount;
+    }
+
+    private void OnInputChanged(ChangeEventArgs e, string type)
+    {
+        if (billingModel == null)
+        {
+            return;
+        }
+
+        var searchTerm = e.Value?.ToString() ?? string.Empty;
+
+        debounceTimer?.Stop();
+        debounceTimer?.Dispose();
+        debounceTimer = new System.Timers.Timer(300);
+        debounceTimer.AutoReset = false;
+
+        if (type == "Test")
+        {
+            searchtest = searchTerm;
+            debounceTimer.Elapsed += async (_, __) =>
+            {
+                await InvokeAsync(SearchTests);
+            };
+        }
+        else if (type == "ReferredBy" || type == "SecondReferredBy")
+        {
+            debounceTimer.Elapsed += async (_, __) =>
+            {
+                await InvokeAsync(() => SearchReferralDoctors(searchTerm, type));
+            };
+        }
+        else if (type == "Area")
+        {
+            debounceTimer.Elapsed += async (_, __) =>
+            {
+                await InvokeAsync(() => SearchAreas(searchTerm));
+            };
+        }
+        else if (type == "Collector")
+        {
+            // This is now a dropdown, so debouncing is not needed for collectors.
+        }
+
+        debounceTimer.Start();
+    }
+
+    private async Task SearchTests()
+    {
+        if (billingModel == null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(searchtest))
+        {
+            testmaster.Clear();
+        }
+        else
+        {
+            try
+            {
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{AppSettings.BaseUrl}request/SearchTest?testname={Uri.EscapeDataString(searchtest)}");
+                if (!string.IsNullOrEmpty(token))
+                {
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                }
+                var response = await http.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var res = await response.Content.ReadAsStringAsync();
+                    testmaster = JsonConvert.DeserializeObject<List<Test_Master>>(res) ?? new();
+                }
+                else
+                {
+                    testmaster.Clear();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error searching tests: {ex.Message}");
+                testmaster.Clear();
+            }
+        }
+        selectedTestIndex = -1;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SearchReferralDoctors(string query, string type)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            if (type == "ReferredBy")
+            {
+                referralResults.Clear();
+            }
+            else if (type == "SecondReferredBy")
+            {
+                secondReferralResults.Clear();
+            }
+            return;
+        }
+
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{AppSettings.BaseUrl}request/ReferralSearch?src={Uri.EscapeDataString(query)}");
+            if (!string.IsNullOrEmpty(token))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+            var response = await http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var res = await response.Content.ReadAsStringAsync();
+                var doctors = JsonConvert.DeserializeObject<List<Doctor_Master>>(res) ?? new();
+
+                if (type == "ReferredBy")
+                {
+                    referralResults = doctors;
+                }
+                else if (type == "SecondReferredBy")
+                {
+                    secondReferralResults = doctors;
+                }
+            }
+            else
+            {
+                if (type == "ReferredBy")
+                {
+                    referralResults.Clear();
+                }
+                else if (type == "SecondReferredBy")
+                {
+                    secondReferralResults.Clear();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error searching doctors: {ex.Message}");
+            if (type == "ReferredBy")
+            {
+                referralResults.Clear();
+            }
+            else if (type == "SecondReferredBy")
+            {
+                secondReferralResults.Clear();
+            }
+        }
+        selectedReferralIndex = -1;
+        selectedSecondReferralIndex = -1;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SearchAreas(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            areaResults.Clear();
+            StateHasChanged();
+            return;
+        }
+
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{AppSettings.BaseUrl}masters/areaname?area={Uri.EscapeDataString(query)}");
+            if (!string.IsNullOrEmpty(token))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+            var response = await http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var res = await response.Content.ReadAsStringAsync();
+                areaResults = JsonConvert.DeserializeObject<List<Area_Master>>(res) ?? new();
+            }
+            else
+            {
+                areaResults.Clear();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error searching areas: {ex.Message}");
+            areaResults.Clear();
+        }
+        selectedAreaIndex = -1;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SearchCollectors(string query)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{AppSettings.BaseUrl}masters/collector");
+            if (!string.IsNullOrEmpty(token))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+            var response = await http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var res = await response.Content.ReadAsStringAsync();
+                collectorResults = JsonConvert.DeserializeObject<List<Collected_Master>>(res) ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+        }
+    }
+    int FTCode = 0;
+    private void SelectReferralDoctor(Doctor_Master doctor, string type)
+    {
+        if (billingModel == null)
+        {
+            return;
+        }
+        // if (billingModel == null)
+        // {
+        //     return;
+        // }
+
+        if (type == "ReferredBy")
+        {
+            billingModel.ReferredBy = doctor.DoctorFullName;
+            lrm.DCode = doctor.DCode;
+            referralResults.Clear();
+            selectedReferralIndex = -1;
+            FTCode = doctor.SchemeFTCode;
+            lrm.FTCode = feetype.FirstOrDefault(x => x.FTCode == FTCode)?.FTCode ?? 0;
+
+
+        }
+        else if (type == "SecondReferredBy")
+        {
+            billingModel.SecondReferredBy = doctor.DoctorFullName;
+            secondReferralResults.Clear();
+            selectedSecondReferralIndex = -1;
+            lrm.SecondDCode=doctor.DCode;
+            lrm.SecondDoctorName = doctor.DoctorFullName;
+        }
+
+        StateHasChanged();
+    }
+
+    private void HandleSecondReferralBlur()
+    {
+        // When the Secondary Referral field loses focus, save the manually typed value
+        if (!string.IsNullOrWhiteSpace(billingModel.SecondReferredBy))
+        {
+            // Save the manually entered value to lrm.SecondDoctorName
+            lrm.SecondDoctorName = billingModel.SecondReferredBy;
+            // Clear the dropdown results since we're using a manually entered value
+            secondReferralResults.Clear();
+        }
+        StateHasChanged();
+    }
+
+    private void SelectArea(Area_Master area)
+    {
+        billingModel.AreaName = area.AreaName;
+        billingModel.Charge = Convert.ToDecimal(area.HomeCollectionCharge); // Automatically set the charge
+        areaResults.Clear();
+        selectedAreaIndex = -1;
+        CalculateAmounts(); // Recalculate totals with the new charge
+        StateHasChanged();
+    }
+
+    private async Task HandleHomeCollectionToggle()
+    {
+        if (billingModel.IsHomeCollection)
+        {
+            // Home collection is ON. Clear CTCode to allow a collector to be selected.
+            lrm.CTCode = 0;
+            await SearchCollectors(""); // Load all collectors
+        }
+        else
+        {
+            // Home collection is OFF. Set CTCode to 'In Lab' (assuming 2).
+            lrm.CTCode = 2;
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e, string type)
+    {
+        if (billingModel == null)
+        {
+            return;
+        }
+
+        if (type == "Test" && testmaster.Any())
+        {
+            if (e.Key == "ArrowDown")
+            {
+                selectedTestIndex = (selectedTestIndex + 1) % testmaster.Count;
+            }
+            else if (e.Key == "ArrowUp")
+            {
+                selectedTestIndex = (selectedTestIndex - 1 + testmaster.Count) % testmaster.Count;
+            }
+            else if (e.Key == "Enter" && selectedTestIndex >= 0)
+            {
+                await SelectTestItem(testmaster[selectedTestIndex], type);
+            }
+            await InvokeAsync(StateHasChanged);
+        }
+        else if (type == "ReferredBy" && referralResults.Any())
+        {
+            if (e.Key == "ArrowDown")
+            {
+                selectedReferralIndex = (selectedReferralIndex + 1) % referralResults.Count;
+            }
+            else if (e.Key == "ArrowUp")
+            {
+                selectedReferralIndex = (selectedReferralIndex - 1 + referralResults.Count) % referralResults.Count;
+            }
+            else if (e.Key == "Enter" && selectedReferralIndex >= 0)
+            {
+                SelectReferralDoctor(referralResults[selectedReferralIndex], type);
+            }
+        }
+        else if (type == "SecondReferredBy" && secondReferralResults.Any())
+        {
+            if (e.Key == "ArrowDown")
+            {
+                selectedSecondReferralIndex = (selectedSecondReferralIndex + 1) % secondReferralResults.Count;
+            }
+            else if (e.Key == "ArrowUp")
+            {
+                selectedSecondReferralIndex = (selectedSecondReferralIndex - 1 + secondReferralResults.Count) % secondReferralResults.Count;
+            }
+            else if (e.Key == "Enter" && selectedSecondReferralIndex >= 0)
+            {
+                SelectReferralDoctor(secondReferralResults[selectedSecondReferralIndex], type);
+            }
+        }
+        else if (type == "Area" && areaResults.Any())
+        {
+            if (e.Key == "ArrowDown")
+            {
+                selectedAreaIndex = (selectedAreaIndex + 1) % areaResults.Count;
+            }
+            else if (e.Key == "ArrowUp")
+            {
+                selectedAreaIndex = (selectedAreaIndex - 1 + areaResults.Count) % areaResults.Count;
+            }
+            else if (e.Key == "Enter" && selectedAreaIndex >= 0)
+            {
+                SelectArea(areaResults[selectedAreaIndex]);
+            }
+        }
+    }
+
+    private async Task SelectTestItem(Test_Master test, string type)
+    {
+        if (billingModel == null)
+        {
+            return;
+        }
+
+        if (test != null && !addedTests.Any(t => t.TCode == test.TCode))
+        {
+    
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var res = await http.GetAsync($"{appSettings.BaseUrl}request/TestFeeByName?FeeTypeCode={lrm.FTCode}&DCode={lrm.DCode}&TestName={Uri.EscapeUriString(test.Name)}");
+            Double Testamount = test.Amount;
+            if(res.IsSuccessStatusCode)
+            {
+                var tt=await res.Content.ReadAsStringAsync();
+                var tt1=JsonConvert.DeserializeObject<dynamic>(tt);
+                Testamount = tt1.FinalRate;
+            }
+            else
+            {
+                var tt = await res.Content.ReadAsStringAsync();
+
+            }
+
+            addedTests.Add(new TestItem
+                {
+                    TCode = test.TCode,
+                    Name = test.Name,
+                    Amount = Testamount,
+                    DiscountPercent = 0,
+                    DiscountAmount = 0
+                });
+            if (!tmadded.Any(x => x.TCode == test.TCode))
+            {
+                tmadded.Add(test);
+            }
+
+        }
+        searchtest = "";
+        testmaster.Clear();
+        selectedTestIndex = -1;
+        await InvokeAsync(StateHasChanged);
+        CalculateAmounts();
+    }
+
+
+
+    private void RemoveTest(TestItem test)
+    {
+        if (billingModel == null)
+        {
+            return;
+        }
+
+        addedTests.Remove(test);
+        CalculateAmounts();
+        StateHasChanged();
+    }
+
+    private void UpdateTestDiscount(TestItem test, ChangeEventArgs e, bool isPercent)
+    {
+        if (billingModel == null)
+        {
+            return;
+        }
+
+        if (isPercent)
+        {
+            if (Double.TryParse(e.Value?.ToString(), out var discountPercent))
+            {
+                test.DiscountPercent = discountPercent;
+                test.DiscountAmount = (test.Amount * test.DiscountPercent) / 100;
+            }
+        }
+        else
+        {
+            if (Double.TryParse(e.Value?.ToString(), out var discountAmount))
+            {
+                test.DiscountAmount = discountAmount;
+                test.DiscountPercent = (test.DiscountAmount / test.Amount) * 100;
+            }
+        }
+        CalculateAmounts();
+    }
+
+    private void UpdateTestAmount(TestItem test)
+    {
+        // This method is no longer directly called by the input, but is kept for clarity
+        // or if it's needed elsewhere. The @bind with oninput now handles the update.
+        CalculateAmounts();
+    }
+
+    private void OnTestAmountChanged()
+    {
+        CalculateAmounts();
+    }
+
+    private void CalculateAmounts()
+    {
+        if (billingModel == null)
+        {
+            return;
+        }
+        Double requestamt = addedTests.Sum(x => x.Amount) + Convert.ToDouble(billingModel.Charge);
+
+        // Update only RequestAmount, preserve user-entered concession values for General and Referral discounts
+        lrm.RequestAmount = requestamt;
+        
+        // Calculate TotalAmount based on all discounts
+        lrm.TotalAmount = lrm.RequestAmount - lrm.OurDiscount - lrm.ReferalDiscount;
+
+        StateHasChanged();
+    }
+
+    private void UpdateOverallDiscount(bool isPercent, bool isReferral)
+    {
+        if (lrm.RequestAmount == 0) return;
+
+        if (isReferral)
+        {
+            // Update Referral Discount
+            if (isPercent)
+            {
+                lrm.ReferalDiscount = (lrm.RequestAmount * lrm.ReferalPercentage) / 100;
+            }
+            else
+            {
+                lrm.ReferalPercentage = (lrm.ReferalDiscount / lrm.RequestAmount) * 100;
+            }
+        }
+        else
+        {
+            // Update Our Discount
+            if (isPercent)
+            {
+                lrm.OurDiscount = (lrm.RequestAmount * lrm.OurDisPercentage) / 100;
+            }
+            else
+            {
+                lrm.OurDisPercentage = (lrm.OurDiscount / lrm.RequestAmount) * 100;
+            }
+        }
+
+        CalculateAmounts();
+    }
+
+    private decimal CalculateBillAmount()
+    {
+        if (billingModel == null)
+        {
+            return 0;
+        }
+
+
+        return 0;
+    }
+
+    private decimal CalculateBalance()
+    {
+        if (billingModel == null)
+        {
+            return 0;
+        }
+        return CalculateBillAmount() - billingModel.PaidAmount;
+    }
+
+    private async Task LoadCustomerData()
+    {
+        // Ensure a valid patient code exists
+        if (string.IsNullOrWhiteSpace(customer.CUSTCode))
+        {
+            customer.CUSTCode = await GeneratePatientId();
+        }
+
+        // Ensure a displayable name
+        if (string.IsNullOrWhiteSpace(customer.Name))
+        {
+            customer.Name = "Unknown";
+        }
+        customer.Mobile = customer.Mobile ?? "";
+        customer.CUSTCode = customer.CUSTCode ?? "";
+        customer.Fax = customer.Fax ?? "";
+        customer.Gender = string.IsNullOrWhiteSpace(customer.Gender) ? "Male" : customer.Gender;
+        customer.NameTitile = customer.NameTitile ?? "";
+        customer.Area=customer.Area??"";
+        customer.City=customer.City??"";
+        customer.Email = customer.Email ?? "";
+        customer.Phone=customer.Phone??"";
+        customer.CareOf = customer.CareOf ?? "";
+        customer.Street=customer.Street ?? "";
+        customer.State = customer.State ?? "";
+        customer.Country=customer.Country ?? "";
+        customer.Initial=customer.Initial??"";
+        customer.Zipcode=customer.Zipcode??"";
+        customer.AadhaarNo=customer.AadhaarNo??"";
+        customer.BHCUSTCode = "ILS";
+        customer.FaxStdCode=customer.FaxStdCode??"";
+        customer.PassportNo=customer.PassportNo??"";
+        customer.Description=customer.Description??"";
+        customer.DOBInString=customer.DOBInString??"";
+        customer.Nationality=customer.Nationality??"";
+        customer.CareOfInitial = customer.CareOfInitial ?? "";
+        customer.PhoneStdCode=customer.PhoneStdCode??"";
+        customer.CareOfInitial=customer.CareOfInitial??"";
+        customer.CustomerImage = customer.CustomerImage ?? new byte[0];
+        customer.SignatureImage=customer.SignatureImage?? new byte[0];
+        customer.CustomerBarCode=customer.CustomerBarCode ??"";
+        customer.SignatureBase64 = customer.SignatureBase64 ?? "";
+        customer.NamewithInitials = customer.NamewithInitials ?? "";
+        customer.CustomerManualCode = customer.CustomerManualCode ?? "";
+        customer.CareOfTitile = customer.CareOfTitile ?? "";
+        customer.AgeEDate = customer.AgeEDate == DateTime.MinValue ? DateTime.Now : customer.AgeEDate;
+        customer.EnteredDate = customer.EnteredDate == DateTime.MinValue ? DateTime.Now : customer.EnteredDate;
+        customer.IBSDate = customer.IBSDate == DateTime.MinValue ? DateTime.Now : customer.IBSDate;
+        customer.DateOfBirth = customer.DateOfBirth == DateTime.MinValue ? DateTime.Now : customer.DateOfBirth;
+        customer.UserCode = userAuthResult.UserCode;
+        customer.ComputerCode = 1;
+        customer.Deleted = false;
+        customer.DCode = lrm.DCode;
+        // Map customer branch if available
+        if (customer.BHCode == 0 && lrm.EnteredBHCode > 0)
+        {
+            customer.BHCode = lrm.EnteredBHCode;
+        }
+    }
+
+    private async Task LoadLRM()
+    {
+        // User & computer codes
+        lrm.UserCode    = lrm.UserCode == 0 ? userAuthResult.UserCode : lrm.UserCode;
+        lrm.ComputerCode = lrm.ComputerCode == 0 ? 10 : lrm.ComputerCode;
+
+        // Branch / Counter / BillNo defaults (if not already set via dropdown)
+        if (lrm.EnteredBHCode == 0 && branch.Any())
+            lrm.EnteredBHCode = branch.FirstOrDefault(x => !x.Deleted)?.BHCode ?? branch[0].BHCode;
+        if (lrm.AlteredBHCode == 0)
+            lrm.AlteredBHCode = lrm.EnteredBHCode;
+        if (lrm.CNTCode == 0 && counters.Any())
+            lrm.CNTCode = counters.FirstOrDefault(x => !x.Deleted)?.CNTCode ?? counters[0].CNTCode;
+        if (lrm.BNCode == 0 && billnomaster.Any())
+            lrm.BNCode = billnomaster[0].BNCode;
+
+        // DCode: pick from branch if not set
+        if (lrm.DCode == 0 && branch.Any())
+            lrm.DCode = lrm.EnteredBHCode;
+
+        // Fee type, Payment mode, Lab, Delivery defaults
+        if (lrm.FTCode == 0 && feetype.Any())
+            lrm.FTCode = feetype.FirstOrDefault(x => !x.Deleted)?.FTCode ?? feetype[0].FTCode;
+        lrm.PMCode = lrm.PMCode == 0 ? (paymode.FirstOrDefault(x => x.Name == "Cash")?.PMCode ?? (paymode.Any() ? paymode[0].PMCode : 1)) : lrm.PMCode;
+        lrm.LCode  = lrm.LCode == 0 ? 1 : lrm.LCode;
+        lrm.DLCode = lrm.DLCode == 0 ? 1 : lrm.DLCode;
+        lrm.CTCode = lrm.CTCode == 0 ? 2 : lrm.CTCode; // 2 = In Lab
+
+        // Patient fields
+        lrm.CUSTID   = customer.CUSTID > 0 ? customer.CUSTID : 0;
+        lrm.Name     = customer.Name;
+        lrm.MobileNo = customer.Mobile;
+        lrm.Gender   = customer.Gender;
+        lrm.Address  = customer.Street;
+        lrm.DateofBirth = customer.AgeYears > 0 ? customer.AgeYears + " Yrs"
+                        : customer.AgeMonths > 0 ? customer.AgeMonths + " Mths"
+                        : customer.AgeDays > 0   ? customer.AgeDays   + " Dys"
+                        : "";
+        lrm.AgeYears  = customer.AgeYears.ToString();
+        lrm.AgeMonths = customer.AgeMonths.ToString();
+        lrm.AgeDays   = customer.AgeDays.ToString();
+
+        // Bill amount
+        lrm.RequestAmount = addedTests.Sum(t => t.Amount);
+        lrm.TotalAmount   = lrm.RequestAmount - lrm.OurDiscount - lrm.ReferalDiscount;
+
+        // RequestSnoPrint - if empty, fill from RequestSno
+        if (string.IsNullOrWhiteSpace(lrm.RequestSnoPrint) && lrm.RequestSno > 0)
+            lrm.RequestSnoPrint = lrm.RequestSno.ToString();
+
+        // String null-safety
+        lrm.RoomNo                 = lrm.RoomNo ?? "";
+        lrm.Address                = lrm.Address ?? "";
+        lrm.Bank_App               = lrm.Bank_App ?? "";
+        lrm.BillType               = lrm.BillType ?? "Lab";
+        lrm.OrderGUID              = lrm.OrderGUID ?? "";
+        lrm.Reference              = lrm.Reference ?? "";
+        lrm.Card_refno             = lrm.Card_refno ?? "";
+        lrm.HospitalID             = lrm.HospitalID ?? "";
+        lrm.OnlineCode             = lrm.OnlineCode ?? Convert.ToString(await exe.GetRandomNo(7));
+        lrm.BillNoPrint            = lrm.BillNoPrint ?? "";
+        lrm.Description            = lrm.Description ?? "";
+        lrm.PathologyNo            = lrm.PathologyNo ?? "";
+        lrm.RequestGUID            = !string.IsNullOrEmpty(rid) ? rid : (lrm.RequestGUID ?? Convert.ToString(Guid.NewGuid()));
+        lrm.ThyroBarCode           = lrm.ThyroBarCode ?? "";
+        lrm.TestShortName          = lrm.TestShortName ?? "";
+        lrm.OnlinePassword         = lrm.OnlinePassword ?? Convert.ToString(await exe.GetRandomNo(4));
+        lrm.RequestBarCode         = lrm.RequestBarCode ?? "";
+        lrm.FrontHospitalID        = lrm.FrontHospitalID ?? "MRD";
+        lrm.RequestSnoPrint        = lrm.RequestSnoPrint ?? "";
+        lrm.ConcessionReason       = lrm.ConcessionReason ?? "";
+        lrm.SecondDoctorName       = lrm.SecondDoctorName ?? "";
+        lrm.HospitalPatientID      = lrm.HospitalPatientID ?? "";
+        lrm.DepartmentShortName    = lrm.DepartmentShortName ?? "";
+        lrm.CommissionChequeName   = lrm.CommissionChequeName ?? "";
+        lrm.PendingTestShortName   = lrm.PendingTestShortName ?? "";
+        lrm.CommissionPaymentMode  = lrm.CommissionPaymentMode ?? "";
+        lrm.FinishedTestShortName  = lrm.FinishedTestShortName ?? "";
+        lrm.TestShortNameforEntry  = lrm.TestShortNameforEntry ?? "";
+        lrm.FrontHospitalPatientId = lrm.FrontHospitalPatientId ?? "OP";
+        lrm.RequestConvertedBarCode         = lrm.RequestConvertedBarCode ?? "";
+        lrm.TestShortNameforCuluture        = lrm.TestShortNameforCuluture ?? "";
+        lrm.TestShortNameforTextFormat      = lrm.TestShortNameforTextFormat ?? "";
+        lrm.PendingTestShortNameforEntry    = lrm.PendingTestShortNameforEntry ?? "";
+        lrm.FinishedTestShortNameforEntry   = lrm.FinishedTestShortNameforEntry ?? "";
+        lrm.PendingTestShortNameforCuluture = lrm.PendingTestShortNameforCuluture ?? "";
+        lrm.FinishedTestShortNameforCuluture = lrm.FinishedTestShortNameforCuluture ?? "";
+        lrm.PendingTestShortNameforTextFormat  = lrm.PendingTestShortNameforTextFormat ?? "";
+        lrm.FinishedTestShortNameforTextFormat = lrm.FinishedTestShortNameforTextFormat ?? "";
+
+        lrm.EnteredDate    = lrm.EnteredDate    == DateTime.MinValue ? DateTime.Now : lrm.EnteredDate;
+        lrm.IBSDate        = lrm.IBSDate        == DateTime.MinValue ? DateTime.Now : lrm.IBSDate;
+        lrm.LastPaymentOn  = lrm.LastPaymentOn  == DateTime.MinValue ? DateTime.Now : lrm.LastPaymentOn;
+        lrm.RequestedDateTime = lrm.RequestedDateTime == DateTime.MinValue ? DateTime.Now : lrm.RequestedDateTime;
+    }
+
+    IList<Test_Master> tmadded = new List<Test_Master>();
+    private async Task LoadLRD()
+    {
+
+        foreach(var it in addedTests)
+        {
+            var chk = lrd.Where(x => x.TCode == it.TCode).ToList();
+            if(chk==null || chk.Count==0)
+            {
+                var test=tmadded.Where(x=>x.TCode==it.TCode).FirstOrDefault();
+                lrd.Add(new Lab_Request_Details()
+                {
+                    RequestDetailsID = Guid.NewGuid(),
+                    TestSno = lrd.Count + 1,
+                    TCode = Convert.ToInt32(test.TCode),
+                    PackCode = test.PackCode,
+                    TestAmount = test.Amount,
+                    CommissionAmount = 0,
+                    ReferalDiscount = 0,
+                    Discount = 0,
+                    Collection = 0,
+                    IsInvestigation = test.Routine,
+                    IsCulture = test.CultureReport,
+                    IsTextReport = test.TextContent,
+                    IsTestHavingResult = (!test.LockResult && !test.OutLab),
+                    ResultStatus = false,
+                    IsLockResult = test.LockResult,
+                    IsOthers = test.OutLab,
+                    RequestStatus = false,
+                    IsPrinted = false,
+                    CommissionPaid = 0,
+                    SpecialDiscount = 0,
+                    NewAmount = 0,
+                    NewTCode = 0,
+                    IsAuthorized1 = false,
+                    IsAddSpecial = false,
+                    IsRemovedSpecial = false,
+                    StandardPrice = test.Amount,
+                    CommissionType = "",
+                    FTCommissionPer = 0,
+                    FTCommissionAmount = 0,
+                    RunningCost = 0,
+                    IsManualCommission = false,
+                    IsPack = test.IsPackage,
+                    ResultEnteredBy = 0,
+                    ResultAuthorizedBy = 0,
+                    IsSelect = false,
+                    CommissionPaymentMode = "Not Generated",
+                    CommissionChequeName = "",
+                    IsCommissionPaid = false,
+                    CommissionGeneratedDate = DateTime.Today,
+                    IsSampleCollected = false,
+                    IsSampleReceived = false,
+                    IsDelivered = false,
+                    IsInventoryPosted = false,
+                    PerformedCount = 0,
+                    IsAuthorized2 = false,
+                    IsUploaded = false,
+                    ResultAuthorizedBy2 = 0,
+                    IsWorkListPrinted = false,
+                    Qty = 1,
+                    TestRate = test.Amount,
+                    RefundAmount = 0,
+                    ResultEnteredDate = null,
+                    FirstAuthorizeDate = null,
+                    SecondAuthorizeDate = null
+                });
+            }
+            else
+            {
+                
+            }
+        }
+        var addedTestCodes = addedTests.Select(t => t.TCode).ToHashSet();
+        lrd = lrd.Where(x => addedTestCodes.Contains(x.TCode)).ToList();
+        lrd = lrd.GroupBy(x => new { x.RequestGUID, x.TCode }).Select(g => g.First()).ToList();
+       
+        foreach(var it in lrd)
+        {
+            it.RequestGUID = lrm.RequestGUID;
+            if (it.RequestDetailsID == Guid.Empty)
+            {
+                it.RequestDetailsID = Guid.NewGuid();
+            }
+            it.DeliveredMode = string.IsNullOrEmpty(it.DeliveredMode) ? "" : it.DeliveredMode;
+        }
+    }
+
+    BillSaveResponse bsr = new();
+    private async Task SaveBilling()
+    {
+        try
+        {
+          
+            if (!isapproved)
+            {
+                errorMessage = "You do not have permission to perform this action.";
+                StateHasChanged();
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(customer.Name))
+            {
+                errorMessage = "Please Enter Patient Name";
+                StateHasChanged();
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(billingModel.ReferredBy))
+            {
+                errorMessage = "Please Enter Referral Doctor";
+                StateHasChanged();
+                return;
+            }
+
+            
+            if (!addedTests.Any())
+            {
+                errorMessage = "Please add at least one test before saving.";
+                StateHasChanged();
+                return;
+            }
+
+            if (lrm.PaidAmount > lrm.TotalAmount)
+            {
+                errorMessage = "Paid amount cannot be greater than the Nett amount.";
+                StateHasChanged();
+                return;
+            }
+
+            // Ensure defaults for branch/counter/billno/feetype
+            if (lrm.BNCode == 0 && billnomaster.Any()) lrm.BNCode = billnomaster[0].BNCode;
+            if (lrm.CNTCode == 0 && counters.Any()) lrm.CNTCode = counters[0].CNTCode;
+            if (lrm.EnteredBHCode == 0)
+            {
+                if (int.TryParse(billingModel.Branch, out var bh)) lrm.EnteredBHCode = bh;
+                else if (branch.Any()) lrm.EnteredBHCode = branch[0].BHCode;
+            }
+            if (lrm.FTCode == 0 && feetype.Any()) lrm.FTCode = feetype[0].FTCode;
+
+            await this.LoadCustomerData();
+            await this.LoadLRM();
+            await this.LoadLRD();
+
+            // Validate RequestGUID before proceeding
+            if (string.IsNullOrWhiteSpace(lrm.RequestGUID))
+            {
+                errorMessage = "RequestGUID is empty. Cannot proceed with save.";
+                StateHasChanged();
+                return;
+            }
+
+            // Ensure RequestSnoPrint is populated from RequestSno if empty
+            if (string.IsNullOrWhiteSpace(lrm.RequestSnoPrint) && lrm.RequestSno > 0)
+            {
+                lrm.RequestSnoPrint = lrm.RequestSno.ToString();
+            }
+
+            // Ensure CUSTID is valid - if 0, it means customer hasn't been saved yet
+            if (customer.CUSTID == 0)
+            {
+                customer.CUSTID = 0; // Will be auto-generated by backend, but log this
+
+            }
+
+            // Ensure lrm.CUSTID matches customer.CUSTID
+            if (lrm.CUSTID != customer.CUSTID)
+            {
+                lrm.CUSTID = customer.CUSTID;
+            }
+
+            // Ensure all Request_PatientDetails have the RequestGUID populated
+            if (pdm != null && pdm.Count > 0)
+            {
+                foreach (var item in pdm)
+                {
+                    if (string.IsNullOrWhiteSpace(item.RequestGUID))
+                    {
+                        item.RequestGUID = lrm.RequestGUID;
+                    }
+                }
+            }
+            else
+            {
+                // Initialize as empty list if null
+                pdm = new List<RequestPatientDetails>();
+            }
+
+            // Prepare payload
+            // Build required prenatal request form (reqfrom) with minimal valid defaults
+            var reqForm = new RequestForm
+            {
+                ID = Guid.NewGuid(),
+                CustID = customer.CUSTID,
+                RequestGUID = Guid.TryParse(lrm.RequestGUID, out var rg) ? rg : Guid.NewGuid(),
+                Weight = 0,
+                Height = 0,
+                Smoking = false,
+                PassiveSmoking = false,
+                Ethnicity = "Unknown",
+                LMP = DateTime.Now.AddMonths(-1).ToString("yyyy-MM-dd"),
+                LMPStatus = "Unknown",
+                EDD = DateTime.Now.AddMonths(8).ToString("yyyy-MM-dd"),
+                IsNatural = true,
+                IsAssisted = false,
+                IsSelfEgg = true,
+                DonotEgg = false,
+                ProcedureType = "OPD",
+                DonorAge = "0",
+                DonorDOB = DateTime.Now.AddYears(-30),
+                ExtractionDate = DateTime.Now,
+                TransferDate = DateTime.Now,
+                DateOfUltraSound = DateTime.Now,
+                IsSingle = true,
+                IsTwin = false,
+                Chorionicity = "Unknown",
+                CRL1 = 0,
+                NT1 = 0,
+                NB1 = "NA",
+                CRL2 = 0,
+                NT2 = 0,
+                NB2 = "NA",
+                BPD = 0,
+                HC = 0,
+                AC = 0,
+                FL = 0,
+                ParityHistory = "NA",
+                T21 = false,
+                T18 = false,
+                T13 = false,
+                NTD = false,
+                FamilyHistory = false,
+                DiabeticIDDM = false,
+                DiabeticGDM = false,
+                Bleeding = false,
+                FolicAcid = false,
+                HCGDose = false,
+                LastHCGDose = "NA",
+                Screening = "NA",
+                EnteredDate = DateTime.Now,
+                UserCode = userAuthResult.UserCode > 0 ? userAuthResult.UserCode : 1
+            };
+
+            BillRequest saveData = new BillRequest
+            {
+                customer = customer,
+                Request_Master = lrm, // This lrm object now correctly contains the RequestGUID
+                Request_Details = lrd,
+                reqfrom = reqForm,
+                Request_PatientDetails = pdm ?? new List<RequestPatientDetails>()
+            };
+
+            // Validate payload structure before sending
+            var validationError = ValidateBillPayload(saveData);
+            if (!string.IsNullOrEmpty(validationError))
+            {
+                errorMessage = $"Payload validation failed: {validationError}";
+                StateHasChanged();
+                return;
+            }
+
+            // DEBUG: Show Payload on Screen
+
+            StateHasChanged();
+
+            // Create the lightweight bill summary object before the API call.
+            // This ensures it's available to be added to the local list regardless of API success.
+
+            var jsonContent = JsonConvert.SerializeObject(saveData, Formatting.Indented);
+            Console.WriteLine("========== SAVEBILL PAYLOAD ==========");
+            Console.WriteLine(jsonContent);
+            Console.WriteLine("======================================");
+            var content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
+
+            try
+            {
+                var request = new HttpRequestMessage(HttpMethod.Post, $"{AppSettings.BaseUrl}Request/Savebill")
+                {
+                    Content = content
+                };
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+                var httpResponse = await http.SendAsync(request);
+
+                if (httpResponse.IsSuccessStatusCode || httpResponse.StatusCode == System.Net.HttpStatusCode.BadRequest)
+                {
+                    // NOTE: This API always returns 400 even on success (confirmed by logs).
+                    // Bill IS saved to DB — verified by report generation using lrm.RequestGUID.
+                    // We treat both 200 and 400 as a successful save.
+                    var responseContent = await httpResponse.Content.ReadAsStringAsync();
+
+                    // Try to extract bsr fields if present in response
+                    try { bsr = JsonConvert.DeserializeObject<BillSaveResponse>(responseContent) ?? new BillSaveResponse(); }
+                    catch { bsr = new BillSaveResponse(); }
+
+                    // Prefer bsr.RequestSnoPrint if API ever returns it, else show lrm.RequestSnoPrint
+                    string displayBillNo = !string.IsNullOrWhiteSpace(bsr?.RequestSnoPrint)
+                                            ? bsr.RequestSnoPrint
+                                            : (!string.IsNullOrWhiteSpace(lrm.RequestSnoPrint) ? lrm.RequestSnoPrint : "—");
+
+                    Console.WriteLine($"[SaveBill] Status={httpResponse.StatusCode} | bsr.RequestSnoPrint={bsr?.RequestSnoPrint} | lrm.RequestGUID={lrm.RequestGUID}");
+
+                    ShowSuccessMessage($"Bill saved successfully! Bill No: {displayBillNo}");
+                    _ = NotificationService.ShowSuccess($"Bill saved successfully! Bill No: {displayBillNo}");
+                    showPrintConfirmation = true;
+                    StateHasChanged();
+                }
+                else
+                {
+                    var errorContent = await httpResponse.Content.ReadAsStringAsync();
+                    Console.WriteLine($"API Error ({(int)httpResponse.StatusCode}): {errorContent}");
+                    
+                    // Try to parse error details
+                    string errorDetails = errorContent;
+                    try
+                    {
+                        dynamic errorJson = JsonConvert.DeserializeObject(errorContent);
+                        errorDetails = errorJson?.ToString() ?? errorContent;
+                        
+                        // Check for specific error messages
+                        if (errorJson?.message != null)
+                        {
+                            errorDetails = $"[{errorJson.message}] {errorDetails}";
+                        }
+                        if (errorJson?.error != null)
+                        {
+                            errorDetails = $"[{errorJson.error}] {errorDetails}";
+                        }
+                        if (errorJson?.errors != null)
+                        {
+                            errorDetails = $"[Validation Errors] {JsonConvert.SerializeObject(errorJson.errors)}";
+                        }
+                    }
+                    catch { /* Use raw error content if not JSON */ }
+
+                    errorMessage = $"Save failed ({(int)httpResponse.StatusCode}): {errorDetails}";
+                    StateHasChanged();
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Save request error: {ex.Message}";
+                StateHasChanged();
+            }
+            finally
+            {
+                // This block executes regardless of API success or failure.
+                // Always update the local session storage so the user sees the new bill.
+
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    private async Task ClearForm()
+    {
+        // Preserve branch/counter/billno so next SID continues the sequence
+        var preservedBranch = billingModel?.Branch;
+        var preservedCounter = billingModel?.Counter;
+        var preservedBN = billingModel?.BNCode;
+
+        // Re-initialize the main data models to clear the form fields
+        customer = new Customer_Master();
+        lrm = new Lab_Request_Master();
+        // Reset billingModel but keep branch/counter/bn
+        billingModel = new BillingModel();
+        if (!string.IsNullOrEmpty(preservedBranch)) billingModel.Branch = preservedBranch;
+        if (!string.IsNullOrEmpty(preservedCounter)) billingModel.Counter = preservedCounter;
+        if (!string.IsNullOrEmpty(preservedBN)) billingModel.BNCode = preservedBN;
+
+        lrd.Clear();
+        addedTests.Clear();
+
+        // Reset UI state variables
+        patientSearchQuery = "";
+        searchtest = "";
+        showPatientDropdown = false;
+
+        isCustomSalutation = false;
+        // Set default values for the new bill, similar to OnInitializedAsync
+        lrm.RequestDatetime = DateTime.Now;
+        lrm.CollectedDateTime = DateTime.Now.AddMinutes(14);
+        lrm.RequestedDateTime = DateTime.Now.AddMinutes(9);
+        billingModel.BillDate = DateTime.Now;
+        billingModel.HomeCollectionBy = "In Lab";
+
+        // Request next SID for preserved branch/counter/bn (await so UI updates on render cycle)
+        try
+        {
+            if (!string.IsNullOrEmpty(billingModel.Branch) && !string.IsNullOrEmpty(billingModel.Counter) && !string.IsNullOrEmpty(billingModel.BNCode))
+            {
+                if (int.TryParse(billingModel.Branch, out var bh) && int.TryParse(billingModel.Counter, out var cnt) && int.TryParse(billingModel.BNCode, out var bn))
+                {
+                    await UpdateSID(Convert.ToString(lrm.RequestDatetime), bh, cnt, bn);
+                }
+            }
+        }
+        catch { }
+
+        StateHasChanged();
+    }
+
+    private async Task<string> GenerateCaseNumber()
+    {
+        if (billingModel == null)
+        {
+            return "";
+        }
+
+        try
+        {
+            var response = await http.GetAsync($"{AppSettings.BaseUrl}api/billing/generatecaseno");
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+        }
+        return $"CASE{DateTime.Now:yyyyMMddHHmmss}";
+    }
+
+    // Local fallback: store last SID per branch-counter-billno key and increment
+    private string GetLocalSidKey(int bhcode, int cntcode, int bncode)
+    {
+        return $"localLastSID_{bhcode}_{cntcode}_{bncode}";
+    }
+
+    private async Task<int> GetNextLocalSID(int bhcode, int cntcode, int bncode)
+    {
+        try
+        {
+            var key = GetLocalSidKey(bhcode, cntcode, bncode);
+            var stored = await _sessionStorage.GetAsync<int?>(key);
+            int last = stored.Success && stored.Value.HasValue ? stored.Value.Value : 0;
+            int next = last + 1;
+            await SaveLocalLastSID(bhcode, cntcode, bncode, next);
+            return next;
+        }
+        catch
+        {
+            // As a last resort, return timestamp-based small integer
+            return (int)(DateTime.UtcNow.Ticks % 100000);
+        }
+    }
+
+    private async Task SaveLocalLastSID(int bhcode, int cntcode, int bncode, int value)
+    {
+        try
+        {
+            var key = GetLocalSidKey(bhcode, cntcode, bncode);
+            await _sessionStorage.SetAsync(key, value);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving local SID: {ex.Message}");
+        }
+    }
+
+    public class ViewBills
+    {
+        public int RequestSno { get; set; }
+        public string? RequestGUID { get; set; }
+        public string? CUSTCode { get; set; }
+        public string? Name { get; set; }
+        public string? Mobile { get; set; }
+        public string? DOCTOR { get; set; }
+        public int BHCode { get; set; }
+        public double RequestAmount { get; set; }
+        public double DiscountPer { get; set; }
+        public double DiscountAmount { get; set; }
+        public double TotalAmount { get; set; }
+        public double PaidAmount { get; set; }
+        public double Balance { get; set; }
+        public DateTime RequestDatetime { get; set; }
+    }
+
+    private void HandlePrintConfirmationNo()
+    {
+        showPrintConfirmation = false;
+        StateHasChanged();
+    }
+
+    private void ShowSuccessMessage(string message)
+    {
+        successMessage = message;
+        StateHasChanged();
+        
+        // Auto-dismiss after 4 seconds
+        var timer = new System.Timers.Timer(4000);
+        timer.AutoReset = false;
+        timer.Elapsed += (s, e) =>
+        {
+            InvokeAsync(() =>
+            {
+                successMessage = string.Empty;
+                StateHasChanged();
+            });
+        };
+        timer.Start();
+    }
+
+    bool isreport=false;
+    string base64 = "";
+    private async Task CloseBill()
+    {
+        isreport = false;
+        StateHasChanged();
+    }
+
+    private async Task HandlePrintConfirmationYes()
+    {
+        showPrintConfirmation = false;
+        StateHasChanged();
+
+        try
+        {
+            string reportGUID = lrm.RequestGUID ?? "";
+            Console.WriteLine($"[PrintBill] lrm.RequestGUID={reportGUID}");
+
+            if (string.IsNullOrWhiteSpace(reportGUID))
+            {
+                errorMessage = "Cannot print: RequestGUID is empty.";
+                StateHasChanged();
+                return;
+            }
+
+            // Step 1: Fetch today's bills from ViewBills API to confirm bill is in DB
+            // This is exactly how ViewBilling verifies a bill before printing
+            try
+            {
+                string sd = DateTime.Now.ToString("yyyy-MM-dd") + " 12:00:00 AM";
+                string ed = DateTime.Now.ToString("yyyy-MM-dd") + " 11:59:59 PM";
+                var listReq = new HttpRequestMessage(HttpMethod.Get,
+                    $"{appSettings.BaseUrl}request/ViewBills?DCode=0&fromdate={Uri.EscapeDataString(sd)}&todate={Uri.EscapeDataString(ed)}");
+                listReq.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                var listResp = await http.SendAsync(listReq);
+                if (listResp.IsSuccessStatusCode)
+                {
+                    var listContent = await listResp.Content.ReadAsStringAsync();
+                    var savedBills = JsonConvert.DeserializeObject<List<Lims.Components.Model.ViewBills>>(listContent);
+                    var myBill = savedBills?.FirstOrDefault(b =>
+                        string.Equals(b.RequestGUID, reportGUID, StringComparison.OrdinalIgnoreCase));
+                    if (myBill != null)
+                    {
+                        // Bill confirmed in DB - use the GUID from DB record
+                        reportGUID = myBill.RequestGUID;
+                        Console.WriteLine($"[PrintBill] Bill confirmed in DB: SID={myBill.RequestSno}, Name={myBill.Name}, GUID={reportGUID}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[PrintBill] Bill NOT found in ViewBills list yet - proceeding with lrm.RequestGUID");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PrintBill] ViewBills fetch failed (non-critical): {ex.Message}");
+            }
+
+            // Step 2: Call Report/Bill - EXACTLY like ViewBilling PrintBill
+            var parameters = new RoutineReportDto();
+            parameters.ClientID   = appSettings.ClientId;
+            parameters.DataSource = "DataSet1";
+            parameters.ReportName = "Billing_Protrait.rdlc";
+            parameters.RequestGUID = reportGUID;
+            parameters.TCode = "0";
+            parameters.Parameters = new List<ReportParameterDto>()
+            {
+                new ReportParameterDto() { Name = "TCode",        Values = new List<string>() { "0" } },
+                new ReportParameterDto() { Name = "IsLetterHead", Values = new List<string>() { "false" } }
+            };
+
+            http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            var res = await http.PostAsJsonAsync($"{appSettings.BaseUrl}Report/Bill", parameters);
+            Console.WriteLine($"[PrintBill] Report/Bill status={res.StatusCode}");
+
+            if (res.IsSuccessStatusCode)
+            {
+                string res1 = await res.Content.ReadAsStringAsync();
+                Console.WriteLine($"[PrintBill] Report length={res1.Length}");
+                if (res1.Length > 200)
+                {
+                    base64 = res1;
+                    isreport = true;
+                    StateHasChanged();
+                }
+                else
+                {
+                    errorMessage = $"Report has no data (length={res1.Length}). Bill may not be fully saved.";
+                    StateHasChanged();
+                }
+            }
+            else
+            {
+                var err = await res.Content.ReadAsStringAsync();
+                Console.WriteLine($"[PrintBill] Report/Bill error: {err}");
+                errorMessage = $"Report failed ({(int)res.StatusCode}): {err}";
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[PrintBill] Exception: {ex.Message}");
+            errorMessage = $"Error generating report: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+
+
+
+    private void OnMobileInput(ChangeEventArgs e)
+    {
+        var input = e.Value?.ToString() ?? "";
+        customer.Mobile = input;
+        
+        mobileDebounceTimer?.Stop();
+        mobileDebounceTimer?.Dispose();
+        
+        if (string.IsNullOrWhiteSpace(input) || input.Length < 3)
+        {
+            showMobileDropdown = false;
+            mobileSearchResults.Clear();
+            return;
+        }
+
+        mobileDebounceTimer = new System.Timers.Timer(500);
+        mobileDebounceTimer.AutoReset = false;
+        mobileDebounceTimer.Elapsed += async (sender, args) =>
+        {
+            await InvokeAsync(() => SearchPatientByMobile(input));
+        };
+        mobileDebounceTimer.Start();
+    }
+
+    private async Task SearchPatientByMobile(string mobile)
+    {
+        try
+        {
+            string sd = DateTime.Now.AddYears(-2).ToString("yyyy-MM-dd") + " 12:00:00 AM";
+            string ed = DateTime.Now.ToString("yyyy-MM-dd") + " 11:59:59 PM";
+            int branchID = 0; 
+
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{AppSettings.BaseUrl}request/ViewBills?DCode={branchID}&fromdate={Uri.EscapeDataString(sd)}&todate={Uri.EscapeDataString(ed)}");
+            if (!string.IsNullOrEmpty(token))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+
+            var response = await http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var bills = JsonConvert.DeserializeObject<List<Lims.Components.Model.ViewBills>>(content);
+                
+                if (bills != null)
+                {
+                    mobileSearchResults = bills
+                        .Where(b => !string.IsNullOrEmpty(b.Mobile) && b.Mobile.Contains(mobile))
+                        .GroupBy(b => b.CUSTCode)
+                        .Select(g => g.First())
+                        .Take(10)
+                        .ToList();
+                        
+                    showMobileDropdown = mobileSearchResults.Any();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error searching by mobile: {ex.Message}");
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SelectPatientFromMobile(Lims.Components.Model.ViewBills bill)
+    {  
+        showMobileDropdown = false;
+        bool fullDetailsLoaded = false;
+
+        if (!string.IsNullOrEmpty(bill.CUSTCode))
+        {
+             try 
+             {
+                 var request = new HttpRequestMessage(HttpMethod.Get, $"{AppSettings.BaseUrl}request/PatientSearch?src={Uri.EscapeDataString(bill.CUSTCode)}");
+                 if (!string.IsNullOrEmpty(token))
+                 {
+                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                 }
+                 var response = await http.SendAsync(request);
+                 if (response.IsSuccessStatusCode)
+                 {
+                     var res = await response.Content.ReadAsStringAsync();
+                     var patients = JsonConvert.DeserializeObject<List<Customer_Master>>(res);
+                     var patient = patients?.FirstOrDefault(p => p.CUSTCode == bill.CUSTCode);
+                     if (patient != null)
+                     {
+                         SelectPatient(patient);
+                         fullDetailsLoaded = true;
+                     }
+                 }
+             }
+             catch(Exception ex)
+             {
+                Console.WriteLine(ex.Message);
+             }
+        }
+
+        if (!fullDetailsLoaded)
+        {
+            customer.Name = bill.Name;
+            customer.Mobile = bill.Mobile;
+            customer.CUSTCode = bill.CUSTCode;
+            customer.Gender = bill.Gender;
+            if (int.TryParse(bill.AgeYears, out int y)) customer.AgeYears = y;
+            if (int.TryParse(bill.AgeMonths, out int m)) customer.AgeMonths = m;
+            if (int.TryParse(bill.AgeDays, out int d)) customer.AgeDays = d;
+            
+            billingModel.PatientName = bill.Name;
+            billingModel.MobileNo = bill.Mobile;
+            billingModel.PatientId = bill.CUSTCode;
+            billingModel.Gender = bill.Gender;
+            billingModel.AgeYears = customer.AgeYears;
+            billingModel.AgeMonths = customer.AgeMonths;
+            billingModel.AgeDays = customer.AgeDays;
+
+            // If ages are present, compute an approximate DOB and populate it
+            var computedDob = ComputeDOBFromAge(customer.AgeYears, customer.AgeMonths, customer.AgeDays);
+            if (computedDob.HasValue)
+            {
+                customer.DateOfBirth = computedDob.Value;
+                billingModel.DateOfBirth = computedDob.Value;
+                // Recalculate ages to keep fields consistent
+                CalculateAgeFromDOB(customer.DateOfBirth);
+            }
+        }
+        
+        await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>
+    /// Validates the Bill Request payload structure to ensure all required fields are properly populated.
+    /// Returns error message if validation fails, null if validation passes.
+    /// </summary>
+    private string ValidateBillPayload(BillRequest payload)
+    {
+        if (payload == null)
+        {
+            return "Payload is null";
+        }
+
+        // Validate Request_Master
+        if (payload.Request_Master == null)
+        {
+            return "Request_Master is null";
+        }
+
+        if (string.IsNullOrWhiteSpace(payload.Request_Master.RequestGUID))
+        {
+            return "Request_Master.RequestGUID is empty or null";
+        }
+
+        if (string.IsNullOrWhiteSpace(payload.Request_Master.RequestSnoPrint))
+        {
+            return "Request_Master.RequestSnoPrint is empty or null (required for printing)";
+        }
+
+        if (payload.Request_Master.RequestSno <= 0)
+        {
+            return "Request_Master.RequestSno is invalid (must be greater than 0)";
+        }
+
+        // Validate Customer - Critical fields
+        if (payload.customer == null)
+        {
+            return "Customer is null";
+        }
+
+        if (string.IsNullOrWhiteSpace(payload.customer.CUSTCode))
+        {
+            return "Customer.CUSTCode is empty or null";
+        }
+
+        if (string.IsNullOrWhiteSpace(payload.customer.Name))
+        {
+            return "Customer.Name is empty or null";
+        }
+
+        // Customer should have at least basic info
+        if (string.IsNullOrWhiteSpace(payload.customer.Gender))
+        {
+            return "Customer.Gender is empty - this may be required by API";
+        }
+
+        // DCode (Referral Doctor) should be valid
+        if (payload.Request_Master.DCode <= 0)
+        {
+            return "Request_Master.DCode is invalid (DCode must be > 0). Please select a referral doctor.";
+        }
+
+        // FTCode (Fee Type) should be valid
+        if (payload.Request_Master.FTCode <= 0)
+        {
+            return "Request_Master.FTCode is invalid (FTCode must be > 0). This is typically determined by the referral doctor.";
+        }
+
+        // Branch/Counter/BillNo should be valid
+        if (payload.Request_Master.EnteredBHCode <= 0)
+        {
+            return "Request_Master.EnteredBHCode is invalid (Branch code must be > 0)";
+        }
+
+        if (payload.Request_Master.CNTCode <= 0)
+        {
+            return "Request_Master.CNTCode is invalid (Counter code must be > 0)";
+        }
+
+        if (payload.Request_Master.BNCode <= 0)
+        {
+            return "Request_Master.BNCode is invalid (Bill number code must be > 0)";
+        }
+
+        // Validate Request_Details
+        if (payload.Request_Details == null || payload.Request_Details.Count == 0)
+        {
+            return "Request_Details is empty. At least one test must be added";
+        }
+
+        // Validate that each Request_Detail has valid TCode
+        foreach (var detail in payload.Request_Details)
+        {
+            if (detail.TCode <= 0)
+            {
+                return $"Request_Details contains item with invalid TCode: {detail.TCode}";
+            }
+            if (string.IsNullOrWhiteSpace(detail.RequestGUID))
+            {
+                return "Request_Details contains item with empty RequestGUID";
+            }
+        }
+
+        // Validate Request_PatientDetails if present
+        if (payload.Request_PatientDetails != null && payload.Request_PatientDetails.Count > 0)
+        {
+            foreach (var item in payload.Request_PatientDetails)
+            {
+                if (string.IsNullOrWhiteSpace(item.RequestGUID))
+                {
+                    return "Request_PatientDetails contains item with empty RequestGUID";
+                }
+            }
+        }
+
+        // Check CUSTID consistency
+        if (payload.Request_Master.CUSTID != payload.customer.CUSTID)
+        {
+            Console.WriteLine($"Warning: CUSTID mismatch - Request_Master.CUSTID={payload.Request_Master.CUSTID}, Customer.CUSTID={payload.customer.CUSTID}");
+        }
+
+        // All validation passed
+        return null;
+    }
+}

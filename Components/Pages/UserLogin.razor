@@ -1,0 +1,38 @@
+﻿@rendermode InteractiveServer
+
+@using Lims.Components.Data
+@inject CustomAuthStateProvider AuthProvider
+@inject NavigationManager Nav
+@using Lims.Components.Model
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject ProtectedSessionStorage _sessionStorage
+
+@code {
+    private int userCode;
+    string username;
+    protected override async Task OnAfterRenderAsync(bool first)
+    {
+        if (first)
+        {
+           
+
+            var auth = await _sessionStorage.GetAsync<UserAuth>("claim");
+
+            var token = auth.Success ? auth.Value : null;
+            if (token == null )
+            {
+                // Redirect to login page
+                Nav.NavigateTo("/"); // true forces reload
+                return;
+            }
+            else
+            {
+                username = auth.Value.Name;
+            }
+
+        }
+
+
+
+    }
+}

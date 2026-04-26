@@ -1,0 +1,870 @@
+@page "/prenatalmaster"
+@using LIMS.Model
+@using System.Collections.ObjectModel
+@using System.Net.Http.Headers
+@using Lims.Components.Data
+@using Newtonsoft.Json
+@* @rendermode @(new InteractiveServerRenderMode(prerender:false)) *@
+@rendermode InteractiveServer
+@using Lims.Components.Model
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.RichTextEditor
+@using Syncfusion.Blazor.DropDowns
+@using Syncfusion.Blazor.Grids
+@inject HttpClient http
+@inject AppSettings AppSettings
+@inject ProtectedSessionStorage _sessionStorage
+@inject Data.ApiData _apiData
+@inject Lims.Components.Data.NotificationService NotificationService
+@inject ExecutionClass exe
+<div class="page-header">
+    <div class="page-header-title">
+        <i class="bi bi-heart-pulse"></i>
+        <span>PreNatal Master</span>
+    </div>
+    <div class="page-header-accent"></div>
+</div>
+
+
+<div class="container-fluid">
+    <EditForm Model="pntm" >
+        <div class="row mb-3">
+            <div class="col-md-6" style="position: relative;">
+                <label class="form-label" style="font-weight:600; color: var(--text-label);">
+                    <i class="bi bi-ui-checks" style="margin-right:6px;"></i> Select Test
+                </label>
+
+                <div class="position-relative">
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="text" class="form-control" placeholder="Search and select a test..."
+                               value="@searchtest" @oninput="@(e => OnInputChanged(e, "Test"))" style="flex: 1;" />
+                        @if (!string.IsNullOrWhiteSpace(searchtest))
+                        {
+                            <button type="button" class="btn btn-outline-danger" title="Clear" @onclick="ClearTestSelection" style="padding: 0.375rem 0.75rem;">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        }
+                    </div>
+                    
+                    @if (tm != null && tm.Any())
+                    {
+                        <div class="list-group position-absolute w-100 shadow" style="z-index: 1050; max-height: 250px; overflow-y: auto;">
+                            @foreach (var test in tm)
+                            {
+                                <button type="button" class="list-group-item list-group-item-action" @onclick="@(() => SelectTestItem(test, "Test"))">
+                                    @test.Name
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="row">
+          <div class="col">
+    <label style="display:flex; align-items:center; gap:6px;">
+        <i class="bi bi-gear-fill" style="color: var(--brand-accent); font-size: 18px;"></i>
+        Method
+    </label>
+    <SfRichTextEditor  CssClass="form-control" @bind-Value="pntm.Method">
+        <RichTextEditorToolbarSettings Items="@exe.Tools"></RichTextEditorToolbarSettings>
+    </SfRichTextEditor>
+</div>
+
+         <div class="col">
+    <label style="display:flex; align-items:center; gap:6px;">
+        <i class="bi bi-journal-text" style="color: var(--brand-accent); font-size: 18px;"></i>
+        Interpretation
+    </label>
+    <SfRichTextEditor CssClass="form-control" @bind-Value="pntm.Interpretation">
+                    <RichTextEditorToolbarSettings Items="@exe.Tools"></RichTextEditorToolbarSettings>
+    </SfRichTextEditor>
+</div>
+
+        </div>
+        
+   <div class="row">
+    <div class="col">
+        <label style="display:flex; align-items:center; gap:6px;">
+            <i class="bi bi-chat-dots" style="color: var(--brand-accent); font-size: 18px;"></i>
+            Comments
+        </label>
+        <SfRichTextEditor CssClass="form-control" @bind-Value="pntm.Comments">
+                    <RichTextEditorToolbarSettings Items="@exe.Tools"></RichTextEditorToolbarSettings>
+        </SfRichTextEditor>
+    </div>
+
+    <div class="col">
+        <label style="display:flex; align-items:center; gap:6px;">
+            <i class="bi bi-shield-exclamation" style="color: var(--brand-accent); font-size: 18px;"></i>
+            Disclaimer
+        </label>
+        <SfRichTextEditor CssClass="form-control" @bind-Value="pntm.Disclaimer">
+                    <RichTextEditorToolbarSettings Items="@exe.Tools"></RichTextEditorToolbarSettings>
+        </SfRichTextEditor>
+    </div>
+</div>
+        <div class="row">
+            <div class="col">
+                <label style="display:flex; align-items:center; gap:6px;">
+                    <i class="bi bi-chat-dots" style="color: var(--brand-accent); font-size: 18px;"></i>
+                    Abnormal
+                </label>
+                <SfRichTextEditor CssClass="form-control" @bind-Value="pntm.Abnormal">
+                    <RichTextEditorToolbarSettings Items="@exe.Tools"></RichTextEditorToolbarSettings>
+                </SfRichTextEditor>
+            </div>
+
+            <div class="col">
+                <label style="display:flex; align-items:center; gap:6px;">
+                    <i class="bi bi-shield-exclamation" style="color: var(--brand-accent); font-size: 18px;"></i>
+                    Normal
+                </label>
+                <SfRichTextEditor CssClass="form-control" @bind-Value="pntm.Normal">
+                    <RichTextEditorToolbarSettings Items="@exe.Tools"></RichTextEditorToolbarSettings>
+                </SfRichTextEditor>
+            </div>
+        </div>
+
+        @* <div class="row mt-3">
+            <div class="col text-end">
+                <button type="button" class="btn btn-success" @onclick="SaveData" disabled="@isSaving">
+                    @if (isSaving)
+                    {
+                        <span class="loading-spinner"></span>
+                        <span>Saving...</span>
+                    }
+                    else
+                    {
+                        <span>Save Data</span>
+                    }
+                </button>
+            </div>
+        </div> *@
+    </EditForm>
+<div class="card-container">
+    <EditForm Model="@ptrm1" OnSubmit="@SaveMaster">
+        <DataAnnotationsValidator />
+
+        <!-- Heading Line -->
+     <div class="form-header">
+    <i class="bi bi-flask"></i>
+    Result Table Entry
+</div>
+
+<div class="row">
+                <div class="col">
+                    <label style="display:flex; align-items:center; gap:6px;">
+                        <i class="bi bi-droplet-half" style="color: var(--brand-accent); font-size: 16px;"></i>
+                        Title
+                    </label>
+                    <input type="text" class="form-control" @bind="@ptrm1.Title" />
+                    <ValidationMessage For="@(() => ptrm1.Title)" />
+                </div>
+    <div class="col">
+        <label style="display:flex; align-items:center; gap:6px;">
+            <i class="bi bi-droplet-half" style="color: var(--brand-accent); font-size: 16px;"></i>
+            Biochemical Marker
+        </label>
+        <input type="text" class="form-control" @bind="@ptrm1.BiochemicalMarker" />
+      
+    </div>
+
+    <div class="col">
+        <label style="display:flex; align-items:center; gap:6px;">
+            <i class="bi bi-graph-up" style="color: var(--brand-accent); font-size: 16px;"></i>
+            Concentration
+        </label>
+        <input type="text" class="form-control" @bind="@ptrm1.Concentration" />
+    </div>
+
+    <div class="col">
+        <label style="display:flex; align-items:center; gap:6px;">
+            <i class="bi bi-rulers" style="color: var(--brand-accent); font-size: 16px;"></i>
+            Unit
+        </label>
+        <input type="text" class="form-control" @bind="@ptrm1.Unit" />
+    </div>
+
+    <div class="col">
+        <label style="display:flex; align-items:center; gap:6px;">
+            <i class="bi bi-bar-chart-line" style="color: var(--brand-accent); font-size: 16px;"></i>
+            Corr.MOM
+        </label>
+        <input type="text" class="form-control" @bind="@ptrm1.CorrMOM" />
+    </div>
+
+    <div class="col">
+        <label style="display:flex; align-items:center; gap:6px;">
+            <i class="bi bi-activity" style="color: var(--brand-accent); font-size: 16px;"></i>
+            Disorder
+        </label>
+        <input type="text" class="form-control" @bind="@ptrm1.Disorder" />
+    </div>
+
+    <div class="col">
+        <label style="display:flex; align-items:center; gap:6px;">
+            <i class="bi bi-clipboard-data" style="color: var(--brand-accent); font-size: 16px;"></i>
+            Risk Value
+        </label>
+        <input type="text" class="form-control" @bind="@ptrm1.RiskValue" />
+    </div>
+
+    <div class="col">
+        <label style="display:flex; align-items:center; gap:6px;">
+            <i class="bi bi-scissors" style="color: var(--brand-accent); font-size: 16px;"></i>
+            Cut Off
+        </label>
+        <input type="text" class="form-control" @bind="@ptrm1.CutOff" />
+    </div>
+
+    <div class="col">
+        <label style="display:flex; align-items:center; gap:6px;">
+            <i class="bi bi-shield-check" style="color: var(--brand-accent); font-size: 16px;"></i>
+            Final Risk
+        </label>
+        <input type="text" class="form-control" @bind="@ptrm1.FinalRisk" />
+    </div>
+               
+                <div class="col">
+                    <label style="display:flex; align-items:center; gap:6px;">
+                        <i class="bi bi-shield-check" style="color: var(--brand-accent); font-size: 16px;"></i>
+                        Range Type
+                    </label>
+                    <select @bind="ptrm1.RangeType" class="form-control">
+                        <option value="-">Between</option>
+                        <option value=">">Less than</option>
+                        <option value=">=">Less than Equal to</option>
+                        <option value="<">More than</option>
+                        <option value="<=">More than Equla to</option>
+                     </select>
+
+                </div>
+
+                  <div class="col">
+                    <label style="display:flex; align-items:center; gap:6px;">
+                        <i class="bi bi-shield-check" style="color: var(--brand-accent); font-size: 16px;"></i>
+                        Range From
+                    </label>
+                    <input type="text" class="form-control" @bind="@ptrm1.RangeFrom" />
+                  </div>
+
+                <div class="col">
+                    <label style="display:flex; align-items:center; gap:6px;">
+                        <i class="bi bi-shield-check" style="color: var(--brand-accent); font-size: 16px;"></i>
+                       Range To
+                    </label>
+                    <input type="text" class="form-control" @bind="@ptrm1.RangeTo" />
+                </div>
+                <div class="col">
+                    <label style="display:flex; align-items:center; gap:6px;">
+                        <i class="bi bi-shield-check" style="color: var(--brand-accent); font-size: 16px;"></i>
+                        Method
+                    </label>
+                    <input type="text" @bind="@ptrm1.Method"></input>
+                </div>
+                <div class="col">
+                    <label style="display:flex; align-items:center; gap:6px;">
+                        <i class="bi bi-shield-check" style="color: var(--brand-accent); font-size: 16px;"></i>
+                        Low Message
+                    </label>
+                    <SfRichTextEditor @bind-Value="@ptrm1.LowMessage">
+                        <RichTextEditorToolbarSettings Items="@exe.Tools"></RichTextEditorToolbarSettings>
+                    </SfRichTextEditor>
+                </div>
+                <div class="col">
+                    <label style="display:flex; align-items:center; gap:6px;">
+                        <i class="bi bi-shield-check" style="color: var(--brand-accent); font-size: 16px;"></i>
+                        High Message
+                    </label>
+                    <SfRichTextEditor @bind-Value="@ptrm1.HighMessage">
+                        <RichTextEditorToolbarSettings Items="@exe.Tools"></RichTextEditorToolbarSettings>
+                    </SfRichTextEditor>
+                </div>
+                <div class="col">
+                    <label style="display:flex; align-items:center; gap:6px;">
+                        <i class="bi bi-shield-check" style="color: var(--brand-accent); font-size: 16px;"></i>
+                        Normal Message
+                    </label>
+                    <SfRichTextEditor @bind-Value="@ptrm1.NormalMessage">
+                        <RichTextEditorToolbarSettings Items="@exe.Tools"></RichTextEditorToolbarSettings>
+                    </SfRichTextEditor>
+                </div>
+               
+    <div class="col d-flex align-items-end justify-content-center">
+        <button type="button" class="add-btn" @onclick="AddTestResult">
+            <i class="bi bi-plus-circle"></i> Add
+        </button>
+    </div>
+                <div class="col d-flex align-items-end justify-content-center">
+                    <button type="button" class="add-btn" @onclick="@(()=>ptrm1=new())">
+                        <i class="bi bi-plus-circle"></i> Clear
+                    </button>
+                </div>
+
+
+
+</div>
+
+<div style="display: flex; justify-content: flex-end;">
+    <button type="submit" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 1rem; font-size: 0.9rem; background: var(--brand-accent); color: white; border: none; border-radius: 20px; cursor: pointer; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); transition: all 0.2s;">
+        <i class="bi bi-save"></i> Save Configuration
+    </button>
+</div>
+
+   </EditForm>
+</div>
+
+
+    
+    <div class="row">
+        <div class="col">
+            
+   <SfGrid @ref="@grd1" DataSource="@ptrm" AllowPaging="true">
+    <GridColumns>
+        <GridColumn Field="@nameof(PreNatal_Test_Result_Master.BiochemicalMarker)" Width="150">
+            <HeaderTemplate>
+                <i class="bi bi-droplet-half" style="color: #fff; margin-right: 6px;"></i> Marker
+            </HeaderTemplate>
+        </GridColumn>
+
+              @*       <GridColumn Field="@nameof(PreNatal_Test_Result_Master.Concentration)" Width="120">
+            <HeaderTemplate>
+                <i class="bi bi-graph-up" style="color:#2f4356; margin-right:6px;"></i> Concentration
+            </HeaderTemplate>
+        </GridColumn> *@
+
+                    <GridColumn Field="@nameof(PreNatal_Test_Result_Master.Unit)" Width="80">
+            <HeaderTemplate>
+                <i class="bi bi-rulers" style="color: #fff; margin-right: 6px;"></i> Unit
+            </HeaderTemplate>
+        </GridColumn>
+
+                 @*    <GridColumn Field="@nameof(PreNatal_Test_Result_Master.CorrMOM)" Width="100">
+            <HeaderTemplate>
+                <i class="bi bi-bar-chart-line" style="color:#2f4356; margin-right:6px;"></i> Corr.MOM
+            </HeaderTemplate>
+        </GridColumn> *@
+
+                    <GridColumn Field="@nameof(PreNatal_Test_Result_Master.Disorder)" Width="120">
+            <HeaderTemplate>
+                <i class="bi bi-activity" style="color: #fff; margin-right: 6px;"></i> Disorder
+            </HeaderTemplate>
+        </GridColumn>
+
+                   @*  <GridColumn Field="@nameof(PreNatal_Test_Result_Master.RiskValue)" Width="120">
+            <HeaderTemplate>
+                <i class="bi bi-clipboard-data" style="color:#2f4356; margin-right:6px;"></i> Risk
+            </HeaderTemplate>
+        </GridColumn>
+
+                    <GridColumn Field="@nameof(PreNatal_Test_Result_Master.CutOff)" Width="100">
+            <HeaderTemplate>
+                <i class="bi bi-scissors" style="color:#2f4356; margin-right:6px;"></i> Cut Off
+            </HeaderTemplate>
+        </GridColumn>
+
+                    <GridColumn Field="@nameof(PreNatal_Test_Result_Master.FinalRisk)" Width="120">
+            <HeaderTemplate>
+                <i class="bi bi-shield-check" style="color:#2f4356; margin-right:6px;"></i> Final Risk
+            </HeaderTemplate>
+        </GridColumn> *@
+                    <GridColumn Field="@nameof(PreNatal_Test_Result_Master.RangeType)" Width="120">
+                        <HeaderTemplate>
+                             <i class="bi bi-shield-check" style="color: #fff; margin-right: 6px;"></i> Range Type
+                        </HeaderTemplate>
+                    </GridColumn>
+                    <GridColumn Field="@nameof(PreNatal_Test_Result_Master.RangeFrom)" Width="120">
+                        <HeaderTemplate>
+                             <i class="bi bi-shield-check" style="color: #fff; margin-right: 6px;"></i> Range From
+                        </HeaderTemplate>
+                    </GridColumn>
+                    <GridColumn Field="@nameof(PreNatal_Test_Result_Master.RangeTo)" Width="120">
+                        <HeaderTemplate>
+                             <i class="bi bi-shield-check" style="color: #fff; margin-right: 6px;"></i> Range To
+                        </HeaderTemplate>
+                    </GridColumn>
+
+                    <GridColumn HeaderText="Select" Width="90px">
+                        <Template>
+                            @{
+                                var dat = (context as PreNatal_Test_Result_Master);
+                            }
+                            <button type="button" class="btn-primary p-1" @onclick="@(()=>ptrm1=ptrm.Where(x=>x.PNTRID==dat.PNTRID).FirstOrDefault())" >Select</button>
+                        </Template>
+                    </GridColumn>
+                    <GridColumn HeaderText="Delete" Width="90px">
+                        <Template>
+                            @{
+                                var dat = (context as PreNatal_Test_Result_Master);
+                            }
+                            <button type="button" class="btn-danger p-1" @onclick="@(() => DeleteTest(dat.PNTRID))">Delete</button>
+                        </Template>
+                    </GridColumn>
+    </GridColumns>
+</SfGrid>
+
+        </div>
+    </div>
+</div>
+
+@code {
+    // Notification System
+    public enum NotificationType { Success, Error, Warning, Info }
+    SfGrid<PreNatal_Test_Result_Master> grd1;
+    public class Notification
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string Title { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public NotificationType Type { get; set; }
+        public bool IsRemoving { get; set; }
+        public Timer? AutoRemoveTimer { get; set; }
+    }
+
+    private List<Notification> notifications = new();
+
+    // Original code variables
+    IList<Test_Master> tm = new List<Test_Master>();
+    PreNatal_Test_Master pntm = new PreNatal_Test_Master();
+    string searchtest = string.Empty;
+    // private Syncfusion.Blazor.DropDowns.SfComboBox<string, Test_Master>? _testCombo;
+    PreNatal_Test_Result_Master ptrm1 = new PreNatal_Test_Result_Master();
+    IList<PreNatal_Test_Result_Master> ptrm = new List<PreNatal_Test_Result_Master>();
+    string token = string.Empty;
+    private System.Timers.Timer? debounceTimer;
+    private bool isSaving = false;
+
+
+    protected override async Task OnAfterRenderAsync(bool first)
+    {
+        if (first)
+        {
+            http.DefaultRequestHeaders.Add("X-Tenant-ID", AppSettings.ClientId);
+            debounceTimer = new System.Timers.Timer(10);
+            debounceTimer.Elapsed += async (s, e) => await OnDebounceTimerElapsed();
+            debounceTimer.AutoReset = false;
+
+            var tkn = await _sessionStorage.GetAsync<UserAuth>("claim");
+            if (tkn.Success && tkn.Value != null)
+            {
+                token = tkn.Value.token;
+            }
+
+            var savedDataResult = await _sessionStorage.GetAsync<PreNatalMasterData>("preNatalData");
+            if (savedDataResult.Success && savedDataResult.Value != null)
+            {
+                var savedData = savedDataResult.Value;
+                pntm = savedData.ptm ?? new();
+                ptrm = new List<PreNatal_Test_Result_Master>(savedData.ptrm ?? new List<PreNatal_Test_Result_Master>());
+                searchtest = tm.FirstOrDefault(t => t.TCode == pntm.TCode)?.Name ?? string.Empty;
+
+                if (savedData.ptrm?.Any() == true)
+                {
+                    ShowNotification("Session Restored", "Previous session data has been loaded successfully.", NotificationType.Info);
+                }
+            }
+            StateHasChanged();
+        }
+
+    }
+
+    // Enhanced Notification Methods
+    private void ShowNotification(string message, NotificationType type = NotificationType.Info, int autoRemoveSeconds = 5)
+    {
+        ShowNotification(string.Empty, message, type, autoRemoveSeconds);
+    }
+
+    private void ShowNotification(string title, string message, NotificationType type = NotificationType.Info, int autoRemoveSeconds = 5)
+    {
+        var notification = new Notification
+        {
+            Title = title,
+            Message = message,
+            Type = type
+        };
+
+        notifications.Add(notification);
+
+        if (autoRemoveSeconds > 0)
+        {
+            notification.AutoRemoveTimer = new Timer(async _ => await AutoRemoveNotification(notification.Id), 
+                null, autoRemoveSeconds * 1000, Timeout.Infinite);
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task AutoRemoveNotification(string notificationId)
+    {
+        var notification = notifications.FirstOrDefault(n => n.Id == notificationId);
+        if (notification != null)
+        {
+            notification.IsRemoving = true;
+            await InvokeAsync(StateHasChanged);
+
+            await Task.Delay(300); // Wait for animation
+
+            notifications.Remove(notification);
+            notification.AutoRemoveTimer?.Dispose();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task RemoveNotification(string notificationId)
+    {
+        var notification = notifications.FirstOrDefault(n => n.Id == notificationId);
+        if (notification != null)
+        {
+            notification.AutoRemoveTimer?.Dispose();
+            notification.IsRemoving = true;
+            await InvokeAsync(StateHasChanged);
+
+            await Task.Delay(300);
+
+            notifications.Remove(notification);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // Original code methods with enhanced notifications
+
+    private async Task SearchTests()
+    {
+        if (string.IsNullOrWhiteSpace(searchtest))
+        {
+            tm.Clear();
+        }
+        else
+        {
+            try
+            {
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{AppSettings.BaseUrl}request/SearchTest?testname={Uri.EscapeDataString(searchtest)}");
+                if (!string.IsNullOrEmpty(token))
+                {
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                }
+                var response = await http.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var res = await response.Content.ReadAsStringAsync();
+                    tm = JsonConvert.DeserializeObject<List<Test_Master>>(res) ?? new();
+
+                    if (!tm.Any())
+                    {
+                        ShowNotification("No tests found matching your search criteria.", NotificationType.Warning);
+                    }
+                    else
+                    {
+                        // Auto-show is handled by the UI based on tm.Any()
+                    }
+                }
+                else
+                {
+                    tm.Clear();
+                    ShowNotification("Error searching tests", "Please check your connection and try again.", NotificationType.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error searching tests: {ex.Message}");
+                tm.Clear();
+                ShowNotification("Search Failed", "An error occurred while searching for tests.", NotificationType.Error);
+            }
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SelectTestItem(Test_Master test, string type)
+    {
+        if (test == null) return;
+
+        pntm.TCode = test.TCode;
+        searchtest = test.Name;
+        tm.Clear();
+        //await PersistDataToSession();
+
+        var res = await http.GetAsync($"{AppSettings.BaseUrl}genetics/prenataltest?TCode={test.TCode}");
+        if(res.IsSuccessStatusCode)
+        {
+            var tt1 = await res.Content.ReadFromJsonAsync<PreNatalMasterData>();
+            pntm = tt1.ptm;
+            ptrm = tt1.ptrm;
+
+            if(ptrm!=null && ptrm.Count>0)
+            {
+                foreach(var it in ptrm)
+                {
+                    it.Method = it.Method ?? "";
+                    it.MachineCode = it.MachineCode ?? "";
+                }
+            }
+        }
+
+        ShowNotification("Test Selected", $"Selected: {test.Name}", NotificationType.Success, 3);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ClearTestSelection()
+    {
+        // Clear the test selection input
+        searchtest = string.Empty;
+        tm.Clear();
+        
+        // Clear the main form
+        pntm = new();
+        ptrm = new List<PreNatal_Test_Result_Master>();
+        
+        // Clear the result table entry form
+        ptrm1 = new();
+        
+        ShowNotification("Form Cleared", "Test selection and all forms have been cleared.", NotificationType.Info, 3);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnTestFiltering(Syncfusion.Blazor.DropDowns.FilteringEventArgs args)
+    {
+        args.PreventDefaultAction = true;
+        searchtest = args.Text; // Update search term
+
+        debounceTimer?.Stop();
+        debounceTimer?.Dispose();
+        debounceTimer = new System.Timers.Timer(300);
+        debounceTimer.AutoReset = false;
+        debounceTimer.Elapsed += async (_, __) => await InvokeAsync(SearchTests);
+        debounceTimer.Start();
+    }
+
+    private async Task OnTestSelected(Syncfusion.Blazor.DropDowns.ChangeEventArgs<string, Test_Master> args)
+    {
+        if (args.ItemData != null)
+        {
+            await SelectTestItem(args.ItemData, "Test");
+        }
+    }
+
+    private async Task OnInputChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e, string type)
+    {
+        searchtest = e.Value?.ToString() ?? string.Empty;
+        debounceTimer?.Stop();
+        debounceTimer?.Dispose();
+        debounceTimer = new System.Timers.Timer(300) { AutoReset = false };
+        debounceTimer.Elapsed += async (_, __) => await InvokeAsync(SearchTests);
+        debounceTimer.Start();
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e, string type)
+    {
+        // This method can be simplified or removed as SfComboBox handles keyboard navigation.
+    }
+
+    private async Task OnDebounceTimerElapsed()
+    {
+        await InvokeAsync(SearchTests);
+    }
+
+    public void Dispose()
+    {
+        debounceTimer?.Dispose();
+        foreach (var notification in notifications)
+        {
+            notification.AutoRemoveTimer?.Dispose();
+        }
+    }
+
+    private async Task PersistDataToSession()
+    {
+        var dataToSave = new PreNatalMasterData
+        {
+            ptm = pntm,
+            ptrm = ptrm.ToList()
+        };
+        await _sessionStorage.SetAsync("preNatalData", dataToSave);
+    }
+
+    private async Task AddTestResult()
+    {
+        // if (string.IsNullOrWhiteSpace(ptrm1.BiochemicalMarker))
+        // {
+        //     ShowNotification("Validation Error", "Biochemical Marker is required", NotificationType.Error);
+        //     return;
+        // }
+
+        // Use LINQ's FirstOrDefault to find an existing item by its unique ID.
+        var existingItem = ptrm.FirstOrDefault(x => x.PNTRID != Guid.Empty && x.PNTRID == ptrm1.PNTRID);
+
+        if (existingItem != null)
+        {
+            // Update existing item's properties
+            existingItem.Title = ptrm1.Title;
+            existingItem.BiochemicalMarker = ptrm1.BiochemicalMarker;
+            existingItem.Concentration = ptrm1.Concentration;
+            existingItem.Unit = ptrm1.Unit;
+            existingItem.CorrMOM = ptrm1.CorrMOM;
+            existingItem.Disorder = ptrm1.Disorder;
+            existingItem.RiskValue = ptrm1.RiskValue;
+            existingItem.CutOff = ptrm1.CutOff;
+            existingItem.FinalRisk = ptrm1.FinalRisk;
+            existingItem.RangeType = ptrm1.RangeType;
+            existingItem.RangeFrom = ptrm1.RangeFrom;
+            existingItem.RangeTo = ptrm1.RangeTo;
+            existingItem.Method = ptrm1.Method;
+            existingItem.LowMessage = ptrm1.LowMessage;
+            existingItem.HighMessage = ptrm1.HighMessage;
+            existingItem.NormalMessage = ptrm1.NormalMessage;
+            existingItem.MachineCode = "";
+            ShowNotification("Test Result Updated", "The entry has been updated successfully.", NotificationType.Success, 3);
+        }
+        else
+        {
+            // Add a new item
+            ptrm1.PNTRID = Guid.NewGuid();
+            ptrm.Add(new PreNatal_Test_Result_Master
+            {
+                PNTRID = ptrm1.PNTRID,
+                Title = ptrm1.Title ?? "",
+                BiochemicalMarker = ptrm1.BiochemicalMarker ?? "",
+                Concentration = ptrm1.Concentration ?? "",
+                Unit = ptrm1.Unit ?? "",
+                CorrMOM = ptrm1.CorrMOM ?? "",
+                Disorder = ptrm1.Disorder ?? "",
+                RiskValue = ptrm1.RiskValue ?? "",
+                CutOff = ptrm1.CutOff ?? "",
+                FinalRisk = ptrm1.FinalRisk ?? "",
+                RangeType = ptrm1.RangeType ?? "-",
+                RangeFrom = ptrm1.RangeFrom,
+                RangeTo = ptrm1.RangeTo,
+                Method = ptrm1.Method ?? "",
+                LowMessage = ptrm1.LowMessage ?? "",
+                HighMessage = ptrm1.HighMessage ?? "",
+                NormalMessage = ptrm1.NormalMessage ?? "",
+                MachineCode = ""
+            });
+            ShowNotification("Test Result Added", "The new entry has been added to the table.", NotificationType.Success, 3);
+        }
+
+        // Clear the form for the next entry
+        ptrm1 = new();
+        
+        // Refresh the grid and persist the session
+        grd1?.Refresh();
+        await PersistDataToSession();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SaveData()
+    {
+        if (pntm.TCode == 0)
+        {
+            ShowNotification("Validation Error", "Please select a test first.", NotificationType.Warning);
+            return;
+        }
+
+        if (!ptrm.Any())
+        {
+            ShowNotification("Validation Error", "Please add at least one test result.", NotificationType.Warning);
+            return;
+        }
+
+        isSaving = true;
+        ShowNotification("Saving Data", "Please wait while we save your data...", NotificationType.Info, 0);
+
+        try
+        {
+            var preNatalMasterData = new
+            {
+                pntm = this.pntm,
+                ptrm = this.ptrm.ToList()
+            };
+            var tt = JsonConvert.SerializeObject(preNatalMasterData);
+            var response = await _apiData.PostData("PreNatalTest/AddPreNatalTest", JsonConvert.SerializeObject(preNatalMasterData), token);
+
+            // Clear the "saving" notification
+            var savingNotification = notifications.FirstOrDefault(n => n.Message.Contains("Please wait while we save"));
+            if (savingNotification != null)
+            {
+                await RemoveNotification(savingNotification.Id);
+            }
+
+            if (response.Equals("Success", StringComparison.OrdinalIgnoreCase))
+            {
+                _ = NotificationService.ShowSuccess("Data has been saved successfully!");
+                ShowNotification("Success!", "Data has been saved successfully!", NotificationType.Success, 5);
+                pntm = new();
+                ptrm.Clear();
+                searchtest = string.Empty;
+                await _sessionStorage.DeleteAsync("preNatalData");
+            }
+            else
+            {
+                ShowNotification("Save Failed", $"Error: {response}", NotificationType.Error, 10);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowNotification("Unexpected Error", $"An error occurred while saving: {ex.Message}", NotificationType.Error, 10);
+        }
+        finally
+        {
+            isSaving = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+
+
+    private async Task SaveMaster(EditContext context)
+    {
+        pntm.Interpretation = pntm.Interpretation ?? "";
+        pntm.Abnormal = pntm.Abnormal ?? "";
+        pntm.Normal = pntm.Normal ?? "";
+        pntm.Comments=pntm.Comments??"";
+        pntm.Disclaimer = pntm.Disclaimer ?? "";
+
+        // Set PNCode for all test result masters
+        foreach (var item in ptrm)
+        {
+            item.PNCode = pntm.PNCode;
+        }
+
+        PreNatalMasterData preNatalMaster = new PreNatalMasterData
+        {
+            ptm = this.pntm,
+            ptrm = ptrm.ToList()
+        };
+        var tt = JsonConvert.SerializeObject(preNatalMaster);
+        var res = await http.PostAsJsonAsync($"{AppSettings.BaseUrl}Genetics/PrenatalMaster", preNatalMaster);
+        if (res.IsSuccessStatusCode)
+        {
+            var responseContent = await res.Content.ReadAsStringAsync();
+            _ = NotificationService.ShowSuccess("Data saved successfully!");
+            ShowNotification("Data saved successfully!", NotificationType.Success, 5);
+            pntm = new();
+            ptrm.Clear();
+            this.PersistDataToSession();
+        }
+        else
+        {
+            var errorContent = await res.Content.ReadAsStringAsync();
+            Console.WriteLine($"Error saving data: {res.StatusCode} - {errorContent}");
+            ShowNotification("Error saving data", $"Please try again later. Status: {res.StatusCode}", NotificationType.Error, 10);
+        }
+
+    }
+
+    private async Task DeleteTest(Guid tid)
+    {
+        var itemToRemove = ptrm.FirstOrDefault(x => x.PNTRID == tid);
+        if (itemToRemove != null)
+        {
+            ptrm.Remove(itemToRemove);
+            grd1?.Refresh(); // Refresh the grid to show the change
+            await PersistDataToSession();
+            _ = NotificationService.ShowSuccess("Entry removed successfully!");
+            ShowNotification("Entry Removed", "The selected entry has been removed.", NotificationType.Warning, 3);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+}

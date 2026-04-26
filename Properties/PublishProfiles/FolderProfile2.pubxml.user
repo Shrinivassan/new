@@ -1,0 +1,9 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- https://go.microsoft.com/fwlink/?LinkID=208121. -->
+<Project>
+  <PropertyGroup>
+    <_PublishTargetUrl>\\192.168.1.38\e\Hosting\BioTech</_PublishTargetUrl>
+    <History>True|2026-01-02T08:21:39.3833405Z||;False|2026-01-02T13:47:52.7532936+05:30||;True|2026-01-01T23:11:52.1022875+05:30||;False|2026-01-01T23:11:25.5327453+05:30||;False|2026-01-01T22:59:11.0148340+05:30||;True|2025-12-25T23:48:05.0505042+05:30||;True|2025-12-25T16:31:17.5801943+05:30||;True|2025-12-13T19:28:01.5432113+05:30||;True|2025-12-13T10:07:45.0322439+05:30||;</History>
+    <LastFailureDetails />
+  </PropertyGroup>
+</Project>

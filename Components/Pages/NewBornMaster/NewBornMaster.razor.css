@@ -1,0 +1,215 @@
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #ffffff;
+    padding: 8px 20px;
+    border-radius: 10px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+    position: relative;
+    overflow: hidden;
+    height: 48px;
+    border: 1px solid var(--border-color);
+}
+
+.page-header-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-primary) !important;
+    font-size: 1.15rem;
+    font-weight: 700;
+    z-index: 1;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.page-header-title i {
+    font-size: 1.4rem;
+    color: var(--brand-accent);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.05));
+}
+
+.page-header-accent {
+    position: absolute;
+    right: -25px;
+    top: -25px;
+    width: 120px;
+    height: 120px;
+    background: linear-gradient(135deg, var(--bg-hover), transparent);
+    border-radius: 50%;
+    z-index: 0;
+}
+
+[data-theme="dark"] .page-header {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .page-header-title {
+    color: var(--text-on-brand) !important;
+}
+
+[data-theme="dark"] .page-header-title i {
+    color: #fff;
+}
+
+[data-theme="dark"] .page-header-accent {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), transparent);
+}
+
+/* --- Form Layout & Sections --- */
+.form-section-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.editor-wrapper {
+    flex: 1;
+    min-width: 500px;
+}
+
+.form-label-styled {
+    font-weight: 600;
+    color: #333;
+}
+
+.form-label-styled i {
+    margin-right: 6px;
+}
+
+/* --- Test Selection --- */
+.test-selection-container {
+    position: relative;
+}
+
+/* --- Details Panel (Result Table Entry) --- */
+.details-panel {
+    margin-top: 20px;
+    padding: 15px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.details-header {
+    margin-bottom: 10px;
+}
+
+.details-actions-container {
+    display: flex;
+    align-items: end;
+    justify-content: center;
+}
+
+.details-save-container {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1rem;
+}
+
+/* --- Buttons --- */
+.btn-add {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background-color: #0d6efd;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.btn-add i {
+    font-size: 16px;
+}
+
+.btn-save {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 1rem;
+    font-size: 0.9rem;
+    background-color: #0d6efd;
+    color: white;
+    border: none;
+    border-radius: 0.25rem;
+    cursor: pointer;
+}
+
+.btn-edit {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background-color: #0d6efd;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 4px 10px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.btn-edit i {
+    font-size: 15px;
+}
+
+.btn-delete {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 4px 10px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.btn-delete i {
+    font-size: 15px;
+}
+
+/* --- Icon Colors --- */
+.icon-disclaimer {
+    color: #dc3545;
+}
+
+.icon-normal {
+    color: #28a745;
+}
+
+.icon-abnormal {
+    color: #dc3545;
+}
+
+/* --- Item Template in AutoComplete --- */
+.autocomplete-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 8px 12px;
+}
+
+.autocomplete-item-main {
+    display: flex;
+    flex-direction: column;
+}
+
+.autocomplete-item-name {
+    font-weight: 600;
+}
+
+.autocomplete-item-details {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
