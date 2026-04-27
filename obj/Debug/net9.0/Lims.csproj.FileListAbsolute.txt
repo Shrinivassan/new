@@ -1748,3 +1748,4 @@ C:\Users\iScanSoft1\source\repos\new-master\new-master\obj\Debug\net9.0\refint\L
 C:\Users\iScanSoft1\source\repos\new-master\new-master\obj\Debug\net9.0\Lims.pdb
 C:\Users\iScanSoft1\source\repos\new-master\new-master\obj\Debug\net9.0\Lims.genruntimeconfig.cache
 C:\Users\iScanSoft1\source\repos\new-master\new-master\obj\Debug\net9.0\ref\Lims.dll
+C:\Users\iScanSoft1\source\repos\new-master\new-master\obj\Debug\net9.0\Lims.sourcelink.json

@@ -114,10 +114,14 @@ namespace Lims.Components.Model
         public string SampleName { get; set; }
         [JsonProperty("unitName")]
         public string UnitName { get; set; }
+        [JsonProperty("defaultunitscode")]
+        public int DefaultUnitsCode { get; set; }
         [JsonProperty("run")]
         public string Run { get; set; }
         [JsonProperty("custCode")]
         public string CustCode { get; set; }
+        [JsonPropertyName("rtmCode")]
+        public int RTMCode { get; set; }  
     }
 
 

@@ -284,7 +284,8 @@
                                             }
                                         </td>
                                         <td class="re-edit-cell">
-                                            <select id="@($"txt-{rowIndex}-unit")" class="re-t-input" @bind="it.UnitName"
+                                            <select id="@($"txt-{rowIndex}-unit")" class="re-t-input" value="@it.UnitName"
+                                                    @onchange="@(e => OnUnitChanged(e, it))"
                                                     @onkeydown="@(e => HandleGridKeydown(e, rowIndex, "unit"))" disabled="@(!canEditResults)">
                                                 <option value=""></option>
                                                 @foreach (var u in uom)
@@ -421,6 +422,10 @@
                                         <label class="re-label">Units</label>
                                         <select class="re-select" @bind="SelectedUnit">
                                             <option value=""></option>
+                                            @foreach (var u in uom)
+                                            {
+                                                <option value="@u.Name">@u.Name</option>
+                                            }
                                         </select>
                                     </div>
                                     @if (ResultType != "Text")
@@ -464,7 +469,11 @@
                             <div class="re-form-group">
                                 <label class="re-label">Method</label>
                                 <select class="re-select" @bind="SelectedMethod">
-                                    <option value=""></option>
+                                    <option value="0"></option>
+                                    @foreach (var m in method)
+                                    {
+                                        <option value="@m.RTMCode">@m.Name</option>
+                                    }
                                 </select>
                             </div>
 
@@ -545,7 +554,7 @@
                     <select class="re-select" style="flex-grow: 1;" @bind="BottomSample">
                         <option value=""></option>
                     </select>
-                    <button class="re-btn-update">Update</button>
+                    <button class="re-btn-update" @onclick="UpdateRowSettings">Update</button>
                 </div>
             </div>
         }
@@ -660,7 +669,13 @@
                 </div>
                 <div class="re-rd-field">
                     <span class="re-label">Unit</span>
-                    <input type="text" class="re-input" @bind="SelectedRowEntry.UnitName" />
+                    <select class="re-select" @bind="SelectedRowEntry.UnitName">
+                        <option value=""></option>
+                        @foreach (var u in uom)
+                        {
+                            <option value="@u.Name">@u.Name</option>
+                        }
+                    </select>
                 </div>
                 <div class="re-rd-field">
                     <span class="re-label">Machine Name</span>
@@ -1074,6 +1089,7 @@
         PrintResultsOnly = row.SimpleNV;
         SelectedUnit = row.UnitName;
         NormalValueText = row.NormalValue;
+        SelectedMethod = row.RTMCode.ToString();
 
         // Populate modal signatures
         modalEnt = usermaster.FirstOrDefault(x => x.UserCode == row.ResultEnteredBy)?.Name ?? (row.ResultEnteredBy == 1 ? "Admin" : "");
@@ -1195,6 +1211,29 @@
         IsDetailedNormalValuesVisible = !IsDetailedNormalValuesVisible;
     }
 
+    private void UpdateRowSettings()
+    {
+        if (SelectedRowEntry == null) return;
+        
+        SelectedRowEntry.ResultValueType = ResultType;
+        SelectedRowEntry.EnteredResult = ResultText;
+        SelectedRowEntry.ResultHigh = (AlertType == "High");
+        SelectedRowEntry.ResultLow = (AlertType == "Low");
+        SelectedRowEntry.ResultNormal = (AlertType == "Normal");
+        SelectedRowEntry.SimpleNV = PrintResultsOnly;
+        SelectedRowEntry.UnitName = SelectedUnit;
+        SelectedRowEntry.NormalValue = NormalValueText;
+        
+        if (int.TryParse(SelectedMethod, out int rtmCode))
+        {
+            SelectedRowEntry.RTMCode = rtmCode;
+        }
+
+        // Close panel after update
+        IsDetailedNormalValuesVisible = false;
+        StateHasChanged();
+    }
+
     private readonly string[] gridColumns = { "col2", "run", "result", "unit", "normal", "machine", "sample" };
 
     private async Task HandleGridKeydown(KeyboardEventArgs e, int rowIndex, string colName)
@@ -1226,6 +1265,20 @@
 
         await RunCalculations();
         UpdateUserNames(); // Reflect name change in footer immediately
+    }
+
+    private void OnUnitChanged(ChangeEventArgs e, LabResultEntry item)
+    {
+        item.UnitName = e.Value?.ToString() ?? "";
+        var selectedUom = uom.FirstOrDefault(x => x.Name == item.UnitName);
+        if (selectedUom != null)
+        {
+            item.DefaultUnitsCode = selectedUom.UCode;
+        }
+        else
+        {
+            item.DefaultUnitsCode = 0;
+        }
     }
 
     private async Task RunCalculations()
@@ -1878,6 +1931,14 @@
                 row.ResultStatus = !string.IsNullOrWhiteSpace(row.EnteredResult?.Trim());
 
                 if (string.IsNullOrEmpty(row.DefaultUnitValue)) row.DefaultUnitValue = row.UnitName ?? "";
+                
+                // Sync DefaultUnitsCode from UnitName to ensure they are always consistent
+                if (!string.IsNullOrEmpty(row.UnitName))
+                {
+                    var unit = uom.FirstOrDefault(x => x.Name == row.UnitName);
+                    if (unit != null) row.DefaultUnitsCode = unit.UCode;
+                }
+
                 if (string.IsNullOrEmpty(row.MachineName)) row.MachineName = "Manual";
                 
                 row.EnteredResult ??= "";
