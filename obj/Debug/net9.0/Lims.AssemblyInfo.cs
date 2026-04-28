@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Lims")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e3f9a563708f3752f95be606a3f32dccbca3e42f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f9d8a232ec1d4c4327c21e6da601c2a2ea469133")]
 [assembly: System.Reflection.AssemblyProductAttribute("Lims")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Lims")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -120,8 +120,19 @@ namespace Lims.Components.Model
         public string Run { get; set; }
         [JsonProperty("custCode")]
         public string CustCode { get; set; }
+        [JsonProperty("rtmCode")]
         [JsonPropertyName("rtmCode")]
-        public int RTMCode { get; set; }  
+        public int RTMCode { get; set; }
+        [JsonProperty("reportingMethod")]
+        public string ReportingMethod { get; set; }
+        [JsonProperty("normalValues")]
+        public string NormalValues { get; set; }
+    }
+
+    public class TestResultDetailsModel
+    {
+        [JsonProperty("properties")]
+        public List<LabResultEntry> Properties { get; set; }
     }
 
 

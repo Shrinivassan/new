@@ -1055,7 +1055,9 @@
             if (res.IsSuccessStatusCode)
             {
                 var tt = await res.Content.ReadAsStringAsync();
-                var detailedRow = JsonConvert.DeserializeObject<LabResultEntry>(tt);
+                var detailedData = JsonConvert.DeserializeObject<TestResultDetailsModel>(tt);
+                var detailedRow = detailedData?.Properties?.FirstOrDefault();
+                
                 if (detailedRow != null)
                 {
                     // Update our row reference with fetched details
@@ -1068,6 +1070,9 @@
                     row.UnitName = detailedRow.UnitName ?? row.UnitName;
                     row.MachineName = detailedRow.MachineName ?? row.MachineName;
                     row.SampleName = detailedRow.SampleName ?? row.SampleName;
+                    row.RTMCode = detailedRow.RTMCode;
+                    row.DefaultUnitsCode = detailedRow.DefaultUnitsCode;
+                    row.ReportingMethod = detailedRow.ReportingMethod ?? row.ReportingMethod;
                     
                     // Re-sync after fetch
                     SyncRowToUI(row);
@@ -1090,6 +1095,7 @@
         SelectedUnit = row.UnitName;
         NormalValueText = row.NormalValue;
         SelectedMethod = row.RTMCode.ToString();
+        DetailedNormalRange = row.DetailedNV;
 
         // Populate modal signatures
         modalEnt = usermaster.FirstOrDefault(x => x.UserCode == row.ResultEnteredBy)?.Name ?? (row.ResultEnteredBy == 1 ? "Admin" : "");
@@ -1221,6 +1227,7 @@
         SelectedRowEntry.ResultLow = (AlertType == "Low");
         SelectedRowEntry.ResultNormal = (AlertType == "Normal");
         SelectedRowEntry.SimpleNV = PrintResultsOnly;
+        SelectedRowEntry.DetailedNV = DetailedNormalRange;
         SelectedRowEntry.UnitName = SelectedUnit;
         SelectedRowEntry.NormalValue = NormalValueText;
         
@@ -1438,6 +1445,11 @@
                     new ReportParameterDto { Name = "IsLetterHead", Values = new List<string> { (PrintOption == "LetterHead" ? "true" : "false") } }
                 }
             };
+
+            Console.WriteLine($"--- REPORT GENERATION LOG ---");
+            Console.WriteLine($"URL: {appSettings.BaseUrl}Report/LabReport");
+            Console.WriteLine($"Payload: {JsonConvert.SerializeObject(parameters)}");
+            Console.WriteLine($"------------------------------");
 
             // Call GetStatement directly from ExecutionClass which uses PostAsJsonAsync without the wrapper
             // which often resolves 400 Bad Request issues if the API expects the DTO directly.
@@ -1682,6 +1694,37 @@
 
             lre1 = re.Results ?? new List<LabResultEntry>();
             lre1 = lre1.OrderBy(x => x.GroupOrder).ThenBy(x=>x.OrderNo).ThenBy(x => x.SLNo).ToList();
+            
+            // Sync NormalValue from NormalValues or ReportingMethod if empty or "Normal 0"
+            foreach (var row in lre1)
+            {
+                if (row.NormalValue != null) row.NormalValue = row.NormalValue.Replace("Normal 0", "").Trim();
+                
+                var m = re.Methods?.FirstOrDefault(x => x.RTMCode == row.RTMCode);
+                string mName = m?.Name ?? "";
+
+                // If NormalValue is empty or just contains the method name (with optional decorations), try to get a better range from NormalValues
+                bool isPlaceholder = string.IsNullOrWhiteSpace(row.NormalValue) || 
+                                     row.NormalValue == mName || 
+                                     row.NormalValue == $"({mName})" ||
+                                     row.NormalValue.Trim(' ', '/', '(', ')') == "";
+
+                if (isPlaceholder)
+                {
+                    if (!string.IsNullOrEmpty(row.NormalValues) && row.NormalValues != "Normal 0")
+                    {
+                        row.NormalValue = row.NormalValues;
+                    }
+                    else if (!string.IsNullOrEmpty(row.ReportingMethod) && row.ReportingMethod != "Normal 0")
+                    {
+                        row.NormalValue = row.ReportingMethod.Replace("Normal 0", "").Trim();
+                    }
+                }
+                
+                // Final trim to ensure no stray slashes
+                if (row.NormalValue != null) row.NormalValue = row.NormalValue.Trim(' ', '/');
+            }
+
             lre = lre1;
             
             // Update CustCode from loaded data if not provided via URL
@@ -1728,48 +1771,105 @@
             return "";
         }
 
-        string normalVal = row.NormalValue ?? "";
+        string nv = row.NormalValue ?? "";
+        // Define a dash pattern that covers hyphen, en-dash, and em-dash
+        string dash = @"[\-\u2013\u2014]";
 
-        // Support standard range parsing "min-max"
-        var rangeMatch = System.Text.RegularExpressions.Regex.Match(normalVal, @"(\d+\.?\d*)\s*-\s*(\d+\.?\d*)");
-        if (rangeMatch.Success)
-        {
-            double min = double.Parse(rangeMatch.Groups[1].Value);
-            double max = double.Parse(rangeMatch.Groups[2].Value);
-            
-            if (res > max) { row.ResultHigh = true; row.ResultLow = false; row.ResultNormal = false; return "re-bg-red"; }
-            if (res < min) { row.ResultHigh = false; row.ResultLow = true; row.ResultNormal = false; return "re-bg-red"; }
-            
-            row.ResultHigh = false; row.ResultLow = false; row.ResultNormal = true;
-            if (res == min || res == max) return "re-bg-yellow";
-            
-            return "re-bg-green";
-        }
+        // 1. Check for explicit "Borderline" ranges
+        var borderMatch = Regex.Match(nv, @"(\d+\.?\d*)\s*" + dash + @"\s*(\d+\.?\d*)\s*[:\-]?\s*Borderline", RegexOptions.IgnoreCase);
+        if (!borderMatch.Success) borderMatch = Regex.Match(nv, @"Borderline\s*[:\-]?\s*(\d+\.?\d*)\s*" + dash + @"\s*(\d+\.?\d*)", RegexOptions.IgnoreCase);
         
-        // Handle "< 200"
-        if (normalVal.Contains("<"))
+        if (borderMatch.Success)
         {
-            var valMatch = System.Text.RegularExpressions.Regex.Match(normalVal, @"(\d+\.?\d*)");
-            if (valMatch.Success && double.TryParse(valMatch.Groups[1].Value, out double limit))
+            if (double.TryParse(borderMatch.Groups[1].Value, out double bMin) && 
+                double.TryParse(borderMatch.Groups[2].Value, out double bMax))
             {
-                if (res > limit) { row.ResultHigh = true; row.ResultLow = false; row.ResultNormal = false; return "re-bg-red"; }
+                if (res >= bMin && res <= bMax)
+                {
+                    row.ResultHigh = false; row.ResultLow = false; row.ResultNormal = true;
+                    return "re-bg-yellow";
+                }
+            }
+        }
+
+        // 2. Check for "Normal" or "Desirable" ranges
+        var normalRangeMatch = Regex.Match(nv, @"(\d+\.?\d*)\s*" + dash + @"\s*(\d+\.?\d*)\s*[:\-]?\s*(Normal|Desirable)", RegexOptions.IgnoreCase);
+        if (normalRangeMatch.Success)
+        {
+            if (double.TryParse(normalRangeMatch.Groups[1].Value, out double nMin) && 
+                double.TryParse(normalRangeMatch.Groups[2].Value, out double nMax))
+            {
+                if (res >= nMin && res <= nMax)
+                {
+                    row.ResultHigh = false; row.ResultLow = false; row.ResultNormal = true;
+                    return "re-bg-green";
+                }
+            }
+        }
+        else
+        {
+            normalRangeMatch = Regex.Match(nv, @"(Normal|Desirable)\s*[:\-]?\s*(\d+\.?\d*)\s*" + dash + @"\s*(\d+\.?\d*)", RegexOptions.IgnoreCase);
+            if (normalRangeMatch.Success)
+            {
+                if (double.TryParse(normalRangeMatch.Groups[2].Value, out double nMin) && 
+                    double.TryParse(normalRangeMatch.Groups[3].Value, out double nMax))
+                {
+                    if (res >= nMin && res <= nMax)
+                    {
+                        row.ResultHigh = false; row.ResultLow = false; row.ResultNormal = true;
+                        return "re-bg-green";
+                    }
+                }
+            }
+        }
+
+        // 3. Check for Normal/Desirable limits (< X or > X)
+        var ltMatch = Regex.Match(nv, @"<\s*(\d+\.?\d*)");
+        if (ltMatch.Success && double.TryParse(ltMatch.Groups[1].Value, out double ltLimit))
+        {
+            if (res < ltLimit)
+            {
                 row.ResultHigh = false; row.ResultLow = false; row.ResultNormal = true;
-                if (res == limit) return "re-bg-yellow";
                 return "re-bg-green";
             }
         }
-        
-        // Handle "> 240"
-        if (normalVal.Contains(">"))
+
+        var gtMatch = Regex.Match(nv, @">\s*(\d+\.?\d*)");
+        if (gtMatch.Success && double.TryParse(gtMatch.Groups[1].Value, out double gtLimit))
         {
-            var valMatch = System.Text.RegularExpressions.Regex.Match(normalVal, @"(\d+\.?\d*)");
-            if (valMatch.Success && double.TryParse(valMatch.Groups[1].Value, out double limit))
+            if (res > gtLimit)
             {
-                if (res < limit) { row.ResultHigh = false; row.ResultLow = true; row.ResultNormal = false; return "re-bg-red"; }
                 row.ResultHigh = false; row.ResultLow = false; row.ResultNormal = true;
-                if (res == limit) return "re-bg-yellow";
                 return "re-bg-green";
             }
+        }
+
+        // 4. Fallback to generic min-max range check
+        var genericMatch = Regex.Match(nv, @"(\d+\.?\d*)\s*" + dash + @"\s*(\d+\.?\d*)");
+        if (genericMatch.Success)
+        {
+            if (double.TryParse(genericMatch.Groups[1].Value, out double fMin) && 
+                double.TryParse(genericMatch.Groups[2].Value, out double fMax))
+            {
+                if (res > fMax) { row.ResultHigh = true; row.ResultLow = false; row.ResultNormal = false; return "re-bg-red"; }
+                if (res < fMin) { row.ResultHigh = false; row.ResultLow = true; row.ResultNormal = false; return "re-bg-red"; }
+                
+                row.ResultHigh = false; row.ResultLow = false; row.ResultNormal = true;
+                return "re-bg-green";
+            }
+        }
+
+        // 5. Absolute High/Low detection based on any numbers in the string
+        var numbers = Regex.Matches(nv, @"\d+\.?\d*").Cast<Match>()
+            .Select(m => { double.TryParse(m.Value, out double d); return d; })
+            .ToList();
+
+        if (numbers.Any())
+        {
+            double absMax = numbers.Max();
+            double absMin = numbers.Min();
+            if (res > absMax) { row.ResultHigh = true; row.ResultLow = false; row.ResultNormal = false; return "re-bg-red"; }
+            if (res < absMin) { row.ResultHigh = false; row.ResultLow = true; row.ResultNormal = false; return "re-bg-red"; }
         }
 
         row.ResultHigh = false; row.ResultLow = false; row.ResultNormal = true;
@@ -1932,11 +2032,53 @@
 
                 if (string.IsNullOrEmpty(row.DefaultUnitValue)) row.DefaultUnitValue = row.UnitName ?? "";
                 
+                // 1. Clean up NormalValue
+                if (row.NormalValue != null) row.NormalValue = row.NormalValue.Replace("Normal 0", "").Trim();
+
+                // 2. Sync ReportingMethod and handle method inclusion
+                var methodObj = method.FirstOrDefault(x => x.RTMCode == row.RTMCode);
+                if (methodObj != null && !string.IsNullOrEmpty(methodObj.Name))
+                {
+                    // If NormalValue is now empty, set it to the method name in parentheses
+                    if (string.IsNullOrWhiteSpace(row.NormalValue))
+                    {
+                        row.NormalValue = $"({methodObj.Name})";
+                    }
+                    // Otherwise append method if not already present
+                    else if (!row.NormalValue.Contains(methodObj.Name))
+                    {
+                        row.NormalValue = $"{row.NormalValue} / {methodObj.Name}";
+                    }
+                }
+                
+                row.ReportingMethod = row.NormalValue;
+                row.NormalValues = row.NormalValue;
+                
                 // Sync DefaultUnitsCode from UnitName to ensure they are always consistent
                 if (!string.IsNullOrEmpty(row.UnitName))
                 {
                     var unit = uom.FirstOrDefault(x => x.Name == row.UnitName);
                     if (unit != null) row.DefaultUnitsCode = unit.UCode;
+                }
+
+                // Sync MCCode from MachineName
+                if (row.MCCode == 0 && !string.IsNullOrEmpty(row.MachineName))
+                {
+                    var m = machine.FirstOrDefault(x => x.Name == row.MachineName || x.ShortName == row.MachineName);
+                    if (m != null) row.MCCode = m.MCCode;
+                }
+
+                // Sync SCode from SampleName (Specimen)
+                if (row.SCode == 0 && !string.IsNullOrEmpty(row.SampleName))
+                {
+                    var s = sample.FirstOrDefault(x => x.Name == row.SampleName || x.ShortName == row.SampleName);
+                    if (s != null) row.SCode = s.SCode;
+                }
+
+                // Sync RTMCode if still 0 (default to first method if available)
+                if (row.RTMCode == 0 && method.Any())
+                {
+                    row.RTMCode = method.First().RTMCode;
                 }
 
                 if (string.IsNullOrEmpty(row.MachineName)) row.MachineName = "Manual";
@@ -2001,12 +2143,11 @@
             }
 
             var json = JsonConvert.SerializeObject(lre1);
-            if (lre1.Any())
-            {
-                var r = lre1.First();
-                Console.WriteLine($"PRE-SAVE DATA: Ent={r.ResultEnteredBy}, Auth1={r.ResultAuthorizedBy}, Auth2={r.ResultAuthorizedBy2}, IsAuth1={r.IsAuthorized1}, IsAuth2={r.IsAuthorized2}");
-            }
-            Console.WriteLine($"ResultEntry Payload: {json}");
+            
+            Console.WriteLine($"--- SAVE RESULTS PAYLOAD LOG ---");
+            Console.WriteLine($"URL: {appSettings.BaseUrl}LabResult/SaveResultEntry");
+            Console.WriteLine($"Payload: {json}");
+            Console.WriteLine($"---------------------------------");
             var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
 
             var request = new HttpRequestMessage(HttpMethod.Post,
