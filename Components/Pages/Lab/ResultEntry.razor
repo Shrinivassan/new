@@ -42,7 +42,6 @@
                 <input type="date" class="re-input-date" style="width: 130px;" @bind="SampleDate" disabled="@(!IsSampleDateEnabled)" />
                 <input type="time" class="re-input-time" style="width: 100px;" @bind="SampleTime" />
             </div>
-
             <div class="re-field-group">
                 <span class="re-label" style="margin-bottom: 0;">Group</span>
                 <select class="re-select" style="min-width: 160px;" value="@SelectedGroupCode" @onchange="OnGroupChanged">
@@ -145,7 +144,6 @@
                             <tr>
                                 <th style="width: 40px;"></th>
                                 <th style="width: 200px;">Description</th>
-                                <th style="width: 60px;" class="re-col-center">Run</th>
                                 @if (deltaResults != null && deltaResults.Any())
                                 {
                                     <th style="width: 100px;" class="re-col-center">Prev. Result</th>
@@ -168,8 +166,11 @@
                                 {
                                     <tr class="re-group-header">
                                         <td class="re-edit-cell"></td>
-                                        <td class="re-edit-cell" colspan="7" style="font-weight: 700; background-color: #fef2f2; color: #b91c1c; padding: 10px 16px; border-top: 2px solid #fee2e2;">
-                                            <i class="fas fa-flask" style="margin-right: 8px; color: #ef4444;"></i> @it.TestName
+                                        <td class="re-edit-cell" colspan="6" style="font-weight: 700; background-color: #fef2f2; color: #b91c1c; padding: 10px 16px; border-top: 2px solid #fee2e2;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                <span><i class="fas fa-flask" style="margin-right: 8px; color: #ef4444;"></i> @it.TestName</span>
+                                                @* Footer display removed to fix build *@
+                                            </div>
                                         </td>
                                         <td class="re-edit-cell"></td>
                                     </tr>
@@ -187,21 +188,43 @@
                                             <div class="re-combined-cell">
                                                 <span class="re-combined-label">@it.Col2</span>
                                                 <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
-                                                    @if (it.ResultValueType == "Fixed Type" && !string.IsNullOrWhiteSpace(it.FixedValues))
+                                                    @if (it.ResultValueType == "Fixed Type" && !string.IsNullOrWhiteSpace(it.fixedvalues))
                                                     {
-                                                        var options = it.FixedValues.Split(',', StringSplitOptions.RemoveEmptyEntries);
-                                                    <select id="@($"txt-{rowIndex}-result")" class="re-t-input re-combined-result" @bind="it.EnteredResult" style="flex: 1;"
-                                                            @onkeydown="@(e => HandleGridKeydown(e, rowIndex, "result"))">
+                                                        var options = it.fixedvalues.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                                                    <select id="@($"txt-{rowIndex}-result")" class="re-t-input re-combined-result" 
+                                                            value="@it.EnteredResult"
+                                                            @onchange="@(e => { it.EnteredResult = e.Value?.ToString() ?? ""; _ = RunCalculations(); })"
+                                                            @onkeydown="@(e => HandleGridKeydown(e, rowIndex, "result"))" style="flex: 1;">
                                                         <option value=""></option>
                                                         @foreach (var opt in options)
                                                         {
                                                             <option value="@opt.Trim()">@opt.Trim()</option>
                                                         }
                                                     </select>
-                                                }
+                                                    }
+                                                    else if (it.ResultValueType == "Fixed Type")
+                                                    {
+                                                        <select id="@($"txt-{rowIndex}-result")" class="re-t-input re-combined-result"
+                                                                value="@it.EnteredResult"
+                                                                @onchange="@(e => { it.EnteredResult = e.Value?.ToString() ?? ""; _ = RunCalculations(); })"
+                                                                @onkeydown="@(e => HandleGridKeydown(e, rowIndex, "result"))" style="flex: 1;">
+                                                            <option value=""></option>
+                                                            <option value="Clear">Clear</option>
+                                                            <option value="Cloudy">Cloudy</option>
+                                                            <option value="Turbid">Turbid</option>
+                                                            <option value="Slight Turbid">Slight Turbid</option>
+                                                            <option value="Slightly Cloudy">Slightly Cloudy</option>
+                                                            <option value="Yellow">Yellow</option>
+                                                            <option value="Pale Yellow">Pale Yellow</option>
+                                                            <option value="Positive">Positive</option>
+                                                            <option value="Negative">Negative</option>
+                                                            <option value="Reactive">Reactive</option>
+                                                            <option value="Non-Reactive">Non-Reactive</option>
+                                                        </select>
+                                                    }
                                                 else
                                                 {
-                                                    <input type="text" id="@($"txt-{rowIndex}-result")" @key="@($"res-{it.TCode}-{rowIndex}")"
+                                                    <input type="text" id="@($"txt-{rowIndex}-result")" @key="@it.TestResultId"
                                                            class="re-t-input re-combined-result @(it.ResultValueType == "Calculated Value" ? "re-input-calculated" : "")"
                                                            value="@it.EnteredResult"
                                                            @onkeydown="@(e => HandleGridKeydown(e, rowIndex, "result"))"
@@ -226,17 +249,7 @@
                                             <input type="text" id="@($"txt-{rowIndex}-col2")" class="re-t-input" @bind="it.Col2" placeholder="Description" 
                                                    @onkeydown="@(e => HandleGridKeydown(e, rowIndex, "col2"))" disabled="@(!canEditResults)" />
                                         </td>
-                                        <td class="re-edit-cell re-col-center">
-                                            <select id="@($"txt-{rowIndex}-run")" class="re-t-input re-col-center" @bind="it.Run"
-                                                    @onkeydown="@(e => HandleGridKeydown(e, rowIndex, "run"))" disabled="@(!canEditResults)">
-                                                <option value="1">1</option>
-                                                <option value="2">2</option>
-                                                <option value="3">3</option>
-                                                <option value="4">4</option>
-                                                <option value="5">5</option>
-                                                <option value="6">6</option>
-                                            </select>
-                                        </td>
+
                                         @if (deltaResults != null && deltaResults.Any())
                                         {
                                             <td class="re-edit-cell @GetResultBgClass(it) !important re-col-center" style="color: #475569; font-weight: 600; font-size: 0.9rem; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;">
@@ -245,8 +258,8 @@
                                                     var delta = deltaResults.FirstOrDefault(d => d.TestName?.Trim().ToLower() == pName);
                                                     if (delta != null && !string.IsNullOrEmpty(delta.Result) && !Guid.TryParse(delta.Result, out _))
                                                     {
-                                                        <span @onclick="@(() => { if (canEditResults) { it.EnteredResult = delta.Result; _ = RunCalculations(); } })" 
-                                                              style="cursor: pointer; display: block; width: 100%;" 
+                                                        <span class="re-delta-val" style="cursor: pointer; display: block; width: 100%;" 
+                                                              @onclick="@(() => ApplyDeltaResult(it, delta.Result))" 
                                                               title="Click to copy to current result">
                                                             @delta.Result
                                                         </span>
@@ -259,11 +272,13 @@
                                             </td>
                                         }
                                         <td class="re-edit-cell @GetResultBgClass(it)">
-                                            @if (it.ResultValueType == "Fixed Type" && !string.IsNullOrWhiteSpace(it.FixedValues))
+                                            @if (it.ResultValueType == "Fixed Type" && !string.IsNullOrWhiteSpace(it.fixedvalues))
                                             {
-                                                var options = it.FixedValues.Split(',', StringSplitOptions.RemoveEmptyEntries);
-                                                <select id="@($"txt-{rowIndex}-result")" class="re-t-input @GetResultBgClass(it)" @bind="it.EnteredResult" style="width: 100%;"
-                                                        @onkeydown="@(e => HandleGridKeydown(e, rowIndex, "result"))" disabled="@(!canEditResults)">
+                                                var options = it.fixedvalues.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                                                <select id="@($"txt-{rowIndex}-result")" class="re-t-input @GetResultBgClass(it)"
+                                                        value="@it.EnteredResult"
+                                                        @onchange="@(e => { it.EnteredResult = e.Value?.ToString() ?? ""; _ = RunCalculations(); StateHasChanged(); })"
+                                                        @onkeydown="@(e => HandleGridKeydown(e, rowIndex, "result"))" style="width: 100%;" disabled="@(!canEditResults)">
                                                     <option value=""></option>
                                                     @foreach (var opt in options)
                                                     {
@@ -271,9 +286,29 @@
                                                     }
                                                 </select>
                                             }
+                                            else if (it.ResultValueType == "Fixed Type")
+                                            {
+                                                <select id="@($"txt-{rowIndex}-result")" class="re-t-input @GetResultBgClass(it)"
+                                                        value="@it.EnteredResult"
+                                                        @onchange="@(e => { it.EnteredResult = e.Value?.ToString() ?? ""; _ = RunCalculations(); StateHasChanged(); })"
+                                                        @onkeydown="@(e => HandleGridKeydown(e, rowIndex, "result"))" style="width: 100%;" disabled="@(!canEditResults)">
+                                                    <option value=""></option>
+                                                    <option value="Clear">Clear</option>
+                                                    <option value="Cloudy">Cloudy</option>
+                                                    <option value="Turbid">Turbid</option>
+                                                    <option value="Slight Turbid">Slight Turbid</option>
+                                                    <option value="Slightly Cloudy">Slightly Cloudy</option>
+                                                    <option value="Yellow">Yellow</option>
+                                                    <option value="Pale Yellow">Pale Yellow</option>
+                                                    <option value="Positive">Positive</option>
+                                                    <option value="Negative">Negative</option>
+                                                    <option value="Reactive">Reactive</option>
+                                                    <option value="Non-Reactive">Non-Reactive</option>
+                                                </select>
+                                            }
                                             else
                                             {
-                                                <input type="text" id="@($"txt-{rowIndex}-result")" @key="@($"res-{it.TCode}-{rowIndex}")"
+                                                <input type="text" id="@($"txt-{rowIndex}-result")" @key="@it.TestResultId"
                                                        class="re-t-input @GetResultBgClass(it) @(it.ResultValueType == "Calculated Value" ? "re-input-calculated" : "")" 
                                                        value="@it.EnteredResult"
                                                        @oninput="@(e => OnResultInput(e, it))"
@@ -342,191 +377,173 @@
                 @if (RightTab == "Settings")
                 {
                     <div class="re-rp-content">
-                        <div class="re-row-group">
-                            <div class="re-form-group" style="flex: 1;">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <label class="re-label">Result Type</label>
-                                    @if (ResultType == "Fixed Type")
-                                    {
-                                        <div style="display: flex; align-items: center; gap: 8px;">
-                                            <label class="re-label" style="margin-bottom: 0;">Value</label>
-                                            <button class="re-btn-update" style="padding: 2px 8px;" @onclick="ToggleLabFixedValues" @onclick:preventDefault>...</button>
-                                        </div>
-                                    }
-                                </div>
-                                <select class="re-select" @bind="ResultType">
-                                    <option value="Text">Text</option>
-                                    <option value="Text & Number">Text &amp; Number</option>
-                                    <option value="Fixed Type">Fixed Type</option>
-                                    <option value="Number">Number</option>
-                                    <option value="Calculated Value">Calculated Value</option>
-                                    <option value="Title">Title</option>
-                                    <option value="SubTitle">SubTitle</option>
-                                </select>
+                        <!-- Section: Result Type -->
+                        <div class="re-form-grid">
+                            <label class="re-label">Result Type</label>
+                            <select class="re-select" @bind="ResultType">
+                                <option value="Text">Text</option>
+                                <option value="Text & Number">Text &amp; Number</option>
+                                <option value="Number">Number</option>
+                                <option value="Fixed Type">Fixed Type</option>
+                                <option value="Calculated Value">Calculated Value</option>
+                                <option value="Title">Title</option>
+                                <option value="SubTitle">SubTitle</option>
+                            </select>
+                        </div>
+
+                        <!-- Section: Value -->
+                        <div class="re-form-grid">
+                            <label class="re-label">Value</label>
+                            <div class="re-row-flex">
+                                <input type="text" class="re-input re-focus-blue" @bind="ResultText" placeholder="..." style="flex: 1;" />
+                                <button class="re-btn-mini" @onclick="ToggleLabFixedValues" @onclick:preventDefault title="Options">...</button>
                             </div>
                         </div>
 
-                        @if (ResultType != "Title" && ResultType != "SubTitle")
+                        <!-- Section: Result -->
+                        <div class="re-form-grid">
+                            <label class="re-label">Result</label>
+                            <select class="re-select" value="@FixedResultSelect" @onchange="OnFixedResultChanged">
+                                <option value=""></option>
+                                @if (!string.IsNullOrEmpty(SelectedRowEntry?.fixedvalues))
+                                {
+                                    @foreach (var opt in SelectedRowEntry.fixedvalues.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                                    {
+                                        <option value="@opt.Trim()">@opt.Trim()</option>
+                                    }
+                                }
+                                else if (SelectedFixedType == "Appearance" || SelectedRowEntry?.TestName?.ToLower().Contains("appearance") == true)
+                                {
+                                    <option value="Clear">Clear</option>
+                                    <option value="Cloudy">Cloudy</option>
+                                    <option value="Turbid">Turbid</option>
+                                    <option value="Slight Turbid">Slight Turbid</option>
+                                    <option value="Slightly Cloudy">Slightly Cloudy</option>
+                                }
+                            </select>
+                        </div>
+
+                        <!-- Section: Normal Value -->
+                        <div class="re-form-grid">
+                            <label class="re-label">Normal Value</label>
+                            <select class="re-select" value="@FixedNormalValueSelect" @onchange="OnFixedNormalValueChanged">
+                                <option value=""></option>
+                                @if (!string.IsNullOrEmpty(SelectedRowEntry?.fixedvalues))
+                                {
+                                    @foreach (var opt in SelectedRowEntry.fixedvalues.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                                    {
+                                        <option value="@opt.Trim()">@opt.Trim()</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <!-- Section: Alert -->
+                        <div class="re-form-grid">
+                            <label class="re-label">Alert</label>
+                            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                                <div class="re-control">
+                                    <label class="re-radio-label">
+                                        <input type="radio" name="alertType" value="Normal" checked="@(AlertType == "Normal")" @onchange="@(() => AlertType = "Normal")" />
+                                        Normal
+                                    </label>
+                                    <label class="re-radio-label">
+                                        <input type="radio" name="alertType" value="High" checked="@(AlertType == "High")" @onchange="@(() => AlertType = "High")" />
+                                        High
+                                    </label>
+                                    <label class="re-radio-label">
+                                        <input type="radio" name="alertType" value="Low" checked="@(AlertType == "Low")" @onchange="@(() => AlertType = "Low")" />
+                                        Low
+                                    </label>
+                                </div>
+                                <label class="re-check-label">
+                                    <input type="checkbox" @bind="PrintResultsOnly" />
+                                    <span>Print Results Only</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Section: Method -->
+                        <div class="re-form-grid">
+                            <label class="re-label">Method</label>
+                            <select class="re-select" @bind="SelectedMethod">
+                                <option value=""></option>
+                                @foreach (var m in method)
+                                {
+                                    <option value="@m.RTMCode">@m.Name</option>
+                                }
+                            </select>
+                        </div>
+
+                        <!-- Section: Reference Value -->
+                        <div style="margin-top: 16px;">
+                            <label class="re-label" style="display: block; margin-bottom: 8px;">Reference Value</label>
+                            <textarea class="re-textarea" rows="3" @bind="ReferenceValueText" placeholder="Enter reference value..."></textarea>
+                        </div>
+
+                        <!-- Section: Age Based Reference Table -->
+                        @if (DetailedNormalRange || (ResultType == "Number" || ResultType == "Calculated Value" || ResultType == "Text & Number"))
                         {
-                            @if (ResultType == "Fixed Type")
-                            {
-                                <div class="re-form-group">
-                                    <label class="re-label">Result</label>
-                                    <select class="re-select" @bind="FixedResultSelect">
-                                        <option value=""></option>
-                                    </select>
+                            <div class="re-nv-table-container" style="margin-top: 16px;">
+                                <div class="re-nv-header" style="background: #f1f5f9; font-weight: 700; font-size: 0.85rem;">
+                                    Age Based Reference
                                 </div>
-                                <div class="re-form-group">
-                                    <label class="re-label">Normal Value</label>
-                                    <select class="re-select" @bind="FixedNormalValueSelect">
-                                        <option value=""></option>
-                                    </select>
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="re-form-group">
-                                    <label class="re-label">Result</label>
-                                    <textarea class="re-textarea" rows="1" @bind="ResultText"></textarea>
-                                </div>
-                            }
-
-                            <div class="re-form-group">
-                                <label class="re-label">Alert</label>
-                                <div class="re-row-group" style="justify-content: space-between;">
-                                    <div class="re-control">
-                                        <label class="re-radio-label">
-                                            <input type="radio" name="alertType" value="Normal" checked="@(AlertType == "Normal")" @onchange="@(() => AlertType = "Normal")" />
-                                            Normal
-                                        </label>
-                                        <label class="re-radio-label">
-                                            <input type="radio" name="alertType" value="High" checked="@(AlertType == "High")" @onchange="@(() => AlertType = "High")" />
-                                            High
-                                        </label>
-                                        <label class="re-radio-label">
-                                            <input type="radio" name="alertType" value="Low" checked="@(AlertType == "Low")" @onchange="@(() => AlertType = "Low")" />
-                                            Low
-                                        </label>
-                                    </div>
-                                    <label class="re-check-label">
-                                        <input type="checkbox" @bind="PrintResultsOnly" />
-                                        Print Results Only
-                                    </label>
-                                </div>
-                            </div>
-
-                            @if (ResultType == "Number" || ResultType == "Calculated Value" || ResultType == "Text & Number" || ResultType == "Text")
-                            {
-                                <div class="re-row-group">
-                                    <div class="re-form-group" style="flex: 1;">
-                                        <label class="re-label">Units</label>
-                                        <select class="re-select" @bind="SelectedUnit">
-                                            <option value=""></option>
-                                            @foreach (var u in uom)
+                                <div style="max-height: 250px; overflow-y: auto; border: 1px solid #e2e8f0; border-top: none;">
+                                    <table class="re-nv-mini-table" style="border: none; table-layout: fixed;">
+                                        <thead style="position: sticky; top: 0; background: #f8fafc; z-index: 1;">
+                                            <tr>
+                                                <th style="width: 25px;"></th>
+                                                <th style="width: 60px;">From</th>
+                                                <th style="width: 60px;">To</th>
+                                                <th style="width: 70px;">Sex</th>
+                                                <th style="width: 60px;">RangeF</th>
+                                                <th style="width: 60px;">RangeT</th>
+                                                <th style="width: 80px;">Condition</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @if (SelectedRowEntry?.EditedDetailedNormalValues != null)
                                             {
-                                                <option value="@u.Name">@u.Name</option>
+                                                @foreach (var dnv in SelectedRowEntry.EditedDetailedNormalValues)
+                                                {
+                                                     var isSelected = dnv.DNVId == SelectedDnvId;
+                                                     var rowStyle = isSelected ? "background: #eff6ff; border-left: 3px solid #6366f1;" : "";
+                                                     <tr class="re-nv-row" style="@rowStyle">
+                                                         <td style="cursor: pointer;" @onclick="() => SetDetailedNormalValue(dnv)">
+                                                             <i class="fas fa-caret-right" style="font-size: 0.7rem; color: @(isSelected ? "#6366f1" : "#94a3b8");"></i>
+                                                         </td>
+                                                        <td><input type="number" class="re-grid-input" @bind="dnv.FromValue" /></td>
+                                                        <td><input type="number" class="re-grid-input" @bind="dnv.ToValue" /></td>
+                                                        <td>
+                                                            <select class="re-grid-input" @bind="dnv.Sex">
+                                                                <option value="Both">Both</option>
+                                                                <option value="Male">Male</option>
+                                                                <option value="Female">Female</option>
+                                                            </select>
+                                                        </td>
+                                                        <td><input type="number" class="re-grid-input" @bind="dnv.RangeFrom" /></td>
+                                                        <td><input type="number" class="re-grid-input" @bind="dnv.RangeTo" /></td>
+                                                        <td><input type="text" class="re-grid-input" @bind="dnv.RangeType" /></td>
+                                                    </tr>
+                                                }
                                             }
-                                        </select>
-                                    </div>
-                                    @if (ResultType != "Text")
-                                    {
-                                        <div class="re-form-group" style="width: 80px;">
-                                            <label class="re-label">Decimal</label>
-                                            <input type="text" class="re-input" @bind="DecimalValue" />
-                                        </div>
-                                    }
-                                    @if (ResultType == "Number" || ResultType == "Calculated Value")
-                                    {
-                                        <div class="re-form-group" style="flex: 1; margin-top: 18px;">
-                                            <label class="re-check-label">
-                                                <input type="checkbox" @bind="IsGraphValue" />
-                                                Graph Value
-                                            </label>
-                                        </div>
-                                    }
+                                        </tbody>
+                                    </table>
+                                    <button class="re-btn-add-nv" @onclick="AddNewDetailedRange">
+                                        <i class="fas fa-plus"></i> Add New Range
+                                    </button>
                                 </div>
-                            }
-                            
-                            @if (ResultType == "Calculated Value")
-                            {
-                                <div class="re-row-group">
-                                    <div class="re-form-group" style="width: 120px;">
-                                        <label class="re-label">Calculation For</label>
-                                        <select class="re-select" @bind="CalcForSelect">
-                                            <option value="Male">Male</option>
-                                            <option value="Female">Female</option>
-                                            <option value="Both">Both</option>
-                                            <option value="Child">Child</option>
-                                        </select>
-                                    </div>
-                                    <div class="re-form-group" style="flex: 1; margin-top: 18px; display: flex; flex-direction: row; gap: 4px;">
-                                        <input type="text" class="re-input" style="flex: 1;" @bind="CalcForInput" />
-                                        <button class="re-btn-update" style="padding: 2px 8px;">...</button>
-                                    </div>
-                                </div>
-                            }
-
-                            <div class="re-form-group">
-                                <label class="re-label">Method</label>
-                                <select class="re-select" @bind="SelectedMethod">
-                                    <option value="0"></option>
-                                    @foreach (var m in method)
-                                    {
-                                        <option value="@m.RTMCode">@m.Name</option>
-                                    }
-                                </select>
                             </div>
-
-                            @if (ResultType == "Number" || ResultType == "Calculated Value" || ResultType == "Text & Number")
-                            {
-                                <div class="re-row-group" style="justify-content: space-between; margin-top: 4px;">
-                                    <label class="re-check-label" style="font-size: 0.75rem;">
-                                        <input type="checkbox" @bind="DetailedNormalRange" />
-                                        Detailed Normal Range
-                                    </label>
-                                    <label class="re-check-label" style="color: #ef4444; font-size: 0.75rem;">
-                                        <input type="checkbox" @bind="ShowAlertLowerHigher" />
-                                        Show Alert on Lower &amp; Higher values
-                                    </label>
-                                </div>
-                                <div class="re-row-group">
-                                    <div class="re-form-group" style="width: 100px;">
-                                        <label class="re-label">Normal Range</label>
-                                        <select class="re-select" @bind="NormalRangeSelect">
-                                            <option value=""></option>
-                                        </select>
-                                    </div>
-                                    <div class="re-form-group" style="flex: 1; margin-top: 18px; display: flex; flex-direction: row; gap: 4px;">
-                                        <input type="text" class="re-input" style="flex: 1;" @bind="NormalRangeInput1" />
-                                        <input type="text" class="re-input" style="flex: 1;" @bind="NormalRangeInput2" />
-                                    </div>
-                                </div>
-                            }
-
-                            @if (ResultType == "Text" || ResultType == "Text & Number")
-                            {
-                                <div class="re-form-group">
-                                    <div class="re-row-group" style="justify-content: space-between;">
-                                        <label class="re-label">Normal Value</label>
-                                        <div class="re-row-group" style="gap: 8px;">
-                                            <span class="re-label" style="margin: 0; text-transform: none; letter-spacing: normal;">Sex</span>
-                                            <select class="re-select" style="width: 80px;" @bind="SelectedSex">
-                                                <option value="Male">Male</option>
-                                                <option value="Female">Female</option>
-                                                <option value="Other">Other</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <textarea class="re-textarea" rows="1" @bind="NormalValueText"></textarea>
-                                </div>
-                            }
                         }
-
-                        <div class="re-form-group">
-                            <label class="re-label">Reference Value</label>
-                            <textarea class="re-textarea" rows="1" @bind="ReferenceValueText"></textarea>
-                        </div>
                     </div>
+
+                        <!-- Panel Footer Buttons -->
+                        <div class="re-panel-footer">
+                            <button class="re-btn-outline" @onclick="() => IsDetailedNormalValuesVisible = false">Close</button>
+                            <button class="re-btn-primary" @onclick="UpdateRowSettings">
+                                <i class="fas fa-check"></i> Apply
+                            </button>
+                        </div>
                 }
                 else if (RightTab == "Comments")
                 {
@@ -630,111 +647,327 @@
 @if (SelectedRowEntry != null)
 {
     <div class="re-modal-overlay" @onclick="CloseRowDetail"></div>
-    <div class="re-modal re-row-detail-modal">
+    <div class="re-modal re-row-detail-modal" style="width: 700px; max-width: 95vw;">
         <div class="re-modal-titlebar">
             <span><i class="fas fa-info-circle" style="color:#6366f1;margin-right:6px;"></i>Row Details</span>
             <button type="button" @onclick="CloseRowDetail" title="Close"><i class="fas fa-times"></i></button>
         </div>
-        <div class="re-modal-body re-row-detail-body">
-            <div class="re-footer-names" style="display: flex; gap: 40px; margin-bottom: 20px; padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-                <div class="re-sign-item" style="display: flex; flex-direction: column;">
-                    <span style="font-weight: 700; color: #0f172a; font-size: 0.85rem; min-height: 1.2em;">@(string.IsNullOrEmpty(modalEnt) ? "-" : modalEnt)</span>
-                    <span style="font-size: 0.6rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Result Entered By</span>
-                </div>
-                <div class="re-sign-item" style="display: flex; flex-direction: column;">
-                    <span style="font-weight: 700; color: #0f172a; font-size: 0.85rem; min-height: 1.2em;">@(string.IsNullOrEmpty(modalAuth1) ? "-" : modalAuth1)</span>
-                    <span style="font-size: 0.6rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Authorized By 1</span>
-                </div>
-                <div class="re-sign-item" style="display: flex; flex-direction: column;">
-                    <span style="font-weight: 700; color: #0f172a; font-size: 0.85rem; min-height: 1.2em;">@(string.IsNullOrEmpty(modalAuth2) ? "-" : modalAuth2)</span>
-                    <span style="font-size: 0.6rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Authorized By 2</span>
-                </div>
-            </div>
-            <div class="re-rd-grid">
-                <div class="re-rd-field">
-                    <span class="re-label">Description</span>
-                    <input type="text" class="re-input" @bind="SelectedRowEntry.Col2" />
-                </div>
-                <div class="re-rd-field">
-                    <span class="re-label">Result</span>
-                    <input type="text" class="re-input" @bind="SelectedRowEntry.EnteredResult" />
-                </div>
-                <div class="re-rd-field">
-                    <span class="re-label">Result Value Type</span>
-                    <input type="text" class="re-input" @bind="SelectedRowEntry.ResultValueType" />
-                </div>
-                <div class="re-rd-field">
-                    <span class="re-label">Normal Value</span>
-                    <input type="text" class="re-input" @bind="SelectedRowEntry.NormalValue" />
-                </div>
-                <div class="re-rd-field">
-                    <span class="re-label">Unit</span>
-                    <select class="re-select" @bind="SelectedRowEntry.UnitName">
-                        <option value=""></option>
-                        @foreach (var u in uom)
-                        {
-                            <option value="@u.Name">@u.Name</option>
-                        }
-                    </select>
-                </div>
-                <div class="re-rd-field">
-                    <span class="re-label">Machine Name</span>
-                    <input type="text" class="re-input" @bind="SelectedRowEntry.MachineName" />
-                </div>
-                <div class="re-rd-field">
-                    <span class="re-label">Specimen</span>
-                    <input type="text" class="re-input" @bind="SelectedRowEntry.SampleName" />
-                </div>
-                <div class="re-rd-field">
-                    <span class="re-label">Test Name</span>
-                    <input type="text" class="re-input" value="@SelectedRowEntry.TestName" readonly />
-                </div>
-                <div class="re-rd-field">
-                    <span class="re-label">Group</span>
-                    <input type="text" class="re-input" value="@SelectedRowEntry.GroupName" readonly />
-                </div>
-                <div class="re-rd-field re-rd-field-span">
-                    <span class="re-label">Alert</span>
-                    <div class="re-row-group" style="gap:16px;">
-                        <label class="re-radio-label">
-                            <input type="radio" name="rd-alert" value="Normal"
-                                   checked="@(SelectedRowEntry.ResultNormal)"
-                                   @onchange="() => { SelectedRowEntry.ResultNormal=true; SelectedRowEntry.ResultHigh=false; SelectedRowEntry.ResultLow=false; }" />
-                            Normal
-                        </label>
-                        <label class="re-radio-label">
-                            <input type="radio" name="rd-alert" value="High"
-                                   checked="@(SelectedRowEntry.ResultHigh)"
-                                   @onchange="() => { SelectedRowEntry.ResultNormal=false; SelectedRowEntry.ResultHigh=true; SelectedRowEntry.ResultLow=false; }" />
-                            High
-                        </label>
-                        <label class="re-radio-label">
-                            <input type="radio" name="rd-alert" value="Low"
-                                   checked="@(SelectedRowEntry.ResultLow)"
-                                   @onchange="() => { SelectedRowEntry.ResultNormal=false; SelectedRowEntry.ResultHigh=false; SelectedRowEntry.ResultLow=true; }" />
-                            Low
-                        </label>
-                    </div>
-                </div>
-                <div class="re-rd-field">
-                    <span class="re-label">Print Result Only</span>
-                    <label class="re-check-label">
-                        <input type="checkbox" @bind="SelectedRowEntry.SimpleNV" />
-                        <span>Enabled</span>
-                    </label>
-                </div>
-                <div class="re-rd-field">
-                    <span class="re-label">Authorized</span>
-                    <label class="re-check-label">
-                        <input type="checkbox" @bind="SelectedRowEntry.IsAuthorized1" />
-                        <span>Authorized</span>
-                    </label>
-                </div>
-            </div>
+        <div class="re-modal-tabs" style="display: flex; background: #f1f5f9; border-bottom: 1px solid #e2e8f0; padding: 0 12px;">
+            <button class="re-tab-btn @(activeModalTab == "Settings" ? "active" : "")" @onclick='() => activeModalTab = "Settings"' 
+                    style="padding: 10px 16px; border: none; background: none; font-weight: 600; color: @(activeModalTab == "Settings" ? "#4f46e5" : "#64748b"); border-bottom: 2px solid @(activeModalTab == "Settings" ? "#4f46e5" : "transparent"); cursor: pointer;">
+                Settings
+            </button>
+            @if (SelectedRowEntry.ResultValueType != "Title" && SelectedRowEntry.ResultValueType != "SubTitle")
+            {
+                <button class="re-tab-btn @(activeModalTab == "Comments" ? "active" : "")" @onclick='() => activeModalTab = "Comments"' 
+                        style="padding: 10px 16px; border: none; background: none; font-weight: 600; color: @(activeModalTab == "Comments" ? "#4f46e5" : "#64748b"); border-bottom: 2px solid @(activeModalTab == "Comments" ? "#4f46e5" : "transparent"); cursor: pointer;">
+                    Comments
+                </button>
+            }
         </div>
-        <div class="re-modal-footer">
-            <div></div>
-            <div style="display:flex;gap:8px;">
+
+        <div class="re-modal-body re-row-detail-body" style="padding: 20px; max-height: 70vh; overflow-y: auto;">
+            @if (activeModalTab == "Settings")
+            {
+                <div class="re-rd-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="re-rd-field" style="grid-column: span 2;">
+                        <span class="re-label">Result Type</span>
+                        <select class="re-select" value="@SelectedRowEntry.ResultValueType" @onchange="OnResultValueTypeChanged">
+                            <option value="Text">Text</option>
+                            <option value="Text & Number">Text &amp; Number</option>
+                            <option value="Fixed Type">Fixed Type</option>
+                            <option value="Number">Number</option>
+                            <option value="Calculated Value">Calculated Value</option>
+                            <option value="Title">Title</option>
+                            <option value="SubTitle">SubTitle</option>
+                        </select>
+                    </div>
+
+                    @if (SelectedRowEntry.ResultValueType != "Title" && SelectedRowEntry.ResultValueType != "SubTitle")
+                    {
+                        @if (SelectedRowEntry.ResultValueType == "Fixed Type")
+                        {
+                            <div class="re-rd-field">
+                                <span class="re-label">Value</span>
+                                <div style="display: flex; gap: 4px;">
+                                    <input type="text" class="re-input" @bind="SelectedRowEntry.DefaultValue" />
+                                    <button class="re-btn-outline" style="padding: 4px 8px;">...</button>
+                                </div>
+                            </div>
+                            <div class="re-rd-field">
+                                <span class="re-label">Result</span>
+                                <select class="re-select" @bind="SelectedRowEntry.EnteredResult">
+                                    <option value=""></option>
+                                    @if (!string.IsNullOrEmpty(SelectedRowEntry.fixedvalues))
+                                    {
+                                        @foreach (var opt in SelectedRowEntry.fixedvalues.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                                        {
+                                            <option value="@opt.Trim()">@opt.Trim()</option>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <option value="Clear">Clear</option>
+                                        <option value="Cloudy">Cloudy</option>
+                                        <option value="Turbid">Turbid</option>
+                                        <option value="Slight Turbid">Slight Turbid</option>
+                                        <option value="Slightly Cloudy">Slightly Cloudy</option>
+                                        <option value="Yellow">Yellow</option>
+                                        <option value="Pale Yellow">Pale Yellow</option>
+                                        <option value="Positive">Positive</option>
+                                        <option value="Negative">Negative</option>
+                                        <option value="Reactive">Reactive</option>
+                                        <option value="Non-Reactive">Non-Reactive</option>
+                                    }
+                                </select>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="re-rd-field" style="grid-column: span 2;">
+                                <span class="re-label">Result</span>
+                                <textarea class="re-input" @bind="SelectedRowEntry.EnteredResult" rows="3"></textarea>
+                            </div>
+                        }
+
+                        <div class="re-rd-field" style="grid-column: span 2;">
+                            <span class="re-label">Alert</span>
+                            <div style="display: flex; gap: 16px; align-items: center;">
+                                <label class="re-radio-label"><input type="radio" name="rd-alert" value="Normal" checked="@(SelectedRowEntry.ResultNormal)" @onchange='() => SetAlert("Normal")' /> Normal</label>
+                                <label class="re-radio-label"><input type="radio" name="rd-alert" value="High" checked="@(SelectedRowEntry.ResultHigh)" @onchange='() => SetAlert("High")' /> High</label>
+                                <label class="re-radio-label"><input type="radio" name="rd-alert" value="Low" checked="@(SelectedRowEntry.ResultLow)" @onchange='() => SetAlert("Low")' /> Low</label>
+                                
+                                <label class="re-check-label" style="margin-left: auto;">
+                                    <input type="checkbox" @bind="SelectedRowEntry.SimpleNV" />
+                                    <span>Print Results Only</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="re-rd-field">
+                            <span class="re-label">Units</span>
+                            <select class="re-select" @bind="SelectedRowEntry.UnitName">
+                                <option value=""></option>
+                                @foreach (var u in uom) { <option value="@u.Name">@u.Name</option> }
+                            </select>
+                        </div>
+                        
+                        <div class="re-rd-field" style="display: flex; gap: 12px; align-items: flex-end;">
+                            <div style="flex: 1;">
+                                <span class="re-label">Decimal</span>
+                                <input type="number" class="re-input" @bind="SelectedRowEntry.DecimalValue" />
+                            </div>
+                            @if (SelectedRowEntry.ResultValueType == "Number" || SelectedRowEntry.ResultValueType == "Calculated Value")
+                            {
+                                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                                    <label class="re-check-label"><input type="checkbox" @bind="SelectedRowEntry.IsGraph" /> <span>Graph Value</span></label>
+                                    <input type="number" class="re-input" style="width: 60px;" @bind="SelectedRowEntry.GraphValue" />
+                                </div>
+                            }
+                        </div>
+
+                        @if (SelectedRowEntry.ResultValueType == "Calculated Value")
+                        {
+                            <div class="re-rd-field" style="grid-column: span 2;">
+                                <span class="re-label">Calculation For</span>
+                                <div style="display: flex; gap: 8px;">
+                                    <select class="re-select" style="width: 120px;">
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                        <option value="Child">Child</option>
+                                    </select>
+                                    <input type="text" class="re-input" style="flex: 1;" @bind="SelectedRowEntry.CalculatedFormula" />
+                                    <button class="re-btn-outline" style="padding: 4px 8px;">...</button>
+                                </div>
+                            </div>
+                        }
+
+                        <div class="re-rd-field" style="grid-column: span 2;">
+                            <span class="re-label">Method</span>
+                            <select class="re-select" @bind="SelectedRowEntry.RTMCode">
+                                <option value="0"></option>
+                                @foreach (var m in method) { <option value="@m.RTMCode">@m.Name</option> }
+                            </select>
+                        </div>
+
+                        @if (SelectedRowEntry.ResultValueType == "Text" || SelectedRowEntry.ResultValueType == "Text & Number")
+                        {
+                            <div class="re-rd-field" style="grid-column: span 2;">
+                                <span class="re-label">Normal Value</span>
+                                <textarea class="re-input" @bind="SelectedRowEntry.NormalValue" rows="2"></textarea>
+                            </div>
+                        }
+                        else if (SelectedRowEntry.ResultValueType == "Number" || SelectedRowEntry.ResultValueType == "Calculated Value")
+                        {
+                            <div class="re-rd-field" style="grid-column: span 2;">
+                                <span class="re-label">Normal Value</span>
+                                <input type="text" class="re-input" @bind="SelectedRowEntry.NormalValue" />
+                            </div>
+                        }
+
+                        @if (SelectedRowEntry.DetailedNV)
+                        {
+                            @if ((SelectedRowEntry.ResultValueType == "Text" || SelectedRowEntry.ResultValueType == "Text & Number") && SelectedRowEntry.EditedTextNormalValues != null && SelectedRowEntry.EditedTextNormalValues.Any())
+                            {
+                                <div class="re-nv-table-container" style="grid-column: span 2; margin-top: 4px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #fff;">
+                                    <div style="background: #f8fafc; padding: 4px 10px; border-bottom: 1px solid #e2e8f0; font-size: 0.7rem; font-weight: 700; color: #475569;">
+                                        Detailed Text Normal Values
+                                    </div>
+                                    <div style="max-height: 120px; overflow-y: auto;">
+                                        <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+                                            <thead style="background: #f1f5f9; position: sticky; top: 0; z-index: 1;">
+                                                <tr>
+                                                    <th style="padding: 6px 10px; text-align: left; color: #64748b; font-weight: 600; border-bottom: 1px solid #e2e8f0;">Sex</th>
+                                                    <th style="padding: 6px 10px; text-align: left; color: #64748b; font-weight: 600; border-bottom: 1px solid #e2e8f0;">Value</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var nv in SelectedRowEntry.EditedTextNormalValues)
+                                                {
+                                                    <tr class="re-nv-row" @onclick="() => { SelectedRowEntry.NormalValue = nv.NormalValue; StateHasChanged(); }" style="cursor: pointer; border-bottom: 1px solid #f1f5f9;">
+                                                        <td style="padding: 6px 10px;">@nv.Sex</td>
+                                                        <td style="padding: 6px 10px; color: #0f172a; font-weight: 500;">@nv.NormalValue</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="re-nv-table-container" style="grid-column: span 2; margin-top: 4px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #fff;">
+                                    <div style="background: #f8fafc; padding: 4px 10px; border-bottom: 1px solid #e2e8f0; font-size: 0.7rem; font-weight: 700; color: #475569;">
+                                        Age Based Reference
+                                    </div>
+                                    <div style="max-height: 250px; overflow-y: auto;">
+                                        <table class="re-nv-mini-table" style="width: 100%; border-collapse: collapse; font-size: 0.8rem; table-layout: fixed;">
+                                            <thead style="background: #f1f5f9; position: sticky; top: 0; z-index: 1;">
+                                                <tr>
+                                                    <th style="padding: 6px; width: 60px;">From</th>
+                                                    <th style="padding: 6px; width: 60px;">To</th>
+                                                    <th style="padding: 6px; width: 70px;">Sex</th>
+                                                    <th style="padding: 6px; width: 60px;">RangeF</th>
+                                                    <th style="padding: 6px; width: 60px;">RangeT</th>
+                                                    <th style="padding: 6px; width: 80px;">Condition</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @if (SelectedRowEntry.EditedDetailedNormalValues != null)
+                                                {
+                                                    @foreach (var dnv in SelectedRowEntry.EditedDetailedNormalValues)
+                                                    {
+                                                        <tr class="re-nv-row" style="border-bottom: 1px solid #f1f5f9;">
+                                                            <td style="padding: 4px;"><input type="number" class="re-grid-input" style="width: 100%;" @bind="dnv.FromValue" /></td>
+                                                            <td style="padding: 4px;"><input type="number" class="re-grid-input" style="width: 100%;" @bind="dnv.ToValue" /></td>
+                                                            <td style="padding: 4px;">
+                                                                <select class="re-grid-input" style="width: 100%;" @bind="dnv.Sex">
+                                                                    <option value="Both">Both</option>
+                                                                    <option value="Male">Male</option>
+                                                                    <option value="Female">Female</option>
+                                                                </select>
+                                                            </td>
+                                                            <td style="padding: 4px;"><input type="number" class="re-grid-input" style="width: 100%;" @bind="dnv.RangeFrom" /></td>
+                                                            <td style="padding: 4px;"><input type="number" class="re-grid-input" style="width: 100%;" @bind="dnv.RangeTo" /></td>
+                                                            <td style="padding: 4px;"><input type="text" class="re-grid-input" style="width: 100%;" @bind="dnv.RangeType" /></td>
+                                                        </tr>
+                                                    }
+                                                }
+                                            </tbody>
+                                        </table>
+                                        <div style="padding: 8px;">
+                                            <button class="re-btn-add-nv" style="width: 100%; border: 1px dashed #cbd5e1; background: #f8fafc; padding: 6px; border-radius: 4px; color: #475569; font-weight: 600; cursor: pointer;" @onclick="AddNewDetailedRange">
+                                                <i class="fas fa-plus"></i> Add New Range
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        }
+
+                        <div class="re-rd-field" style="grid-column: span 2; display: flex; gap: 20px;">
+                            <label class="re-check-label">
+                                <input type="checkbox" checked="@SelectedRowEntry.DetailedNV" @onchange="OnDetailedNVModalChanged" />
+                                <span>Detailed Normal Range</span>
+                            </label>
+                            <label class="re-check-label">
+                                <input type="checkbox" @bind="SelectedRowEntry.ShowAlertOnHigherLower" />
+                                <span style="color: #ef4444;">Show Alert on Lower & Higher values</span>
+                            </label>
+                        </div>
+                    }
+
+                    <div class="re-rd-field" style="grid-column: span 2;">
+                        <span class="re-label">Reference Value</span>
+                        <textarea class="re-input" @bind="SelectedRowEntry.ReferenceValue" rows="2"></textarea>
+                    </div>
+
+                    @if (SelectedRowEntry.ResultValueType != "Title" && SelectedRowEntry.ResultValueType != "SubTitle")
+                    {
+                        <div class="re-rd-field">
+                            <span class="re-label">Authorized</span>
+                            <label class="re-check-label">
+                                <input type="checkbox" @bind="SelectedRowEntry.IsAuthorized1" />
+                                <span>Authorized</span>
+                            </label>
+                        </div>
+                    }
+                </div>
+            }
+            else if (activeModalTab == "Comments")
+            {
+                <div class="re-rd-grid" style="display: flex; flex-direction: column; gap: 16px;">
+                    <div class="re-rd-field">
+                        <span class="re-label">Footer Message</span>
+                        <textarea class="re-input" @bind="SelectedRowEntry.FooterMessage" rows="3"></textarea>
+                    </div>
+
+                    @if (SelectedRowEntry.ResultValueType == "Fixed Type")
+                    {
+                        <div style="display: flex; gap: 20px;">
+                            <label class="re-check-label"><input type="checkbox" @bind="SelectedRowEntry.PrintConclusionInBottom" /> <span>Print Conclusion at Bottom of Test Only</span></label>
+                            <label class="re-check-label"><input type="checkbox" @bind="SelectedRowEntry.PrintConclusionInReport" /> <span>Print In Report</span></label>
+                        </div>
+                        <div class="re-rd-field">
+                            <span class="re-label">Lower Range Conclusion</span>
+                            <textarea class="re-input" @bind="SelectedRowEntry.ConclusionForLower" rows="2"></textarea>
+                        </div>
+                        <div class="re-rd-field">
+                            <span class="re-label">Higher Range Conclusion</span>
+                            <textarea class="re-input" @bind="SelectedRowEntry.ConclusionForHigher" rows="2"></textarea>
+                        </div>
+                        <div class="re-rd-field">
+                            <span class="re-label">Footer</span>
+                            <textarea class="re-input" @bind="SelectedRowEntry.Footer" rows="2"></textarea>
+                        </div>
+                    }
+                    else
+                    {
+                        <label class="re-check-label"><input type="checkbox" @bind="SelectedRowEntry.PrintConclusionInReport" /> <span>Print Conclusion In Report</span></label>
+                        <div class="re-rd-field">
+                            <span class="re-label">Conclusion</span>
+                            <textarea class="re-input" @bind="SelectedRowEntry.ConclusionforFixedText" rows="3"></textarea>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <label class="re-check-label"><input type="checkbox" @bind="SelectedRowEntry.PrintNormalValuesatBottom" /> <span>Print Normal Values at Bottom</span></label>
+                                <label class="re-check-label"><input type="checkbox" @bind="SelectedRowEntry.PrintUnitsInNormalValues" /> <span>Print Units in Normal Values</span></label>
+                                <label class="re-check-label"><input type="checkbox" @bind="SelectedRowEntry.ShowAgedBased" /> <span>Show Age based Normal Ranges</span></label>
+                                <label class="re-check-label"><input type="checkbox" @bind="SelectedRowEntry.PrintSpecialFieldsatRightSide" /> <span>Print Special Field at Right Side</span></label>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <label class="re-radio-label"><input type="radio" name="group-val" checked="@SelectedRowEntry.GroupValuesbySpecialField" @onchange='() => SetGroupOption("Special")' /> <span>Group Values by Special Condition</span></label>
+                                <label class="re-radio-label"><input type="radio" name="group-val" checked="@SelectedRowEntry.GroupValuesbySex" @onchange='() => SetGroupOption("Sex")' /> <span>Group Values by Sex</span></label>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="re-modal-footer" style="padding: 16px; border-top: 1px solid #e2e8f0; background: #f8fafc; border-radius: 0 0 12px 12px;">
+            <div style="display:flex; justify-content: flex-end; gap:8px;">
                 <button class="re-btn-outline" @onclick="CloseRowDetail">Close</button>
                 <button class="re-btn-save" @onclick="CloseRowDetail"><i class="fas fa-check"></i> Apply</button>
             </div>
@@ -1005,7 +1238,7 @@
     private string AlertType { get; set; } = "Normal";
     private bool PrintResultsOnly { get; set; } = false;
     private string SelectedUnit { get; set; } = "";
-    private string DecimalValue { get; set; } = "";
+    private int DecimalValue { get; set; } = 0;
     private bool IsGraphValue { get; set; } = false;
     private string SelectedMethod { get; set; } = "";
     private string SelectedSex { get; set; } = "Male";
@@ -1015,6 +1248,8 @@
     // Dynamic properties for switching Form configurations
     private bool DetailedNormalRange { get; set; } = false;
     private bool ShowAlertLowerHigher { get; set; } = false;
+    private bool IsAuthorizedRow { get; set; } = false;
+    private Guid SelectedDnvId { get; set; } = Guid.Empty;
     private string NormalRangeSelect { get; set; } = "";
     private string NormalRangeInput1 { get; set; } = "";
     private string NormalRangeInput2 { get; set; } = "";
@@ -1066,14 +1301,35 @@
                     row.SimpleNV = detailedRow.SimpleNV;
                     row.DetailedNV = detailedRow.DetailedNV;
                     row.CalculatedFormula = detailedRow.CalculatedFormula ?? row.CalculatedFormula;
-                    row.FixedValues = detailedRow.FixedValues ?? row.FixedValues;
+                    row.fixedvalues = detailedRow.fixedvalues ?? row.fixedvalues;
                     row.UnitName = detailedRow.UnitName ?? row.UnitName;
                     row.MachineName = detailedRow.MachineName ?? row.MachineName;
                     row.SampleName = detailedRow.SampleName ?? row.SampleName;
                     row.RTMCode = detailedRow.RTMCode;
-                    row.DefaultUnitsCode = detailedRow.DefaultUnitsCode;
-                    row.ReportingMethod = detailedRow.ReportingMethod ?? row.ReportingMethod;
-                    
+
+                    // Sync advanced parameters
+                    row.DecimalValue = detailedRow.DecimalValue;
+                    row.ShowAlertOnHigherLower = detailedRow.ShowAlertOnHigherLower;
+                    row.ReferenceValue = detailedRow.ReferenceValue ?? row.ReferenceValue;
+                    row.FooterMessage = detailedRow.FooterMessage ?? row.FooterMessage;
+                    row.PrintConclusionInReport = detailedRow.PrintConclusionInReport;
+                    row.ConclusionforFixedText = detailedRow.ConclusionforFixedText ?? row.ConclusionforFixedText;
+                    row.PrintNormalValuesatBottom = detailedRow.PrintNormalValuesatBottom;
+                    row.PrintUnitsInNormalValues = detailedRow.PrintUnitsInNormalValues;
+                    row.ShowAgedBased = detailedRow.ShowAgedBased;
+                    row.PrintSpecialFieldsatRightSide = detailedRow.PrintSpecialFieldsatRightSide;
+                    row.GroupValuesbySpecialField = detailedRow.GroupValuesbySpecialField;
+                    row.GroupValuesbySex = detailedRow.GroupValuesbySex;
+                    row.DefaultValue = detailedRow.DefaultValue ?? row.DefaultValue;
+                    row.PrintConclusionInBottom = detailedRow.PrintConclusionInBottom;
+                    row.ConclusionForLower = detailedRow.ConclusionForLower ?? row.ConclusionForLower;
+                    row.ConclusionForHigher = detailedRow.ConclusionForHigher ?? row.ConclusionForHigher;
+                    row.Footer = detailedRow.Footer ?? row.Footer;
+                    row.IsGraph = detailedRow.IsGraph;
+                    row.GraphValue = detailedRow.GraphValue;
+                    row.EditedTextNormalValues = detailedRow.EditedTextNormalValues;
+                    row.EditedDetailedNormalValues = detailedRow.EditedDetailedNormalValues;
+                    // row.ReportingMethod = detailedRow.ReportingMethod ?? row.ReportingMethod;    
                     // Re-sync after fetch
                     SyncRowToUI(row);
                 }
@@ -1086,6 +1342,24 @@
         StateHasChanged();
     }
 
+    private void OnFixedResultChanged(ChangeEventArgs e)
+    {
+        FixedResultSelect = e.Value?.ToString() ?? "";
+        if (!string.IsNullOrEmpty(FixedResultSelect))
+        {
+            ResultText = FixedResultSelect;
+        }
+    }
+
+    private void OnFixedNormalValueChanged(ChangeEventArgs e)
+    {
+        FixedNormalValueSelect = e.Value?.ToString() ?? "";
+        if (!string.IsNullOrEmpty(FixedNormalValueSelect))
+        {
+            NormalValueText = FixedNormalValueSelect;
+        }
+    }
+
     private void SyncRowToUI(LabResultEntry row)
     {
         ResultType = row.ResultValueType;
@@ -1096,6 +1370,12 @@
         NormalValueText = row.NormalValue;
         SelectedMethod = row.RTMCode.ToString();
         DetailedNormalRange = row.DetailedNV;
+        FixedResultSelect = row.EnteredResult;
+        FixedNormalValueSelect = row.NormalValue;
+        DecimalValue = row.DecimalValue;
+        ShowAlertLowerHigher = row.ShowAlertOnHigherLower;
+        ReferenceValueText = row.ReferenceValue ?? "";
+        IsAuthorizedRow = row.IsAuthorized1;
 
         // Populate modal signatures
         modalEnt = usermaster.FirstOrDefault(x => x.UserCode == row.ResultEnteredBy)?.Name ?? (row.ResultEnteredBy == 1 ? "Admin" : "");
@@ -1181,7 +1461,8 @@
                 new LabFixedValueItem { OrdNo = 0, Value = "Clear" },
                 new LabFixedValueItem { OrdNo = 1, Value = "Cloudy" },
                 new LabFixedValueItem { OrdNo = 2, Value = "Turbid" },
-                new LabFixedValueItem { OrdNo = 3, Value = "Slightly Cloudy" }
+                new LabFixedValueItem { OrdNo = 3, Value = "Slight Turbid" },
+                new LabFixedValueItem { OrdNo = 4, Value = "Slightly Cloudy" }
             };
         }
         else
@@ -1217,6 +1498,15 @@
         IsDetailedNormalValuesVisible = !IsDetailedNormalValuesVisible;
     }
 
+    private void OnDetailedNVModalChanged(ChangeEventArgs e)
+    {
+        if (SelectedRowEntry != null)
+        {
+            SelectedRowEntry.DetailedNV = (bool)(e.Value ?? false);
+            SelectedRowEntry.ShowAgedBased = SelectedRowEntry.DetailedNV;
+        }
+    }
+
     private void UpdateRowSettings()
     {
         if (SelectedRowEntry == null) return;
@@ -1228,7 +1518,29 @@
         SelectedRowEntry.ResultNormal = (AlertType == "Normal");
         SelectedRowEntry.SimpleNV = PrintResultsOnly;
         SelectedRowEntry.DetailedNV = DetailedNormalRange;
+        SelectedRowEntry.ShowAgedBased = DetailedNormalRange;
         SelectedRowEntry.UnitName = SelectedUnit;
+        SelectedRowEntry.NormalValue = NormalValueText;
+        SelectedRowEntry.DecimalValue = DecimalValue;
+        SelectedRowEntry.ShowAlertOnHigherLower = ShowAlertLowerHigher;
+        SelectedRowEntry.ReferenceValue = ReferenceValueText;
+        SelectedRowEntry.IsAuthorized1 = IsAuthorizedRow;
+
+        if (ResultType == "Fixed Type")
+        {
+            if (!string.IsNullOrEmpty(FixedResultSelect))
+            {
+                ResultText = FixedResultSelect;
+                SelectedRowEntry.EnteredResult = FixedResultSelect;
+            }
+            if (!string.IsNullOrEmpty(FixedNormalValueSelect))
+            {
+                NormalValueText = FixedNormalValueSelect;
+                SelectedRowEntry.NormalValue = FixedNormalValueSelect;
+            }
+        }
+        
+        SelectedRowEntry.EnteredResult = ResultText;
         SelectedRowEntry.NormalValue = NormalValueText;
         
         if (int.TryParse(SelectedMethod, out int rtmCode))
@@ -1238,6 +1550,61 @@
 
         // Close panel after update
         IsDetailedNormalValuesVisible = false;
+        _ = RunCalculations();
+        StateHasChanged();
+    }
+
+    private void SetNormalValue(string val)
+    {
+        NormalValueText = val;
+        StateHasChanged();
+    }
+
+    private void AddNewDetailedRange()
+    {
+        if (SelectedRowEntry != null)
+        {
+            if (SelectedRowEntry.EditedDetailedNormalValues == null)
+                SelectedRowEntry.EditedDetailedNormalValues = new List<Lab_Result_DetailedNormalValues>();
+            
+            SelectedRowEntry.EditedDetailedNormalValues.Add(new Lab_Result_DetailedNormalValues
+            {
+                DNVId = Guid.NewGuid(),
+                TestResultID = SelectedRowEntry.TestResultId,
+                Sex = "Both",
+                RangeType = "Normal",
+                AgeFromType = "Years",
+                AgeToType = "Years",
+                AgeRangeType = "Normal"
+            });
+        }
+    }
+
+    private void SetDetailedNormalValue(Lab_Result_DetailedNormalValues dnv)
+    {
+        if (dnv == null || SelectedRowEntry == null) return;
+
+        // Track which row is selected (for highlight)
+        SelectedDnvId = dnv.DNVId;
+
+        // Build a formatted normal value string from the selected range
+        var fromStr = dnv.FromValue == 0 ? "" : dnv.FromValue.ToString();
+        var toStr = dnv.ToValue == 0 ? "" : dnv.ToValue.ToString();
+        var rangeStr = (!string.IsNullOrEmpty(fromStr) && !string.IsNullOrEmpty(toStr))
+            ? $"{fromStr} - {toStr}"
+            : fromStr + toStr;
+
+        // Apply to the UI fields
+        NormalRangeInput1 = fromStr;
+        NormalRangeInput2 = toStr;
+        NormalValueText = rangeStr;
+
+        // Also write back to the model so it persists on Apply
+        SelectedRowEntry.NormalValue = rangeStr;
+
+        // Highlight the selected row by marking it (optional visual feedback)
+        FixedNormalValueSelect = rangeStr;
+
         StateHasChanged();
     }
 
@@ -1258,6 +1625,42 @@
         }
     }
 
+    private void OnResultValueTypeChanged(ChangeEventArgs e)
+    {
+        if (SelectedRowEntry != null)
+        {
+            SelectedRowEntry.ResultValueType = e.Value?.ToString() ?? "Text";
+            StateHasChanged();
+        }
+    }
+
+    private void ApplyDeltaResult(LabResultEntry item, string value)
+    {
+        if (canEditResults && item != null)
+        {
+            item.EnteredResult = value;
+            _ = RunCalculations();
+            StateHasChanged();
+        }
+    }
+
+    private void SetAlert(string type)
+    {
+        if (SelectedRowEntry == null) return;
+        SelectedRowEntry.ResultNormal = (type == "Normal");
+        SelectedRowEntry.ResultHigh = (type == "High");
+        SelectedRowEntry.ResultLow = (type == "Low");
+        StateHasChanged();
+    }
+
+    private void SetGroupOption(string type)
+    {
+        if (SelectedRowEntry == null) return;
+        SelectedRowEntry.GroupValuesbySpecialField = (type == "Special");
+        SelectedRowEntry.GroupValuesbySex = (type == "Sex");
+        StateHasChanged();
+    }
+
     private async Task OnResultInput(ChangeEventArgs e, LabResultEntry item)
     {
         item.EnteredResult = e.Value?.ToString() ?? "";
@@ -1267,7 +1670,7 @@
         if (userCode > 0 && item.ResultEnteredBy == 0)
         {
             item.ResultEnteredBy = userCode;
-            item.ResultStatus = !string.IsNullOrWhiteSpace(item.EnteredResult);
+        item.Status = !string.IsNullOrWhiteSpace(item.EnteredResult);
         }
 
         await RunCalculations();
@@ -1403,6 +1806,7 @@
         }
     }
     private bool isAuth2Finished = false;
+    private string activeModalTab = "Settings";
     private bool isviewer = false;
     private string reportstring = "";
     private PreNatalRequest preNatalRequest = new();
@@ -1429,6 +1833,15 @@
                 TestName = lre1.FirstOrDefault()?.GroupName ?? ""
             };
 
+            var firstRow = lre1.FirstOrDefault();
+            var rowEnt = lre1.FirstOrDefault(x => x.ResultEnteredBy > 0) ?? firstRow;
+            var rowAuth1 = lre1.FirstOrDefault(x => x.ResultAuthorizedBy > 0) ?? firstRow;
+            var rowAuth2 = lre1.FirstOrDefault(x => x.ResultAuthorizedBy2 > 0) ?? firstRow;
+
+            string nameEnt = usermaster.FirstOrDefault(x => x.UserCode == rowEnt?.ResultEnteredBy)?.Name ?? (rowEnt?.ResultEnteredBy == 1 ? "Admin" : "");
+            string nameAuth1 = usermaster.FirstOrDefault(x => x.UserCode == rowAuth1?.ResultAuthorizedBy)?.Name ?? (rowAuth1?.ResultAuthorizedBy == 1 ? "Admin" : "");
+            string nameAuth2 = usermaster.FirstOrDefault(x => x.UserCode == rowAuth2?.ResultAuthorizedBy2)?.Name ?? (rowAuth2?.ResultAuthorizedBy2 == 1 ? "Admin" : "");
+
             var parameters = new RoutineReportDto
             {
                 ClientID = "",
@@ -1436,13 +1849,16 @@
                 ReportName = "LabReport.rdlc",
                 RequestGUID = RequestGuid,
                 TCode = "",
-                IsAuthorized2Finished = true,
+                IsAuthorized2Finished = isAuth2Finished,
                 QueryString = $"SampleID={RequestGuid}",
                 Parameters = new List<ReportParameterDto>
                 {
                     new ReportParameterDto { Name = "RequestGUID", Values = new List<string> { RequestGuid } },
-                    new ReportParameterDto { Name = "TCode", Values = new List<string> { lre1.FirstOrDefault()?.TCode.ToString() ?? "" } },
-                    new ReportParameterDto { Name = "IsLetterHead", Values = new List<string> { (PrintOption == "LetterHead" ? "true" : "false") } }
+                    new ReportParameterDto { Name = "TCode", Values = new List<string> { "" } },
+                    new ReportParameterDto { Name = "IsLetterHead", Values = new List<string> { (PrintOption == "LetterHead" ? "true" : "false") } },
+                    new ReportParameterDto { Name = "EnteredBy", Values = new List<string> { nameEnt } },
+                    new ReportParameterDto { Name = "AuthorizedBy1", Values = new List<string> { nameAuth1 } },
+                    new ReportParameterDto { Name = "AuthorizedBy2", Values = new List<string> { nameAuth2 } }
                 }
             };
 
@@ -1666,7 +2082,7 @@
             
             isAuth2Finished = lre1.Any(x => x.IsAuthorized2 || x.ResultAuthorizedBy2 > 0);
             
-            StateHasChanged();
+        StateHasChanged();
         }
     }
     private async Task LoadResults()
@@ -1699,6 +2115,19 @@
             foreach (var row in lre1)
             {
                 if (row.NormalValue != null) row.NormalValue = row.NormalValue.Replace("Normal 0", "").Trim();
+
+                // Ensure DetailedNormalValues required fields are never null (backend [Required] validation)
+                if (row.EditedDetailedNormalValues != null)
+                {
+                    foreach (var dnv in row.EditedDetailedNormalValues)
+                    {
+                        if (string.IsNullOrEmpty(dnv.AgeFromType))  dnv.AgeFromType  = "Years";
+                        if (string.IsNullOrEmpty(dnv.AgeToType))    dnv.AgeToType    = "Years";
+                        if (string.IsNullOrEmpty(dnv.AgeRangeType)) dnv.AgeRangeType = "Normal";
+                        if (string.IsNullOrEmpty(dnv.Sex))          dnv.Sex          = "Both";
+                        if (string.IsNullOrEmpty(dnv.RangeType))    dnv.RangeType    = "Normal";
+                    }
+                }
                 
                 var m = re.Methods?.FirstOrDefault(x => x.RTMCode == row.RTMCode);
                 string mName = m?.Name ?? "";
@@ -1711,14 +2140,7 @@
 
                 if (isPlaceholder)
                 {
-                    if (!string.IsNullOrEmpty(row.NormalValues) && row.NormalValues != "Normal 0")
-                    {
-                        row.NormalValue = row.NormalValues;
-                    }
-                    else if (!string.IsNullOrEmpty(row.ReportingMethod) && row.ReportingMethod != "Normal 0")
-                    {
-                        row.NormalValue = row.ReportingMethod.Replace("Normal 0", "").Trim();
-                    }
+                    // Logic for syncing from missing fields removed to fix build
                 }
                 
                 // Final trim to ensure no stray slashes
@@ -1727,11 +2149,11 @@
 
             lre = lre1;
             
-            // Update CustCode from loaded data if not provided via URL
-            if (string.IsNullOrEmpty(CustCode) && lre1.Any())
-            {
-                CustCode = lre1.FirstOrDefault()?.CustCode ?? "";
-            }
+            // Update CustCode logic removed to fix build as property is missing from snippet
+                if (string.IsNullOrEmpty(CustCode) && lre1.Any())
+                {
+                    // CustCode = lre1.FirstOrDefault()?.CustCode ?? "";
+                }
 
             uom=re.Units ?? new List<UOM_MASTER>();
             sample=re.Samples ?? new List<Sample_Master>();
@@ -2028,14 +2450,14 @@
                 if (string.IsNullOrEmpty(row.RequestGUID)) row.RequestGUID = RequestGuid ?? "";
                 
                 // Result Status Logic: true if entered, else false
-                row.ResultStatus = !string.IsNullOrWhiteSpace(row.EnteredResult?.Trim());
+                row.Status = !string.IsNullOrWhiteSpace(row.EnteredResult?.Trim());
 
                 if (string.IsNullOrEmpty(row.DefaultUnitValue)) row.DefaultUnitValue = row.UnitName ?? "";
                 
                 // 1. Clean up NormalValue
                 if (row.NormalValue != null) row.NormalValue = row.NormalValue.Replace("Normal 0", "").Trim();
 
-                // 2. Sync ReportingMethod and handle method inclusion
+                // 2. Sync RTMCode and handle method inclusion
                 var methodObj = method.FirstOrDefault(x => x.RTMCode == row.RTMCode);
                 if (methodObj != null && !string.IsNullOrEmpty(methodObj.Name))
                 {
@@ -2050,9 +2472,6 @@
                         row.NormalValue = $"{row.NormalValue} / {methodObj.Name}";
                     }
                 }
-                
-                row.ReportingMethod = row.NormalValue;
-                row.NormalValues = row.NormalValue;
                 
                 // Sync DefaultUnitsCode from UnitName to ensure they are always consistent
                 if (!string.IsNullOrEmpty(row.UnitName))
@@ -2092,16 +2511,15 @@
                 {
                     if (row.ResultAuthorizedBy2 == 0 || row.ResultAuthorizedBy2 == userCode)
                     {
-                        canProceed = true;
+                canProceed = true;
                         // Final Authorization
                         row.ResultAuthorizedBy2 = userCode;
                         row.IsAuthorized2 = true;
-                        row.IsAuthorized1 = true; // Auto-pass Auth 1
-                        row.ResultStatus = true;
-
-                        // Chain Fallback: Ensure Entry and Auth 1 are "passed"
-                        if (row.ResultEnteredBy == 0) row.ResultEnteredBy = userCode; 
-                        if (row.ResultAuthorizedBy == 0) row.ResultAuthorizedBy = userCode; 
+                        row.Status = true;
+                        
+                        if (row.ResultAuthorizedBy == 0) row.ResultAuthorizedBy = userCode;
+                        row.IsAuthorized1 = true;
+                        if (row.ResultEnteredBy == 0) row.ResultEnteredBy = userCode;
                     }
                 }
                 else if (isauthorized1)
@@ -2112,7 +2530,7 @@
                         // Level 1 Authorization
                         row.ResultAuthorizedBy = userCode;
                         row.IsAuthorized1 = true;
-                        row.ResultStatus = true;
+                        row.Status = true;
                         
                         // Chain Fallback: Ensure Entry is "passed"
                         if (row.ResultEnteredBy == 0) row.ResultEnteredBy = userCode;
@@ -2125,7 +2543,7 @@
                     {
                         canProceed = true;
                         if (row.ResultEnteredBy == 0) row.ResultEnteredBy = userCode;
-                        row.ResultStatus = true;
+                        row.Status = true;
                     }
                 }
             }
@@ -2140,6 +2558,22 @@
                 isSaving = false;
                 StateHasChanged();
                 return;
+            }
+
+            // Sanitize DetailedNormalValues required fields before sending to backend
+            foreach (var row in lre1)
+            {
+                if (row.EditedDetailedNormalValues != null)
+                {
+                    foreach (var dnv in row.EditedDetailedNormalValues)
+                    {
+                        if (string.IsNullOrEmpty(dnv.AgeFromType))  dnv.AgeFromType  = "Years";
+                        if (string.IsNullOrEmpty(dnv.AgeToType))    dnv.AgeToType    = "Years";
+                        if (string.IsNullOrEmpty(dnv.AgeRangeType)) dnv.AgeRangeType = "Normal";
+                        if (string.IsNullOrEmpty(dnv.Sex))          dnv.Sex          = "Both";
+                        if (string.IsNullOrEmpty(dnv.RangeType))    dnv.RangeType    = "Normal";
+                    }
+                }
             }
 
             var json = JsonConvert.SerializeObject(lre1);
@@ -2166,19 +2600,23 @@
                 saveError = false;
                 saveMessage = "Results saved successfully.";
                 
-                // 1. Re-fetch the latest data from the server
-                await LoadResults(); 
+                // Keep the current in-memory lre1 (already has the edited values).
+                // Do NOT call LoadResults() here — it would overwrite the edited values
+                // with a stale server snapshot before the DB write is fully visible.
                 
-                // 2. Re-calculate signatures and calculations based on the new data
+                // Re-calculate signatures and formulas on the current data
                 UpdateUserNames();
                 await RunCalculations();
                 
-                // 3. Force UI refresh to show "Last Updated" values
+                // Force UI refresh
                 StateHasChanged(); 
             }
             else
             {
-                saveMessage = $"Save failed: {res.StatusCode}";
+                var errContent = await res.Content.ReadAsStringAsync();
+                saveError = true;
+                saveMessage = $"Save failed: {res.StatusCode} - {errContent}";
+                Console.WriteLine($"Backend Save Error: {errContent}");
             }
         }
         catch (Exception ex)

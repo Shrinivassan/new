@@ -22,111 +22,101 @@ namespace Lims.Components.Model
     }
     public class LabResultEntry
     {
-        [JsonProperty("requestGUID")]
         public string RequestGUID { get; set; }
-        [JsonProperty("slNo")]
         public int SLNo { get; set; }
-        [JsonProperty("tCode")]
         public int TCode { get; set; }
-        [JsonProperty("testName")]
-        public string TestName { get; set; }
-        [JsonProperty("orderNo")]
+        public string? TestName { get; set; }
         public int OrderNo { get; set; }
-        [JsonProperty("groupOrder")]
         public int GroupOrder { get; set; }
-        [JsonProperty("gCode")]
         public int GCode { get; set; }
-        [JsonProperty("groupName")]
-        public string GroupName { get; set; }
-        [JsonProperty("col2")]
-        public string Col2 { get; set; }
-        [JsonProperty("enteredResult")]
-        public string EnteredResult { get; set; }
-        [JsonProperty("resultValueType")]
-        public string ResultValueType { get; set; } 
-        [JsonProperty("normalValue")]
-        public string NormalValue { get; set; }
-        [JsonProperty("testResultId")]
+        public string? GroupName { get; set; }
+        public string? Col2 { get; set; }
+        public string? EnteredResult { get; set; }
+        public string? ResultValueType { get; set; }
+        public string? NormalValue { get; set; }
         public Guid TestResultId { get; set; }
-        [JsonProperty("status")]
-        public bool ResultStatus { get; set; }
-        [JsonProperty("defaultValueforFXType")]
+        public bool Status { get; set; }
         public Guid DefaultValueforFXType { get; set; }
-        [JsonProperty("fxTCode")]
         public Guid FXTCode { get; set; }
-        [JsonProperty("resultNormal")]
-        [JsonPropertyName("resultNormal")]
         public bool ResultNormal { get; set; }
-        [JsonProperty("resultHigh")]
-        [JsonPropertyName("resultHigh")]
         public bool ResultHigh { get; set; }
-        [JsonProperty("resultLow")]
-        [JsonPropertyName("resultLow")]
         public bool ResultLow { get; set; }
-        [JsonProperty("resultType")]
-        [JsonPropertyName("resultType")]
-        public string ResultType { get; set; }
-        [JsonProperty("fromTcode")]
-        [JsonPropertyName("fromTcode")]
+        public string? ResultType { get; set; }
         public int FromTcode { get; set; }
-        [JsonProperty("fromTestResultId")]
-        [JsonPropertyName("fromTestResultId")]
         public Guid FromTestResultId { get; set; }
-        [JsonProperty("simpleNV")]
-        [JsonPropertyName("simpleNV")]
         public bool SimpleNV { get; set; }
-        [JsonProperty("detailedNV")]
-        [JsonPropertyName("detailedNV")]
         public bool DetailedNV { get; set; }
-        [JsonProperty("calculatedFormula")]
-        [JsonPropertyName("calculatedFormula")]
-        public string CalculatedFormula { get; set; }
-        [JsonProperty("defaultUnitValue")]
-        [JsonPropertyName("defaultUnitValue")]
-        public string DefaultUnitValue { get; set; } = String.Empty;
-        [JsonProperty("mcCode")]
-        [JsonPropertyName("mcCode")]
-        public int MCCode { get; set; }
-        [JsonProperty("machineName")]
-        [JsonPropertyName("machineName")]
-        public string MachineName { get; set; } = string.Empty;
-        [JsonProperty("sCode")]
-        [JsonPropertyName("sCode")]
-        public int SCode { get; set; }
-        [JsonProperty("resultEnteredBy")]
-        [JsonPropertyName("resultEnteredBy")]
-        public int ResultEnteredBy { get; set; }
-        [JsonProperty("isAuthorized1")]
-        [JsonPropertyName("isAuthorized1")]
-        public bool IsAuthorized1 { get; set; }
-        [JsonProperty("isAuthorized2")]
-        [JsonPropertyName("isAuthorized2")]
-        public bool IsAuthorized2 { get; set; }
-        [JsonProperty("resultAuthorizedBy")]
-        [JsonPropertyName("resultAuthorizedBy")]
-        public int ResultAuthorizedBy { get; set; }
-        [JsonProperty("resultAuthorizedBy2")]
-        [JsonPropertyName("resultAuthorizedBy2")]
-        public int ResultAuthorizedBy2 { get; set; }
-        [JsonProperty("fixedvalues")]
-        public string FixedValues { get; set; }
-        [JsonProperty("sampleName")]
-        public string SampleName { get; set; }
-        [JsonProperty("unitName")]
-        public string UnitName { get; set; }
-        [JsonProperty("defaultunitscode")]
+        public string? CalculatedFormula { get; set; }
         public int DefaultUnitsCode { get; set; }
-        [JsonProperty("run")]
-        public string Run { get; set; }
-        [JsonProperty("custCode")]
-        public string CustCode { get; set; }
-        [JsonProperty("rtmCode")]
-        [JsonPropertyName("rtmCode")]
+        public string? DefaultUnitValue { get; set; }
+        public int MCCode { get; set; }
+        public string? MachineName { get; set; }
+        public int SCode { get; set; }
+        public int ResultEnteredBy { get; set; }
+        public bool IsAuthorized1 { get; set; }
+        public bool IsAuthorized2 { get; set; }
+        public int ResultAuthorizedBy { get; set; }
+        public int ResultAuthorizedBy2 { get; set; }
+        public string? fixedvalues { get; set; }
+        public string? SampleName { get; set; }
+        public string? UnitName { get; set; }
         public int RTMCode { get; set; }
-        [JsonProperty("reportingMethod")]
-        public string ReportingMethod { get; set; }
-        [JsonProperty("normalValues")]
-        public string NormalValues { get; set; }
+
+        // Parameters for advanced result types
+        public int DecimalValue { get; set; }
+        public bool ShowAlertOnHigherLower { get; set; }
+        public string? ReferenceValue { get; set; }
+        public string? FooterMessage { get; set; }
+        public bool PrintConclusionInReport { get; set; }
+        public string? ConclusionforFixedText { get; set; }
+        public bool PrintNormalValuesatBottom { get; set; }
+        public bool PrintUnitsInNormalValues { get; set; }
+        public bool ShowAgedBased { get; set; }
+        public bool PrintSpecialFieldsatRightSide { get; set; }
+        public bool GroupValuesbySpecialField { get; set; }
+        public bool GroupValuesbySex { get; set; }
+        public string? DefaultValue { get; set; }
+        public bool PrintConclusionInBottom { get; set; }
+        public string? ConclusionForLower { get; set; }
+        public string? ConclusionForHigher { get; set; }
+        public string? Footer { get; set; }
+        public bool IsGraph { get; set; }
+        public double GraphValue { get; set; }
+        public List<Lab_Result_TextNormalValues>? EditedTextNormalValues { get; set; }
+        public List<Lab_Result_DetailedNormalValues>? EditedDetailedNormalValues { get; set; }
+        public List<Lab_Result_CalculatedFormula>? EditedCalculatedFormulas { get; set; }
+    }
+
+    public class Lab_Result_TextNormalValues
+    {
+        public Guid NVId { get; set; }
+        public Guid TestResultID { get; set; }
+        public string Sex { get; set; }
+        public string NormalValue { get; set; }
+    }
+
+    public class Lab_Result_DetailedNormalValues
+    {
+        public Guid DNVId { get; set; }
+        public Guid TestResultID { get; set; }
+        public string RangeType { get; set; } = "Normal";
+        public double FromValue { get; set; }
+        public double ToValue { get; set; }
+        public string? Sex { get; set; } = "Both";
+        public double RangeFrom { get; set; }
+        public double RangeTo { get; set; }
+        // Required by backend validation
+        public string AgeFromType { get; set; } = "Years";
+        public string AgeToType { get; set; } = "Years";
+        public string AgeRangeType { get; set; } = "Normal";
+    }
+
+    public class Lab_Result_CalculatedFormula
+    {
+        public Guid CFId { get; set; }
+        public Guid TestResultID { get; set; }
+        public string Formula { get; set; }
+        public string Sex { get; set; }
     }
 
     public class TestResultDetailsModel
@@ -135,8 +125,6 @@ namespace Lims.Components.Model
         public List<LabResultEntry> Properties { get; set; }
     }
 
-
- 
     public class Machine_Master
     {
 
