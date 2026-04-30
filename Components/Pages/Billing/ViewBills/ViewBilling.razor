@@ -413,7 +413,10 @@
 
     protected override async Task OnInitializedAsync()
     {
-        http.DefaultRequestHeaders.Add("X-Tenant-ID", AppSettings.ClientId);
+        if (!http.DefaultRequestHeaders.Contains("X-Tenant-ID"))
+        {
+            http.DefaultRequestHeaders.Add("X-Tenant-ID", AppSettings.ClientId);
+        }
         _dotNetRef = DotNetObjectReference.Create(this);
     }
 
@@ -663,7 +666,12 @@
         parameter.Add(new ReportParameterDto() { Name = "TCode", Values = new List<string>() { Convert.ToString("0") } });
         parameter.Add(new ReportParameterDto() { Name = "IsLetterHead", Values = new List<string>() { Convert.ToString(isletterhead) } });
         parameters.Parameters = parameter;
-        var res = await http.PostAsJsonAsync($"{AppSettings.BaseUrl}Report/Bill", parameters);
+        var request = new HttpRequestMessage(HttpMethod.Post, $"{AppSettings.BaseUrl}Report/Bill");
+        request.Content = JsonContent.Create(parameters);
+        if (!string.IsNullOrEmpty(token))
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var res = await http.SendAsync(request);
         //var res = exe.GetStatement(parameters, "Report/Bill").Result ?? "";
         if (res.IsSuccessStatusCode)
         {

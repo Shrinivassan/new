@@ -2,6 +2,7 @@
 @rendermode @(new InteractiveServerRenderMode(prerender:false))
 
 @using LIMS.Model
+@using BirdAPI.Model
 @using Lims.Components.Model
 @using Microsoft.AspNetCore.Components.Web
 @using Newtonsoft.Json
@@ -506,16 +507,16 @@
                                             {
                                                 @foreach (var dnv in SelectedRowEntry.EditedDetailedNormalValues)
                                                 {
-                                                     var isSelected = dnv.DNVId == SelectedDnvId;
+                                                     var isSelected = dnv.TRDNID == SelectedDnvId;
                                                      var rowStyle = isSelected ? "background: #eff6ff; border-left: 3px solid #6366f1;" : "";
                                                      <tr class="re-nv-row" style="@rowStyle">
                                                          <td style="cursor: pointer;" @onclick="() => SetDetailedNormalValue(dnv)">
                                                              <i class="fas fa-caret-right" style="font-size: 0.7rem; color: @(isSelected ? "#6366f1" : "#94a3b8");"></i>
                                                          </td>
-                                                        <td><input type="number" class="re-grid-input" @bind="dnv.FromValue" /></td>
-                                                        <td><input type="number" class="re-grid-input" @bind="dnv.ToValue" /></td>
+                                                        <td><input type="number" class="re-grid-input" @bind="dnv.AgeFrom" /></td>
+                                                        <td><input type="number" class="re-grid-input" @bind="dnv.AgeTo" /></td>
                                                         <td>
-                                                            <select class="re-grid-input" @bind="dnv.Sex">
+                                                            <select class="re-grid-input" @bind="dnv.sex">
                                                                 <option value="Both">Both</option>
                                                                 <option value="Male">Male</option>
                                                                 <option value="Female">Female</option>
@@ -690,7 +691,7 @@
                             <div class="re-rd-field">
                                 <span class="re-label">Value</span>
                                 <div style="display: flex; gap: 4px;">
-                                    <input type="text" class="re-input" @bind="SelectedRowEntry.DefaultValue" />
+                                    <input type="text" class="re-input" @bind="ResultText" />
                                     <button class="re-btn-outline" style="padding: 4px 8px;">...</button>
                                 </div>
                             </div>
@@ -755,13 +756,13 @@
                         <div class="re-rd-field" style="display: flex; gap: 12px; align-items: flex-end;">
                             <div style="flex: 1;">
                                 <span class="re-label">Decimal</span>
-                                <input type="number" class="re-input" @bind="SelectedRowEntry.DecimalValue" />
+                                <input type="number" class="re-input" @bind="DecimalValue" />
                             </div>
                             @if (SelectedRowEntry.ResultValueType == "Number" || SelectedRowEntry.ResultValueType == "Calculated Value")
                             {
                                 <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
-                                    <label class="re-check-label"><input type="checkbox" @bind="SelectedRowEntry.IsGraph" /> <span>Graph Value</span></label>
-                                    <input type="number" class="re-input" style="width: 60px;" @bind="SelectedRowEntry.GraphValue" />
+                                    <label class="re-check-label"><input type="checkbox" @bind="IsGraphValue" /> <span>Graph Value</span></label>
+                                    <input type="number" class="re-input" style="width: 60px;" @bind="DecimalValue" />
                                 </div>
                             }
                         </div>
@@ -784,7 +785,7 @@
 
                         <div class="re-rd-field" style="grid-column: span 2;">
                             <span class="re-label">Method</span>
-                            <select class="re-select" @bind="SelectedRowEntry.RTMCode">
+                            <select class="re-select" value="@SelectedRowEntry.RTMCode" @onchange="OnMethodChanged">
                                 <option value="0"></option>
                                 @foreach (var m in method) { <option value="@m.RTMCode">@m.Name</option> }
                             </select>
@@ -825,7 +826,7 @@
                                                 @foreach (var nv in SelectedRowEntry.EditedTextNormalValues)
                                                 {
                                                     <tr class="re-nv-row" @onclick="() => { SelectedRowEntry.NormalValue = nv.NormalValue; StateHasChanged(); }" style="cursor: pointer; border-bottom: 1px solid #f1f5f9;">
-                                                        <td style="padding: 6px 10px;">@nv.Sex</td>
+                                                        <td style="padding: 6px 10px;">@nv.sex</td>
                                                         <td style="padding: 6px 10px; color: #0f172a; font-weight: 500;">@nv.NormalValue</td>
                                                     </tr>
                                                 }
@@ -858,10 +859,10 @@
                                                     @foreach (var dnv in SelectedRowEntry.EditedDetailedNormalValues)
                                                     {
                                                         <tr class="re-nv-row" style="border-bottom: 1px solid #f1f5f9;">
-                                                            <td style="padding: 4px;"><input type="number" class="re-grid-input" style="width: 100%;" @bind="dnv.FromValue" /></td>
-                                                            <td style="padding: 4px;"><input type="number" class="re-grid-input" style="width: 100%;" @bind="dnv.ToValue" /></td>
+                                                            <td style="padding: 4px;"><input type="number" class="re-grid-input" style="width: 100%;" @bind="dnv.AgeFrom" /></td>
+                                                            <td style="padding: 4px;"><input type="number" class="re-grid-input" style="width: 100%;" @bind="dnv.AgeTo" /></td>
                                                             <td style="padding: 4px;">
-                                                                <select class="re-grid-input" style="width: 100%;" @bind="dnv.Sex">
+                                                                <select class="re-grid-input" style="width: 100%;" @bind="dnv.sex">
                                                                     <option value="Both">Both</option>
                                                                     <option value="Male">Male</option>
                                                                     <option value="Female">Female</option>
@@ -887,11 +888,11 @@
 
                         <div class="re-rd-field" style="grid-column: span 2; display: flex; gap: 20px;">
                             <label class="re-check-label">
-                                <input type="checkbox" checked="@SelectedRowEntry.DetailedNV" @onchange="OnDetailedNVModalChanged" />
+                                <input type="checkbox" checked="@DetailedNormalRange" @onchange="OnDetailedNVModalChanged" />
                                 <span>Detailed Normal Range</span>
                             </label>
                             <label class="re-check-label">
-                                <input type="checkbox" @bind="SelectedRowEntry.ShowAlertOnHigherLower" />
+                                <input type="checkbox" @bind="ShowAlertLowerHigher" />
                                 <span style="color: #ef4444;">Show Alert on Lower & Higher values</span>
                             </label>
                         </div>
@@ -899,7 +900,7 @@
 
                     <div class="re-rd-field" style="grid-column: span 2;">
                         <span class="re-label">Reference Value</span>
-                        <textarea class="re-input" @bind="SelectedRowEntry.ReferenceValue" rows="2"></textarea>
+                        <textarea class="re-input" @bind="ReferenceValueText" rows="2"></textarea>
                     </div>
 
                     @if (SelectedRowEntry.ResultValueType != "Title" && SelectedRowEntry.ResultValueType != "SubTitle")
@@ -907,7 +908,7 @@
                         <div class="re-rd-field">
                             <span class="re-label">Authorized</span>
                             <label class="re-check-label">
-                                <input type="checkbox" @bind="SelectedRowEntry.IsAuthorized1" />
+                                <input type="checkbox" @bind="IsAuthorizedRow" />
                                 <span>Authorized</span>
                             </label>
                         </div>
@@ -919,46 +920,43 @@
                 <div class="re-rd-grid" style="display: flex; flex-direction: column; gap: 16px;">
                     <div class="re-rd-field">
                         <span class="re-label">Footer Message</span>
-                        <textarea class="re-input" @bind="SelectedRowEntry.FooterMessage" rows="3"></textarea>
+                        <textarea class="re-input" @bind="FooterMessageText" rows="3"></textarea>
                     </div>
 
                     @if (SelectedRowEntry.ResultValueType == "Fixed Type")
                     {
                         <div style="display: flex; gap: 20px;">
-                            <label class="re-check-label"><input type="checkbox" @bind="SelectedRowEntry.PrintConclusionInBottom" /> <span>Print Conclusion at Bottom of Test Only</span></label>
-                            <label class="re-check-label"><input type="checkbox" @bind="SelectedRowEntry.PrintConclusionInReport" /> <span>Print In Report</span></label>
+                            <label class="re-check-label"><input type="checkbox" @bind="PrintResultsOnly" /> <span>Print Conclusion at Bottom of Test Only</span></label>
+                            <label class="re-check-label"><input type="checkbox" @bind="PrintConclusionInReport" /> <span>Print In Report</span></label>
                         </div>
                         <div class="re-rd-field">
                             <span class="re-label">Lower Range Conclusion</span>
-                            <textarea class="re-input" @bind="SelectedRowEntry.ConclusionForLower" rows="2"></textarea>
+                            <textarea class="re-input" @bind="ConclusionText" rows="2"></textarea>
                         </div>
                         <div class="re-rd-field">
                             <span class="re-label">Higher Range Conclusion</span>
-                            <textarea class="re-input" @bind="SelectedRowEntry.ConclusionForHigher" rows="2"></textarea>
+                            <textarea class="re-input" @bind="ConclusionText" rows="2"></textarea>
                         </div>
                         <div class="re-rd-field">
                             <span class="re-label">Footer</span>
-                            <textarea class="re-input" @bind="SelectedRowEntry.Footer" rows="2"></textarea>
+                            <textarea class="re-input" @bind="FooterMessageText" rows="2"></textarea>
                         </div>
                     }
                     else
                     {
-                        <label class="re-check-label"><input type="checkbox" @bind="SelectedRowEntry.PrintConclusionInReport" /> <span>Print Conclusion In Report</span></label>
+                        <label class="re-check-label"><input type="checkbox" @bind="PrintConclusionInReport" /> <span>Print Conclusion In Report</span></label>
                         <div class="re-rd-field">
                             <span class="re-label">Conclusion</span>
-                            <textarea class="re-input" @bind="SelectedRowEntry.ConclusionforFixedText" rows="3"></textarea>
+                            <textarea class="re-input" @bind="ConclusionText" rows="3"></textarea>
                         </div>
 
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                             <div style="display: flex; flex-direction: column; gap: 8px;">
-                                <label class="re-check-label"><input type="checkbox" @bind="SelectedRowEntry.PrintNormalValuesatBottom" /> <span>Print Normal Values at Bottom</span></label>
-                                <label class="re-check-label"><input type="checkbox" @bind="SelectedRowEntry.PrintUnitsInNormalValues" /> <span>Print Units in Normal Values</span></label>
-                                <label class="re-check-label"><input type="checkbox" @bind="SelectedRowEntry.ShowAgedBased" /> <span>Show Age based Normal Ranges</span></label>
-                                <label class="re-check-label"><input type="checkbox" @bind="SelectedRowEntry.PrintSpecialFieldsatRightSide" /> <span>Print Special Field at Right Side</span></label>
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 8px;">
-                                <label class="re-radio-label"><input type="radio" name="group-val" checked="@SelectedRowEntry.GroupValuesbySpecialField" @onchange='() => SetGroupOption("Special")' /> <span>Group Values by Special Condition</span></label>
-                                <label class="re-radio-label"><input type="radio" name="group-val" checked="@SelectedRowEntry.GroupValuesbySex" @onchange='() => SetGroupOption("Sex")' /> <span>Group Values by Sex</span></label>
+                                <label class="re-radio-label"><input type="radio" name="group-val" checked='@(CurrentGroupOption == "Special")' @onchange='() => SetGroupOption("Special")' /> <span>Group Values by Special Condition</span></label>
+                                <label class="re-radio-label"><input type="radio" name="group-val" checked='@(CurrentGroupOption == "Sex")' @onchange='() => SetGroupOption("Sex")' /> <span>Group Values by Sex</span></label>
+                                <label class="re-radio-label"><input type="radio" name="group-val" checked='@(CurrentGroupOption == "None")' @onchange='() => SetGroupOption("None")' /> <span>No Grouping</span></label>
                             </div>
                         </div>
                     }
@@ -1262,6 +1260,7 @@
     private string FooterMessageText { get; set; } = "";
     private bool PrintConclusionInReport { get; set; } = false;
     private string ConclusionText { get; set; } = "";
+    private string CurrentGroupOption { get; set; } = "None";
 
     private string BottomSample { get; set; } = "";
 
@@ -1274,7 +1273,7 @@
 
     // Row Detail Popup
     private LabResultEntry? SelectedRowEntry { get; set; } = null;
-
+    
     private async Task OpenRowDetail(LabResultEntry row)
     {
         if (row == null) return;
@@ -1286,7 +1285,11 @@
             SyncRowToUI(row);
 
             // Fetch fully populated details from the API
-            var res = await http.GetAsync($"{appSettings.BaseUrl}labresult/LoadTestResultDetails?testresultid={row.TestResultId}");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{appSettings.BaseUrl}labresult/LoadTestResultDetails?testresultid={row.TestResultId}");
+            if (!string.IsNullOrEmpty(token))
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var res = await http.SendAsync(request);
             if (res.IsSuccessStatusCode)
             {
                 var tt = await res.Content.ReadAsStringAsync();
@@ -1295,41 +1298,24 @@
                 
                 if (detailedRow != null)
                 {
-                    // Update our row reference with fetched details
-                    row.ResultValueType = detailedRow.ResultValueType ?? row.ResultValueType;
-                    row.NormalValue = detailedRow.NormalValue ?? row.NormalValue;
-                    row.SimpleNV = detailedRow.SimpleNV;
-                    row.DetailedNV = detailedRow.DetailedNV;
-                    row.CalculatedFormula = detailedRow.CalculatedFormula ?? row.CalculatedFormula;
-                    row.fixedvalues = detailedRow.fixedvalues ?? row.fixedvalues;
-                    row.UnitName = detailedRow.UnitName ?? row.UnitName;
-                    row.MachineName = detailedRow.MachineName ?? row.MachineName;
-                    row.SampleName = detailedRow.SampleName ?? row.SampleName;
+                    // Update our row reference with basic fetched details that exist in model
+                    row.LabProperties = detailedRow;
+                    
                     row.RTMCode = detailedRow.RTMCode;
 
-                    // Sync advanced parameters
-                    row.DecimalValue = detailedRow.DecimalValue;
-                    row.ShowAlertOnHigherLower = detailedRow.ShowAlertOnHigherLower;
-                    row.ReferenceValue = detailedRow.ReferenceValue ?? row.ReferenceValue;
-                    row.FooterMessage = detailedRow.FooterMessage ?? row.FooterMessage;
-                    row.PrintConclusionInReport = detailedRow.PrintConclusionInReport;
-                    row.ConclusionforFixedText = detailedRow.ConclusionforFixedText ?? row.ConclusionforFixedText;
-                    row.PrintNormalValuesatBottom = detailedRow.PrintNormalValuesatBottom;
-                    row.PrintUnitsInNormalValues = detailedRow.PrintUnitsInNormalValues;
-                    row.ShowAgedBased = detailedRow.ShowAgedBased;
-                    row.PrintSpecialFieldsatRightSide = detailedRow.PrintSpecialFieldsatRightSide;
-                    row.GroupValuesbySpecialField = detailedRow.GroupValuesbySpecialField;
-                    row.GroupValuesbySex = detailedRow.GroupValuesbySex;
-                    row.DefaultValue = detailedRow.DefaultValue ?? row.DefaultValue;
-                    row.PrintConclusionInBottom = detailedRow.PrintConclusionInBottom;
-                    row.ConclusionForLower = detailedRow.ConclusionForLower ?? row.ConclusionForLower;
-                    row.ConclusionForHigher = detailedRow.ConclusionForHigher ?? row.ConclusionForHigher;
-                    row.Footer = detailedRow.Footer ?? row.Footer;
-                    row.IsGraph = detailedRow.IsGraph;
-                    row.GraphValue = detailedRow.GraphValue;
-                    row.EditedTextNormalValues = detailedRow.EditedTextNormalValues;
-                    row.EditedDetailedNormalValues = detailedRow.EditedDetailedNormalValues;
-                    // row.ReportingMethod = detailedRow.ReportingMethod ?? row.ReportingMethod;    
+                    // Update our row reference with basic fetched details that exist in model
+                    row.ResultValueType = detailedRow.ResultValueType ?? row.ResultValueType;
+                    row.NormalValue = detailedRow.NormalValue ?? row.NormalValue;
+                    row.SimpleNV = detailedRow.SimpleNormalValues;
+                    row.DetailedNV = detailedRow.DetailedNormalValues;
+                    row.CalculatedFormula = detailedData.CalculatedFormulas?.FirstOrDefault()?.CalculatedFormula ?? row.CalculatedFormula;
+                    row.fixedvalues = detailedRow.DefaultValue ?? row.fixedvalues;
+                    row.UnitName = detailedRow.DefaultValue ?? row.UnitName; // Fallback mapping
+                    row.RTMCode = detailedRow.RTMCode;
+
+                    row.EditedTextNormalValues = detailedData.TextNormalValues?.ToList();
+                    row.EditedDetailedNormalValues = detailedData.DetailedNormalValues?.ToList();
+                    
                     // Re-sync after fetch
                     SyncRowToUI(row);
                 }
@@ -1372,9 +1358,13 @@
         DetailedNormalRange = row.DetailedNV;
         FixedResultSelect = row.EnteredResult;
         FixedNormalValueSelect = row.NormalValue;
-        DecimalValue = row.DecimalValue;
-        ShowAlertLowerHigher = row.ShowAlertOnHigherLower;
-        ReferenceValueText = row.ReferenceValue ?? "";
+        DecimalValue = row.LabProperties?.DecimalValue ?? 0;
+        ShowAlertLowerHigher = row.LabProperties?.ShowAlertOnHigherLower ?? false;
+        ReferenceValueText = ""; // Not in model
+        FooterMessageText = row.LabProperties?.FooterMessage ?? "";
+        PrintConclusionInReport = row.LabProperties?.PrintConclusionInReport ?? false;
+        ConclusionText = row.LabProperties?.ConclusionforFixedText ?? "";
+        CurrentGroupOption = row.LabProperties?.GroupValuesbySpecialField == true ? "Special" : (row.LabProperties?.GroupValuesbySex == true ? "Sex" : "None");
         IsAuthorizedRow = row.IsAuthorized1;
 
         // Populate modal signatures
@@ -1502,51 +1492,132 @@
     {
         if (SelectedRowEntry != null)
         {
-            SelectedRowEntry.DetailedNV = (bool)(e.Value ?? false);
-            SelectedRowEntry.ShowAgedBased = SelectedRowEntry.DetailedNV;
+            DetailedNormalRange = (bool)(e.Value ?? false);
+            SelectedRowEntry.DetailedNV = DetailedNormalRange;
+            
+            if (SelectedRowEntry.LabProperties == null)
+                SelectedRowEntry.LabProperties = new Lab_Result_Properties { TestResultID = SelectedRowEntry.TestResultId };
+            
+            SelectedRowEntry.LabProperties.ShowAgedBased = DetailedNormalRange;
         }
+    }
+
+    private void OnMethodChanged(ChangeEventArgs e)
+    {
+        if (SelectedRowEntry == null) return;
+        if (int.TryParse(e.Value?.ToString(), out int rtmCode))
+        {
+            SelectedRowEntry.RTMCode = rtmCode;
+            
+            // Sync with properties
+            if (SelectedRowEntry.LabProperties != null)
+                SelectedRowEntry.LabProperties.RTMCode = rtmCode;
+
+            // Trigger normal value refresh to include/update the method name
+            if (DetailedNormalRange) UpdateNormalValueFromDetailedRanges();
+            else UpdateNormalValueFromMethodOnly(rtmCode);
+        }
+    }
+
+    private void UpdateNormalValueFromMethodOnly(int rtmCode)
+    {
+        if (SelectedRowEntry == null) return;
+        var m = method.FirstOrDefault(x => x.RTMCode == rtmCode);
+        if (m == null) return;
+
+        string mName = $"({m.Name})";
+        string current = SelectedRowEntry.NormalValue ?? "";
+
+        // Remove any existing parenthesized method names to prevent duplicates
+        // (Simple regex-like logic: find " / (...)" and remove it)
+        if (current.Contains(" / ("))
+        {
+            int idx = current.LastIndexOf(" / (");
+            current = current.Substring(0, idx).Trim();
+        }
+        else if (current.StartsWith("(") && current.EndsWith(")"))
+        {
+            current = "";
+        }
+
+        if (string.IsNullOrWhiteSpace(current)) SelectedRowEntry.NormalValue = mName;
+        else SelectedRowEntry.NormalValue = $"{current} / {mName}";
+    }
+
+    private void UpdateNormalValueFromDetailedRanges()
+    {
+        if (SelectedRowEntry == null || SelectedRowEntry.EditedDetailedNormalValues == null || !SelectedRowEntry.EditedDetailedNormalValues.Any())
+            return;
+
+        var ranges = SelectedRowEntry.EditedDetailedNormalValues
+            .OrderBy(x => x.sex)
+            .ThenBy(x => x.AgeFrom)
+            .Select(x => $"{x.sex}: {x.RangeFrom}-{x.RangeTo} ({x.AgeFrom}-{x.AgeTo} {x.AgeFromType})")
+            .ToList();
+
+        string rangeStr = string.Join(" / ", ranges);
+        
+        // Append Method name if available
+        if (SelectedRowEntry.RTMCode > 0)
+        {
+            var m = method.FirstOrDefault(x => x.RTMCode == SelectedRowEntry.RTMCode);
+            if (m != null)
+            {
+                rangeStr = $"{rangeStr} / ({m.Name})";
+            }
+        }
+
+        SelectedRowEntry.NormalValue = rangeStr;
     }
 
     private void UpdateRowSettings()
     {
         if (SelectedRowEntry == null) return;
+
+        if (DetailedNormalRange)
+        {
+            UpdateNormalValueFromDetailedRanges();
+        }
         
         SelectedRowEntry.ResultValueType = ResultType;
-        SelectedRowEntry.EnteredResult = ResultText;
+        
+        // For fixed types, sync from the local ResultText variable
+        if (ResultType == "Fixed Type")
+        {
+            SelectedRowEntry.EnteredResult = ResultText;
+        }
+        // For other types, SelectedRowEntry.EnteredResult is already bound in the UI.
+
         SelectedRowEntry.ResultHigh = (AlertType == "High");
         SelectedRowEntry.ResultLow = (AlertType == "Low");
         SelectedRowEntry.ResultNormal = (AlertType == "Normal");
         SelectedRowEntry.SimpleNV = PrintResultsOnly;
         SelectedRowEntry.DetailedNV = DetailedNormalRange;
-        SelectedRowEntry.ShowAgedBased = DetailedNormalRange;
-        SelectedRowEntry.UnitName = SelectedUnit;
-        SelectedRowEntry.NormalValue = NormalValueText;
-        SelectedRowEntry.DecimalValue = DecimalValue;
-        SelectedRowEntry.ShowAlertOnHigherLower = ShowAlertLowerHigher;
-        SelectedRowEntry.ReferenceValue = ReferenceValueText;
+        // SelectedRowEntry.UnitName is already bound in the UI.
+        // SelectedRowEntry.NormalValue is already bound in the UI.
         SelectedRowEntry.IsAuthorized1 = IsAuthorizedRow;
+        SelectedRowEntry.Status = true; // Mark as edited
 
-        if (ResultType == "Fixed Type")
-        {
-            if (!string.IsNullOrEmpty(FixedResultSelect))
-            {
-                ResultText = FixedResultSelect;
-                SelectedRowEntry.EnteredResult = FixedResultSelect;
-            }
-            if (!string.IsNullOrEmpty(FixedNormalValueSelect))
-            {
-                NormalValueText = FixedNormalValueSelect;
-                SelectedRowEntry.NormalValue = FixedNormalValueSelect;
-            }
-        }
+        if (SelectedRowEntry.LabProperties == null)
+            SelectedRowEntry.LabProperties = new Lab_Result_Properties { TestResultID = SelectedRowEntry.TestResultId };
+
+        // Ensure RTMCode is synced to properties during Apply
+        SelectedRowEntry.LabProperties.RTMCode = SelectedRowEntry.RTMCode;
+        SelectedRowEntry.LabProperties.DetailedNormalValues = DetailedNormalRange;
+
+        var props = SelectedRowEntry.LabProperties;
+        props.DecimalValue = DecimalValue;
+        props.ShowAlertOnHigherLower = ShowAlertLowerHigher;
+        props.FooterMessage = FooterMessageText;
+        props.PrintConclusionInReport = PrintConclusionInReport;
+        props.ConclusionforFixedText = ConclusionText;
+        props.ShowAgedBased = DetailedNormalRange;
+        props.IsGraph = IsGraphValue;
         
-        SelectedRowEntry.EnteredResult = ResultText;
-        SelectedRowEntry.NormalValue = NormalValueText;
-        
-        if (int.TryParse(SelectedMethod, out int rtmCode))
-        {
-            SelectedRowEntry.RTMCode = rtmCode;
-        }
+        // Sync RTMCode from the row (which is bound in the UI) to properties
+        props.RTMCode = SelectedRowEntry.RTMCode;
+
+        SelectedRowEntry.Status = true;
 
         // Close panel after update
         IsDetailedNormalValuesVisible = false;
@@ -1564,14 +1635,17 @@
     {
         if (SelectedRowEntry != null)
         {
+            DetailedNormalRange = true; // Auto-enable when adding a range
+            SelectedRowEntry.DetailedNV = true;
+            
             if (SelectedRowEntry.EditedDetailedNormalValues == null)
                 SelectedRowEntry.EditedDetailedNormalValues = new List<Lab_Result_DetailedNormalValues>();
             
             SelectedRowEntry.EditedDetailedNormalValues.Add(new Lab_Result_DetailedNormalValues
             {
-                DNVId = Guid.NewGuid(),
+                TRDNID = Guid.NewGuid(),
                 TestResultID = SelectedRowEntry.TestResultId,
-                Sex = "Both",
+                sex = "Both",
                 RangeType = "Normal",
                 AgeFromType = "Years",
                 AgeToType = "Years",
@@ -1585,11 +1659,11 @@
         if (dnv == null || SelectedRowEntry == null) return;
 
         // Track which row is selected (for highlight)
-        SelectedDnvId = dnv.DNVId;
+        SelectedDnvId = dnv.TRDNID;
 
         // Build a formatted normal value string from the selected range
-        var fromStr = dnv.FromValue == 0 ? "" : dnv.FromValue.ToString();
-        var toStr = dnv.ToValue == 0 ? "" : dnv.ToValue.ToString();
+        var fromStr = dnv.AgeFrom == 0 ? "" : dnv.AgeFrom.ToString();
+        var toStr = dnv.AgeTo == 0 ? "" : dnv.AgeTo.ToString();
         var rangeStr = (!string.IsNullOrEmpty(fromStr) && !string.IsNullOrEmpty(toStr))
             ? $"{fromStr} - {toStr}"
             : fromStr + toStr;
@@ -1629,7 +1703,16 @@
     {
         if (SelectedRowEntry != null)
         {
-            SelectedRowEntry.ResultValueType = e.Value?.ToString() ?? "Text";
+            var newType = e.Value?.ToString() ?? "Text";
+            if (SelectedRowEntry.ResultValueType != newType)
+            {
+                SelectedRowEntry.ResultValueType = newType;
+                // Clear old result when type changes to avoid stale data (e.g. number kept in fixed type)
+                if (newType != "Title" && newType != "SubTitle")
+                {
+                    SelectedRowEntry.EnteredResult = "";
+                }
+            }
             StateHasChanged();
         }
     }
@@ -1656,8 +1739,13 @@
     private void SetGroupOption(string type)
     {
         if (SelectedRowEntry == null) return;
-        SelectedRowEntry.GroupValuesbySpecialField = (type == "Special");
-        SelectedRowEntry.GroupValuesbySex = (type == "Sex");
+        
+        CurrentGroupOption = type;
+        if (SelectedRowEntry.LabProperties == null)
+            SelectedRowEntry.LabProperties = new Lab_Result_Properties { TestResultID = SelectedRowEntry.TestResultId };
+
+        SelectedRowEntry.LabProperties.GroupValuesbySpecialField = (type == "Special");
+        SelectedRowEntry.LabProperties.GroupValuesbySex = (type == "Sex");
         StateHasChanged();
     }
 
@@ -2116,7 +2204,11 @@
             {
                 if (row.NormalValue != null) row.NormalValue = row.NormalValue.Replace("Normal 0", "").Trim();
 
-                // Ensure DetailedNormalValues required fields are never null (backend [Required] validation)
+                // Ensure lists are initialized so they are never 'null' in the save payload
+                row.EditedTextNormalValues ??= new List<Lab_Result_TextNormalValues>();
+                row.EditedDetailedNormalValues ??= new List<Lab_Result_DetailedNormalValues>();
+                row.EditedCalculatedFormulas ??= new List<Lab_Result_CalculatedFormula>();
+
                 if (row.EditedDetailedNormalValues != null)
                 {
                     foreach (var dnv in row.EditedDetailedNormalValues)
@@ -2124,7 +2216,7 @@
                         if (string.IsNullOrEmpty(dnv.AgeFromType))  dnv.AgeFromType  = "Years";
                         if (string.IsNullOrEmpty(dnv.AgeToType))    dnv.AgeToType    = "Years";
                         if (string.IsNullOrEmpty(dnv.AgeRangeType)) dnv.AgeRangeType = "Normal";
-                        if (string.IsNullOrEmpty(dnv.Sex))          dnv.Sex          = "Both";
+                        if (string.IsNullOrEmpty(dnv.sex))          dnv.sex          = "Both";
                         if (string.IsNullOrEmpty(dnv.RangeType))    dnv.RangeType    = "Normal";
                     }
                 }
@@ -2560,9 +2652,23 @@
                 return;
             }
 
-            // Sanitize DetailedNormalValues required fields before sending to backend
+            // Sanitize and sync before sending to backend
             foreach (var row in lre1)
             {
+                // Ensure RTMCode is in sync
+                if (row.LabProperties != null)
+                {
+                    if (row.RTMCode > 0) row.LabProperties.RTMCode = row.RTMCode;
+                    else if (row.LabProperties.RTMCode > 0) row.RTMCode = row.LabProperties.RTMCode;
+                }
+
+                // Fallback: If RTMCode is missing, use the first available method as default
+                if (row.RTMCode == 0 && method.Any())
+                {
+                    row.RTMCode = method.First().RTMCode;
+                    if (row.LabProperties != null) row.LabProperties.RTMCode = row.RTMCode;
+                }
+
                 if (row.EditedDetailedNormalValues != null)
                 {
                     foreach (var dnv in row.EditedDetailedNormalValues)
@@ -2570,17 +2676,21 @@
                         if (string.IsNullOrEmpty(dnv.AgeFromType))  dnv.AgeFromType  = "Years";
                         if (string.IsNullOrEmpty(dnv.AgeToType))    dnv.AgeToType    = "Years";
                         if (string.IsNullOrEmpty(dnv.AgeRangeType)) dnv.AgeRangeType = "Normal";
-                        if (string.IsNullOrEmpty(dnv.Sex))          dnv.Sex          = "Both";
+                        if (string.IsNullOrEmpty(dnv.sex))          dnv.sex          = "Both";
                         if (string.IsNullOrEmpty(dnv.RangeType))    dnv.RangeType    = "Normal";
                     }
                 }
             }
 
-            var json = JsonConvert.SerializeObject(lre1);
+            // Reverting to raw array as "Path: $" and "BytePositionInLine: 1" confirm backend expects List<LabResultEntry> at root
+            var settings = new JsonSerializerSettings { 
+                ContractResolver = new Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver() 
+            };
+            var json = JsonConvert.SerializeObject(lre1, settings);
             
             Console.WriteLine($"--- SAVE RESULTS PAYLOAD LOG ---");
             Console.WriteLine($"URL: {appSettings.BaseUrl}LabResult/SaveResultEntry");
-            Console.WriteLine($"Payload: {json}");
+            Console.WriteLine($"Payload snapshot: {(json.Length > 500 ? json.Substring(0, 500) + "..." : json)}");
             Console.WriteLine($"---------------------------------");
             var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
 
@@ -2647,5 +2757,12 @@
     private void NavigateBack()
     {
         NavigationManager.NavigateTo("/result-search");
+    }
+
+    // Local UI definition for DeltaResult
+    public class DeltaResult
+    {
+        public string TestName { get; set; }
+        public string Result { get; set; }
     }
 }
