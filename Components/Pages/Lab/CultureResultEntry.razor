@@ -5,10 +5,14 @@
 @using System.Net.Http.Headers
 @using Newtonsoft.Json
 @inject HttpClient http
+@inject IJSRuntime JSRuntime
 @inject LIMS.Model.AppSettings AppSettings
 @inject ProtectedSessionStorage _sessionStorage
 @inject NavigationManager NavigationManager
+@inject Lims.Components.Data.NotificationService NotificationService
 @rendermode InteractiveServer
+@using Syncfusion.Blazor.Popups
+@using Lims.Components.Pages
 
 <div class="cre-container">
     <!-- Header -->
@@ -24,6 +28,41 @@
         </div>
     </div>
 
+    <!-- Tabs Navigation -->
+    @if (CultureTabs != null && CultureTabs.Any())
+    {
+        <div class="cre-tabs-nav">
+            @{
+                int tabIdx = 1;
+            }
+            @foreach (var tab in CultureTabs)
+            {
+                var currentIdx = tabIdx++;
+                <div class="cre-tab-card @(ActiveCultureTab == tab ? "active" : "")" 
+                     @onclick="() => SelectTab(tab)">
+                    <div class="cre-tab-index-box">@currentIdx</div>
+                    <div class="cre-tab-info">
+                        <div class="cre-tab-label">CULTURE TYPE</div>
+                        <div class="cre-tab-title">@(tab.TestName?.ToUpper() ?? "UNKNOWN")</div>
+                    </div>
+                    @if (tab.IsAuthorized == true)
+                    {
+                        <div class="cre-tab-status">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="cre-loading-container">
+            <div class="cre-spinner"></div>
+            <div class="cre-loading-text">Searching for culture tests...</div>
+        </div>
+    }
+
     <!-- Patient Info Banner -->
     <div class="cre-panel-card cre-patient-banner">
         <div class="cre-patient-details">
@@ -38,40 +77,31 @@
             <span class="cre-label-inline">SID.No :</span>
             <span class="cre-value cre-highlight-text">@(billData?.Request_Master?.RequestSnoPrint ?? "--/--/----")</span>
         </div>
-        <div class="cre-auth-action">
-            <button class="cre-btn cre-btn-outline">
-                <i class="fas fa-user-check"></i> Authorize
-            </button>
-        </div>
+
     </div>
 
     <!-- Main Content Area -->
-    <div class="cre-main-content">
+    <div class="cre-main-content" @key="@($"{ActiveCultureTab?.ResultCultureGUID}-{ActiveCultureTab?.TCode}")">
         <!-- Top Section: 3 Columns -->
         <div class="cre-panel-card cre-top-section">
             <div class="cre-top-grid">
                 <!-- Left Column -->
                 <div class="cre-form-column">
-                    <div class="cre-field-group">
-                        <label class="cre-label">Select Culture</label>
-                        <select class="cre-select">
-                            <option>-- Select Culture --</option>
-                        </select>
-                    </div>
+                    @* Removed Select Culture dropdown as it is replaced by the tab navigation above *@
                     
                     <div class="cre-field-group align-top">
                         <label class="cre-label">Report Status</label>
                         <div class="cre-radio-group">
                             <label class="cre-radio-label">
-                                <input type="radio" name="reportStatus" checked />
+                                <input type="radio" name="reportStatus" checked="@(saveModel.ReportStatus == "Preliminary")" @onchange="@(() => saveModel.ReportStatus = "Preliminary")" />
                                 <span class="cre-radio-mark"></span> Preliminary
                             </label>
                             <label class="cre-radio-label">
-                                <input type="radio" name="reportStatus" />
+                                <input type="radio" name="reportStatus" checked="@(saveModel.ReportStatus == "Supplementary")" @onchange="@(() => saveModel.ReportStatus = "Supplementary")" />
                                 <span class="cre-radio-mark"></span> Supplementary
                             </label>
                             <label class="cre-radio-label">
-                                <input type="radio" name="reportStatus" />
+                                <input type="radio" name="reportStatus" checked="@(saveModel.ReportStatus == "Final Report")" @onchange="@(() => saveModel.ReportStatus = "Final Report")" />
                                 <span class="cre-radio-mark"></span> Final Report
                             </label>
                         </div>
@@ -81,38 +111,39 @@
                         <label class="cre-label">Growth</label>
                         <div class="cre-radio-group">
                             <label class="cre-radio-label">
-                                <input type="radio" name="growth" />
+                                <input type="radio" name="growth" value="No Growth" checked="@(!IsGrowth)" @onchange="@(e => OnGrowthChange(false))" />
                                 <span class="cre-radio-mark"></span> No Growth
                             </label>
                             <label class="cre-radio-label">
-                                <input type="radio" name="growth" />
+                                <input type="radio" name="growth" value="Growth" checked="@IsGrowth" @onchange="@(e => OnGrowthChange(true))" />
                                 <span class="cre-radio-mark"></span> Growth
                             </label>
                         </div>
                     </div>
 
                     <div class="cre-field-group">
-                        <label class="cre-label">Reporting Method</label>
-                        <select class="cre-select">
-                            <option>-- Select Method --</option>
-                        </select>
+                        <label class="cre-label">Reporting Method <span class="text-danger">*</span></label>
+                        <div class="cre-input-container">
+                            <input type="text" class="cre-input @(showValidationErrors && string.IsNullOrEmpty(saveModel.ReportingMethod) ? "cre-input-error" : "")" @bind="saveModel.ReportingMethod" />
+                        </div>
                     </div>
 
                     <div class="cre-field-group">
-                        <label class="cre-label">Sample</label>
-                        <select class="cre-select">
-                            <option>-- Select Sample --</option>
-                        </select>
+                        <label class="cre-label">Sample <span class="text-danger">*</span></label>
+                        <div class="cre-input-container">
+                            <select class="cre-select @(showValidationErrors && string.IsNullOrEmpty(saveModel.Sample) ? "cre-select-error" : "")" @bind="saveModel.Sample">
+                                <option value="">-- Select Sample --</option>
+                                @foreach(var sample in SamplesList)
+                                {
+                                    <option value="@sample.Name">@sample.Name</option>
+                                }
+                            </select>
+                        </div>
                     </div>
 
                     <div class="cre-field-group align-top">
                         <label class="cre-label">Direct Smear</label>
-                        <textarea class="cre-textarea" rows="2"></textarea>
-                    </div>
-
-                    <div class="cre-field-group align-top">
-                        <label class="cre-label">Growth Grade</label>
-                        <textarea class="cre-textarea" rows="2"></textarea>
+                        <textarea class="cre-textarea" rows="2" @bind="saveModel.Bacteria"></textarea>
                     </div>
                 </div>
 
@@ -121,37 +152,30 @@
                     <div class="cre-field-group">
                         <label class="cre-label">Sample Date</label>
                         <div class="cre-datetime-group">
-                            <input type="date" class="cre-input" />
-                            <input type="time" class="cre-input" />
+                            <input type="date" class="cre-input" @bind="saveModel.SampleReceivedDate" />
                         </div>
                     </div>
 
                     <div class="cre-field-group">
                         <label class="cre-label">Reported Date</label>
                         <div class="cre-datetime-group">
-                            <input type="date" class="cre-input" />
-                            <input type="time" class="cre-input" />
+                            <input type="date" class="cre-input" @bind="saveModel.CultureReportedDate" />
                         </div>
                     </div>
 
                     <div class="cre-field-group">
                         <label class="cre-label">Smear for AFB</label>
-                        <input type="text" class="cre-input" />
+                        <input type="text" class="cre-input" @bind="saveModel.SmearAFB" />
                     </div>
 
                     <div class="cre-field-group">
                         <label class="cre-label">PUS Cells</label>
-                        <input type="text" class="cre-input" />
-                    </div>
-
-                    <div class="cre-field-group">
-                        <label class="cre-label">Gram's Staining</label>
-                        <input type="text" class="cre-input" />
+                        <input type="text" class="cre-input" @bind="saveModel.PUSCells" />
                     </div>
 
                     <div class="cre-field-group align-top">
-                        <label class="cre-label">Diagnosis</label>
-                        <textarea class="cre-textarea" rows="3"></textarea>
+                        <label class="cre-label">Gram's Staining</label>
+                        <textarea class="cre-textarea" rows="2" @bind="saveModel.GramsStaining"></textarea>
                     </div>
                 </div>
 
@@ -161,52 +185,32 @@
                         <div class="cre-user-row">
                             <span class="cre-label-user">Entered by</span>
                             <span class="separator">:</span>
-                            <span class="cre-value-user">--</span>
+                            <span class="cre-value-user">@EnteredByName</span>
                         </div>
                         <div class="cre-user-row">
                             <span class="cre-label-user">Authorized by</span>
                             <span class="separator">:</span>
-                            <span class="cre-value-user">--</span>
+                            <span class="cre-value-user">@AuthorizedByName</span>
                         </div>
                     </div>
 
-                    <div class="cre-vitek-panel">
-                        <div class="cre-vitek-header">Vitek Results</div>
-                        <div class="cre-vitek-table-wrap">
-                            <table class="cre-table cre-table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>Sample</th>
-                                        <th>Organism</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>&nbsp;</td>
-                                        <td></td>
-                                        <td></td>
-                                    </tr>
-                                    <tr>
-                                        <td>&nbsp;</td>
-                                        <td></td>
-                                        <td></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="cre-vitek-actions">
-                            <button class="cre-btn-link">Load to (A)</button>
-                            <button class="cre-btn-link">Load to (B)</button>
-                            <button class="cre-btn-link">Load to (C)</button>
-                        </div>
+                    <div class="cre-field-group align-top">
+                        <label class="cre-label">Growth Grade</label>
+                        <textarea class="cre-textarea" rows="2" @bind="saveModel.GrowthGrade"></textarea>
+                    </div>
+
+                    <div class="cre-field-group align-top">
+                        <label class="cre-label">Diagnosis</label>
+                        <textarea class="cre-textarea" rows="3" @bind="saveModel.Diagnosis"></textarea>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Organism Section -->
-        <div class="cre-panel-card">
+        @if (IsGrowth)
+        {
+        <div class="cre-panel-card slide-down-fade-in">
             <div class="cre-panel-header">
                 <div class="cre-panel-title">
                     <i class="fas fa-bacterium"></i> Organisms & Sensitivity
@@ -214,7 +218,8 @@
             </div>
             
             <div class="cre-organism-section">
-                <div class="cre-organism-container">
+                <!-- Organism Grid (Full Width) -->
+                <div class="cre-organism-container" style="margin-bottom: 20px;">
                     <div class="cre-organism-grid">
                         <div class="cre-org-header-row">
                             <div class="cre-org-empty"></div>
@@ -225,97 +230,227 @@
                         
                         <div class="cre-org-row">
                             <div class="cre-label cre-text-danger">Organism Grown</div>
-                            <div><select class="cre-select"><option>-- Select Organism --</option></select></div>
-                            <div><select class="cre-select"><option>-- Select Organism --</option></select></div>
-                            <div><select class="cre-select"><option>-- Select Organism --</option></select></div>
+                            <div>
+                                <select class="cre-select" @bind="saveModel.OrganismsGrownA">
+                                    <option value="">-- Select Organism --</option>
+                                    @foreach(var org in OrganismsList)
+                                    {
+                                        <option value="@org.Name">@org.Name</option>
+                                    }
+                                </select>
+                            </div>
+                            <div>
+                                <select class="cre-select" @bind="saveModel.OrganismsGrownB">
+                                    <option value="">-- Select Organism --</option>
+                                    @foreach(var org in OrganismsList)
+                                    {
+                                        <option value="@org.Name">@org.Name</option>
+                                    }
+                                </select>
+                            </div>
+                            <div>
+                                <select class="cre-select" @bind="saveModel.OrganismsGrownC">
+                                    <option value="">-- Select Organism --</option>
+                                    @foreach(var org in OrganismsList)
+                                    {
+                                        <option value="@org.Name">@org.Name</option>
+                                    }
+                                </select>
+                            </div>
                         </div>
 
                         <div class="cre-org-row">
                             <div class="cre-label cre-text-danger">Colony Count</div>
-                            <div><input type="text" class="cre-input" placeholder="Count..." /></div>
-                            <div><input type="text" class="cre-input" placeholder="Count..." /></div>
-                            <div><input type="text" class="cre-input" placeholder="Count..." /></div>
+                            <div><input type="text" class="cre-input" placeholder="Count..." @bind="saveModel.ColonyCountA" /></div>
+                            <div><input type="text" class="cre-input" placeholder="Count..." @bind="saveModel.ColonyCountB" /></div>
+                            <div><input type="text" class="cre-input" placeholder="Count..." @bind="saveModel.ColonyCountC" /></div>
                         </div>
 
                         <div class="cre-org-row">
                             <div class="cre-label cre-text-danger">Comments</div>
-                            <div><input type="text" class="cre-input" placeholder="Notes..." /></div>
-                            <div><input type="text" class="cre-input" placeholder="Notes..." /></div>
+                            <div><input type="text" class="cre-input" placeholder="Notes..." @bind="saveModel.CommentsA" /></div>
+                            <div><input type="text" class="cre-input" placeholder="Notes..." @bind="saveModel.CommentsB" /></div>
                             <div class="cre-expand-wrapper">
-                                <input type="text" class="cre-input" placeholder="Notes..." />
+                                <input type="text" class="cre-input" placeholder="Notes..." @bind="saveModel.CommentsC" />
                                 <a href="#" class="cre-link-expand">Expand</a>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Sensitivity Table -->
-                <div class="cre-sensitivity-wrapper">
-                    <div class="cre-table-wrap cre-margin-top">
-                        <table class="cre-table cre-table-bordered">
-                            <thead>
-                                <tr>
-                                    <th class="cre-col-group">Group</th>
-                                    <th class="cre-col-antibiotic">Antibiotic</th>
-                                    <th colspan="3" class="cre-bg-a">A</th>
-                                    <th colspan="3" class="cre-bg-b">B</th>
-                                    <th colspan="3" class="cre-bg-c">C</th>
-                                </tr>
-                                <tr class="cre-sub-header">
-                                    <th></th>
-                                    <th></th>
-                                    <th class="cre-bg-a">Disk</th>
-                                    <th class="cre-bg-a">Res</th>
-                                    <th class="cre-bg-a">MM</th>
-                                    <th class="cre-bg-b">Disk</th>
-                                    <th class="cre-bg-b">Res</th>
-                                    <th class="cre-bg-b">MM</th>
-                                    <th class="cre-bg-c">Disk</th>
-                                    <th class="cre-bg-c">Res</th>
-                                    <th class="cre-bg-c">MM</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td></td>
-                                    <td><select class="cre-select"><option>-- Select Antibiotic --</option></select></td>
-                                    <td class="cre-bg-a"></td><td class="cre-bg-a"></td><td class="cre-bg-a"></td>
-                                    <td class="cre-bg-b"></td><td class="cre-bg-b"></td><td class="cre-bg-b"></td>
-                                    <td class="cre-bg-c"></td><td class="cre-bg-c"></td><td class="cre-bg-c"></td>
-                                </tr>
-                                <tr>
-                                    <td></td>
-                                    <td></td>
-                                    <td class="cre-bg-a"></td><td class="cre-bg-a"></td><td class="cre-bg-a"></td>
-                                    <td class="cre-bg-b"></td><td class="cre-bg-b"></td><td class="cre-bg-b"></td>
-                                    <td class="cre-bg-c"></td><td class="cre-bg-c"></td><td class="cre-bg-c"></td>
-                                </tr>
-                            </tbody>
-                        </table>
+                <div class="cre-drag-drop-area" style="display: flex; gap: 20px; align-items: flex-start;">
+                    <!-- Draggable List (Near Table) -->
+                    <div class="cre-draggable-list" style="width: 220px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #fff; position: sticky; top: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                        <div class="cre-label" style="margin-bottom: 8px; color: #4f46e5; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">Available Antibiotics</div>
+                        
+                        <!-- Search Box -->
+                        <div style="position: relative; margin-bottom: 12px;">
+                            <i class="fas fa-search" style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.7rem;"></i>
+                            <input type="text" class="cre-input" placeholder="Search..." 
+                                   @bind="searchTerm" @bind:event="oninput" 
+                                   style="padding-left: 28px; font-size: 0.72rem; height: 32px;" />
+                        </div>
+
+                        <div style="max-height: 400px; overflow-y: auto; padding-right: 4px;">
+                            @foreach(var anti in AvailableAntibiotics.Where(a => 
+                                (string.IsNullOrEmpty(searchTerm) || a.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) &&
+                                !SectionResults[activeTab].Any(r => r.AntibioticName == a)))
+                            {
+                                <div draggable="true" 
+                                     @ondragstart="@(() => HandleDragStart(anti))" 
+                                     style="padding: 8px 12px; margin-bottom: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; cursor: grab; font-size: 0.75rem; transition: all 0.2s ease;"
+                                     class="cre-drag-item">
+                                    <i class="fas fa-grip-vertical" style="color: #94a3b8; margin-right: 8px;"></i> @anti
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <div style="flex: 1; min-width: 0;">
+                        <!-- Tab Header -->
+                        <div class="cre-tab-header" style="display: flex; gap: 4px; margin-bottom: 0;">
+                            <button class="cre-tab-btn @(activeTab == "A" ? "active cre-bg-a" : "")" @onclick="@(() => SetActiveTab("A"))">SECTION A</button>
+                            <button class="cre-tab-btn @(activeTab == "B" ? "active cre-bg-b" : "")" @onclick="@(() => SetActiveTab("B"))">SECTION B</button>
+                            <button class="cre-tab-btn @(activeTab == "C" ? "active cre-bg-c" : "")" @onclick="@(() => SetActiveTab("C"))">SECTION C</button>
+                        </div>
+
+                        <!-- Sensitivity Table Area -->
+                        <div class="cre-sensitivity-wrapper" style="position: relative;">
+                            
+                            <!-- S-I-R Drop Overlay -->
+                            @if (DraggedAntibiotic != null && isDraggingOverTable)
+                            {
+                                <div class="cre-drop-overlay" 
+                                     @ondragleave="@(() => isDraggingOverTable = false)"
+                                     @ondragover:preventDefault="true">
+                                    <div class="cre-overlay-content">
+                                        <div class="cre-overlay-title">SELECT SENSITIVITY: @DraggedAntibiotic.ToUpper()</div>
+                                        <div class="cre-overlay-options">
+                                            <div class="cre-option-btn opt-s" 
+                                                 @ondragenter="@(() => {})" @ondragenter:preventDefault="true"
+                                                 @ondragover="@(() => {})" @ondragover:preventDefault="true"
+                                                 @ondrop="@(() => HandleOptionDrop("S"))" @ondrop:preventDefault="true">
+                                                <span class="opt-label">S</span>
+                                                <span class="opt-desc">Sensitive</span>
+                                            </div>
+                                            <div class="cre-option-btn opt-i" 
+                                                 @ondragenter="@(() => {})" @ondragenter:preventDefault="true"
+                                                 @ondragover="@(() => {})" @ondragover:preventDefault="true"
+                                                 @ondrop="@(() => HandleOptionDrop("I"))" @ondrop:preventDefault="true">
+                                                <span class="opt-label">I</span>
+                                                <span class="opt-desc">Intermediate</span>
+                                            </div>
+                                            <div class="cre-option-btn opt-r" 
+                                                 @ondragenter="@(() => {})" @ondragenter:preventDefault="true"
+                                                 @ondragover="@(() => {})" @ondragover:preventDefault="true"
+                                                 @ondrop="@(() => HandleOptionDrop("R"))" @ondrop:preventDefault="true">
+                                                <span class="opt-label">R</span>
+                                                <span class="opt-desc">Resistant</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+
+                            <div class="cre-table-wrap" 
+                                 @ondragenter="@(() => isDraggingOverTable = true)"
+                                 @ondragover:preventDefault="true">
+                                <table class="cre-table cre-table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th class="cre-col-group" style="width: 50px;">#</th>
+                                            <th class="cre-col-antibiotic">Antibiotic</th>
+                                            <th style="width: 100px;">Disk</th>
+                                            <th style="width: 100px;">MM / MIC</th>
+                                            <th style="width: 50px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @if (!SectionResults[activeTab].Any())
+                                        {
+                                            <tr>
+                                                <td colspan="5" style="padding: 40px; color: #94a3b8; font-style: italic; background: #fdfdfd;">
+                                                    <i class="fas fa-arrow-left" style="margin-right: 10px;"></i>
+                                                    Drag an antibiotic here and choose S, I, or R
+                                                </td>
+                                            </tr>
+                                        }
+                                        else
+                                        {
+                                            int idx = 1;
+                                            @foreach (var res in SectionResults[activeTab])
+                                            {
+                                                <tr>
+                                                    <td>@idx</td>
+                                                    <td style="text-align: left;">
+                                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                                            @{
+                                                                string sensitivity = activeTab == "A" ? res.Isolation_A : (activeTab == "B" ? res.Isolation_B : res.Isolation_C);
+                                                            }
+                                                            <span class="cre-res-badge badge-@(sensitivity?.ToLower())">@sensitivity</span>
+                                                            <span style="font-weight: 600;">@res.AntibioticName</span>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        @if (activeTab == "A")
+                                                        {
+                                                            <input type="text" class="cre-input text-center" @bind="res.DiskContentA" placeholder="-" />
+                                                        }
+                                                        else if (activeTab == "B")
+                                                        {
+                                                            <input type="text" class="cre-input text-center" @bind="res.DiskContentB" placeholder="-" />
+                                                        }
+                                                        else if (activeTab == "C")
+                                                        {
+                                                            <input type="text" class="cre-input text-center" @bind="res.DiskContentC" placeholder="-" />
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        @if (activeTab == "A")
+                                                        {
+                                                            <input type="text" class="cre-input text-center" @bind="res.MMA1" placeholder="-" />
+                                                        }
+                                                        else if (activeTab == "B")
+                                                        {
+                                                            <input type="text" class="cre-input text-center" @bind="res.MMA2" placeholder="-" />
+                                                        }
+                                                        else if (activeTab == "C")
+                                                        {
+                                                            <input type="text" class="cre-input text-center" @bind="res.MMA3" placeholder="-" />
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        <button class="cre-btn-icon-danger" @onclick="@(() => RemoveAntibiotic(res))">
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                                idx++;
+                                            }
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
+        </div>
+        }
 
-                <!-- Footer Notes Section -->
-                <div class="cre-notes-section">
-                    <div class="cre-note-col">
-                        <div class="cre-field-group">
-                            <label class="cre-label cre-text-danger">Note</label>
-                            <select class="cre-select">
-                                <option>-- Select Note --</option>
-                            </select>
-                        </div>
+        <!-- Footer Notes & Comments (Always Visible) -->
+        <div class="cre-panel-card" style="margin-top: 15px;">
+            <div class="cre-notes-section">
+                <div class="cre-note-col">
+                    <div class="cre-field-group">
+                        <label class="cre-label cre-text-danger">Note Message</label>
+                        <textarea class="cre-textarea" rows="2" placeholder="Enter message..." @bind="saveModel.NoteMessage"></textarea>
                     </div>
-                    <div class="cre-note-col">
-                        <div class="cre-field-group">
-                            <label class="cre-label cre-text-danger">Note Message</label>
-                            <textarea class="cre-textarea" rows="2" placeholder="Enter message..."></textarea>
-                        </div>
-                    </div>
-                    <div class="cre-note-col">
-                        <div class="cre-field-group">
-                            <label class="cre-label cre-text-danger">Comments</label>
-                            <textarea class="cre-textarea" rows="2" placeholder="Additional comments..."></textarea>
-                        </div>
+                </div>
+                <div class="cre-note-col">
+                    <div class="cre-field-group">
+                        <label class="cre-label cre-text-danger">Comments</label>
+                        <textarea class="cre-textarea" rows="2" placeholder="Additional comments..." @bind="saveModel.Comments"></textarea>
                     </div>
                 </div>
             </div>
@@ -333,22 +468,53 @@
             <div class="cre-footer-divider"></div>
             
             <label class="cre-radio-label">
-                <input type="radio" name="printType" checked />
+                <input type="radio" name="printType" checked="@(isLetterHead)" @onchange="@(() => isLetterHead = true)" />
                 <span class="cre-radio-mark"></span> Print in Letter Head
             </label>
             <label class="cre-radio-label">
-                <input type="radio" name="printType" />
+                <input type="radio" name="printType" checked="@(!isLetterHead)" @onchange="@(() => isLetterHead = false)" />
                 <span class="cre-radio-mark"></span> Print White Sheet
             </label>
         </div>
         <div class="cre-bottom-right">
-            <button class="cre-btn cre-btn-primary"><i class="fas fa-save"></i> Save</button>
-            <button class="cre-btn cre-btn-outline"><i class="fas fa-eye"></i> Preview</button>
-            <button class="cre-btn cre-btn-outline"><i class="fas fa-print"></i> Print</button>
+            @if (CanShowSaveButton())
+            {
+                <button class="cre-btn cre-btn-primary" @onclick="SaveResultAsync"><i class="fas fa-save"></i> Save</button>
+            }
+            
+            @if (AreAllTabsAuthorized)
+            {
+                <button class="cre-btn cre-btn-outline" @onclick="PrintReportAsync"><i class="fas fa-print"></i> Print</button>
+            }
+            
+            @if (isauthorized)
+            {
+                <button class="cre-btn cre-btn-outline @(saveModel.IsAuthorized == true ? "cre-btn-success" : "")" 
+                        @onclick="AuthorizeResultAsync" disabled="@(saveModel.IsAuthorized == true)">
+                    <i class="fas fa-user-check"></i> @(saveModel.IsAuthorized == true ? "Authorized" : "Authorize")
+                </button>
+            }
+            @if (isauthorized && saveModel.IsAuthorized == true)
+            {
+                <button class="cre-btn cre-btn-danger" @onclick="RevokeResultAsync">
+                    <i class="fas fa-undo"></i> Revoke
+                </button>
+            }
+
             <button class="cre-btn cre-btn-danger" @onclick="NavigateBack"><i class="fas fa-times"></i> Close</button>
         </div>
     </div>
 </div>
+
+<SfDialog Visible="@isviewer" Width="80%" Header="Result" Height="80%" IsModal="true" ShowCloseIcon="true">
+    <DialogTemplates>
+        <Header>Culture Report</Header>
+        <Content>
+            <ReportViewer Reportstring="@reportstring" pnr="@reportrequest"></ReportViewer>
+        </Content>
+    </DialogTemplates>
+    <DialogEvents OnClose="CloseViewer"></DialogEvents>
+</SfDialog>
 
 @code {
     [SupplyParameterFromQuery(Name = "requestGuid")]
@@ -356,12 +522,225 @@
 
     private string token = "";
     private BillRequest billData;
+    private bool IsGrowth = false;
+    private SaveCultureResultRequestDto saveModel = new SaveCultureResultRequestDto();
+    private UserAuth currentUser;
+
+    private List<CultureTestListDto> CultureTabs = new();
+    private CultureTestListDto ActiveCultureTab;
+
+    private bool isentered = false;
+    private bool isauthorized = false;
+    private string EnteredByName = "--";
+    private string AuthorizedByName = "--";
+    private bool showValidationErrors = false;
+    private IList<LIMS.Model.User_Master> usermaster = new List<LIMS.Model.User_Master>();
+
+    private bool AreAllTabsAuthorized => CultureTabs.Any() && CultureTabs.All(t => t.IsAuthorized == true);
+
+    // Report viewing state
+    private bool isviewer = false;
+    private string reportstring = "";
+    private PreNatalRequest reportrequest = new();
+    private bool isLetterHead = true;
+
+    // Tab and Result State
+    private string activeTab = "A"; // Default Section
+    private bool isDraggingOverTable = false;
+
+    private Dictionary<string, List<CultureIsolationRowDto>> SectionResults = new()
+    {
+        { "A", new List<CultureIsolationRowDto>() },
+        { "B", new List<CultureIsolationRowDto>() },
+        { "C", new List<CultureIsolationRowDto>() }
+    };
+
+    // Drag and Drop Variables
+    private List<string> AvailableAntibiotics = new();
+    private string DraggedAntibiotic = null;
+    private string searchTerm = "";
+    
+    // Master Lists
+    private List<CultureOrganismDto> OrganismsList = new();
+    private List<Antibiotics> AntibioticsMasterList = new();
+    private List<Sample_Master> SamplesList = new();
+
+    private void HandleDragStart(string item)
+    {
+        DraggedAntibiotic = item;
+    }
+
+    private void HandleOptionDrop(string sensitivity)
+    {
+        if (!string.IsNullOrEmpty(DraggedAntibiotic))
+        {
+            var anti = AntibioticsMasterList.FirstOrDefault(a => a.Name == DraggedAntibiotic);
+
+            // 1. Check if this antibiotic already exists in ANY of the section lists (Trim names for safety)
+            var currentDragged = DraggedAntibiotic?.Trim();
+            var existingRow = SectionResults.Values
+                                .SelectMany(x => x)
+                                .FirstOrDefault(r => (r.AntibioticName ?? "").Trim().Equals(currentDragged, StringComparison.OrdinalIgnoreCase));
+
+            if (existingRow != null)
+            {
+                // Reuse the existing object and update the sensitivity for the current active section
+                if (activeTab == "A") existingRow.Isolation_A = sensitivity;
+                else if (activeTab == "B") existingRow.Isolation_B = sensitivity;
+                else if (activeTab == "C") existingRow.Isolation_C = sensitivity;
+
+                // Add it to the current tab's list if it's not already there
+                if (!SectionResults[activeTab].Contains(existingRow))
+                {
+                    SectionResults[activeTab].Add(existingRow);
+                }
+            }
+            else
+            {
+                // Create a new row if it doesn't exist anywhere
+                var newRow = new CultureIsolationRowDto 
+                { 
+                    AntibioticName = DraggedAntibiotic,
+                    ABCode = anti != null ? (int?)anti.ABCode : null,
+                    ColumnName = activeTab
+                };
+
+                if (activeTab == "A") newRow.Isolation_A = sensitivity;
+                else if (activeTab == "B") newRow.Isolation_B = sensitivity;
+                else if (activeTab == "C") newRow.Isolation_C = sensitivity;
+
+                // Also ensure ColumnName is set to the antibiotic name for the database
+                newRow.ColumnName = DraggedAntibiotic;
+
+                SectionResults[activeTab].Add(newRow);
+            }
+
+            DraggedAntibiotic = null;
+            isDraggingOverTable = false;
+            StateHasChanged();
+        }
+    }
+
+    private void RemoveAntibiotic(CultureIsolationRowDto item)
+    {
+        // Clear section-specific data from the object before removing the association
+        if (activeTab == "A")
+        {
+            item.Isolation_A = null;
+            item.DiskContentA = null;
+            item.MMA1 = null;
+        }
+        else if (activeTab == "B")
+        {
+            item.Isolation_B = null;
+            item.DiskContentB = null;
+            item.MMA2 = null;
+        }
+        else if (activeTab == "C")
+        {
+            item.Isolation_C = null;
+            item.DiskContentC = null;
+            item.MMA3 = null;
+        }
+
+        SectionResults[activeTab].Remove(item);
+        StateHasChanged();
+    }
+
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+        StateHasChanged();
+    }
+
+    private async Task CloseViewer()
+    {
+        isviewer = false;
+        StateHasChanged();
+    }
+
+    private async Task PrintReportAsync()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(RequestGuid) || CultureTabs == null || !CultureTabs.Any()) return;
+
+            var reportRequest = new CultureReportRequestDto();
+            reportRequest.Specimens = new List<CultureReportSpecimenDto>();
+
+            foreach (var tab in CultureTabs)
+            {
+                var specimen = new CultureReportSpecimenDto
+                {
+                    ClientID = AppSettings.ClientId,
+                    ReportName = "CultureReport",
+                    RequestGUID = RequestGuid,
+                    DataSource = "DataSet1",
+                    TCode = new List<string> { tab.TCode.ToString() },
+                    Parameters = new List<CultureReportParameterDto>
+                    {
+                        new CultureReportParameterDto { Name = "RequestGUID", Values = new List<string> { RequestGuid } },
+                        new CultureReportParameterDto { Name = "TCode", Values = new List<string> { tab.TCode.ToString() } },
+                        new CultureReportParameterDto { Name = "ReportStatus", Values = new List<string> { tab.ReportStatus ?? "Preliminary" } },
+                        new CultureReportParameterDto { Name = "IsLetterHead", Values = new List<string> { isLetterHead.ToString().ToLower() } },
+                        new CultureReportParameterDto { Name = "PageTop", Values = new List<string> { "100" } },
+                        new CultureReportParameterDto { Name = "PageBottom", Values = new List<string> { "50" } }
+                    }
+                };
+                reportRequest.Specimens.Add(specimen);
+            }
+
+            var response = await http.PostAsJsonAsync("https://birdapi.iscansoft.com/api/CultureReport/CultureReportMulti", reportRequest);
+            if (response.IsSuccessStatusCode)
+            {
+                var base64Result = await response.Content.ReadAsStringAsync();
+                if (!string.IsNullOrEmpty(base64Result))
+                {
+                    reportstring = base64Result.Trim('"'); // Remove potential quotes
+                    
+                    // Populate reportrequest for ReportViewer
+                    reportrequest = new PreNatalRequest
+                    {
+                        RequestGUID = Guid.TryParse(RequestGuid, out var g) ? g : Guid.Empty,
+                        PatientName = billData?.customer?.Name ?? "",
+                        RequestSnoPrint = billData?.Request_Master?.RequestSnoPrint ?? "",
+                        SkyCode = "Culture"
+                    };
+
+                    isviewer = true;
+                    StateHasChanged();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error printing report: {ex.Message}");
+        }
+    }
+
+    private void OnGrowthChange(bool isGrowth)
+    {
+        IsGrowth = isGrowth;
+        saveModel.IsGrowth = isGrowth;
+    }
 
     protected override async Task OnInitializedAsync()
     {
         if (!http.DefaultRequestHeaders.Contains("X-Tenant-ID"))
         {
             http.DefaultRequestHeaders.Add("X-Tenant-ID", AppSettings.ClientId);
+        }
+    }
+
+    private bool CanShowSaveButton()
+    {
+        if (saveModel.IsAuthorized == true)
+        {
+            return isauthorized; // Only authorized users can see it if already authorized
+        }
+        else
+        {
+            return isentered || isauthorized; // Anyone with rights can see if not authorized
         }
     }
 
@@ -373,37 +752,651 @@
             if (tkn.Success && tkn.Value != null && !string.IsNullOrEmpty(tkn.Value.token))
             {
                 token = tkn.Value.token;
-                await LoadDataAsync();
+                currentUser = tkn.Value;
+
+                var rightsData = await _sessionStorage.GetAsync<List<User_Rights>>("UserRights");
+                if (rightsData.Success && rightsData.Value != null)
+                {
+                    var rights = rightsData.Value;
+                    isentered = rights.Any(x => x.Department == "Lab" && x.ModuleName == "Result Entry" && x.ToAdd);
+                    isauthorized = rights.Any(x => x.Department == "Lab" && x.ModuleName == "Authorize Lab Results 2" && x.ToAdd);
+                }
+
+                var resUsers = await http.GetAsync($"{AppSettings.BaseUrl}masters/usermasters");
+                if (resUsers.IsSuccessStatusCode)
+                {
+                    usermaster = await resUsers.Content.ReadFromJsonAsync<IList<LIMS.Model.User_Master>>() ?? new List<LIMS.Model.User_Master>();
+                }
+
+                await LoadMastersAsync();
+                await LoadPatientInfoAsync(); // Load banner info first
+                await LoadTabsAsync();        // Then load culture tabs
                 StateHasChanged();
             }
         }
     }
 
-    private async Task LoadDataAsync()
+    private async Task LoadPatientInfoAsync()
     {
-        if (string.IsNullOrEmpty(RequestGuid)) return;
-
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, $"{AppSettings.BaseUrl}request/EditBill?rid={RequestGuid}");
+            if (string.IsNullOrEmpty(RequestGuid)) return;
+            
+            var billReq = new HttpRequestMessage(HttpMethod.Get, $"{AppSettings.BaseUrl}request/EditBill?rid={RequestGuid}");
             if (!string.IsNullOrEmpty(token))
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                billReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-            var res = await http.SendAsync(request);
-            if (res.IsSuccessStatusCode)
+            var billRes = await http.SendAsync(billReq);
+            if (billRes.IsSuccessStatusCode)
             {
-                var content = await res.Content.ReadAsStringAsync();
-                billData = JsonConvert.DeserializeObject<BillRequest>(content);
+                var billContent = await billRes.Content.ReadAsStringAsync();
+                billData = JsonConvert.DeserializeObject<BillRequest>(billContent);
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading culture details: {ex.Message}");
+            Console.WriteLine($"Error loading patient info: {ex.Message}");
+        }
+    }
+
+    private async Task LoadTabsAsync()
+    {
+        if (string.IsNullOrEmpty(RequestGuid)) return;
+        
+        try
+        {
+            // 1. Fetch Existing Results (may be empty if no results saved yet)
+            var req = new HttpRequestMessage(HttpMethod.Get, $"{AppSettings.BaseUrl}Culture/tests?requestGuid={RequestGuid}");
+            if (!string.IsNullOrEmpty(token))
+                req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var res = await http.SendAsync(req);
+            List<CultureTestListDto> savedTabs = new();
+            if (res.IsSuccessStatusCode)
+            {
+                var content = await res.Content.ReadAsStringAsync();
+                var jsonResponse = Newtonsoft.Json.Linq.JObject.Parse(content);
+                savedTabs = jsonResponse["data"]?.ToObject<List<CultureTestListDto>>() ?? new();
+            }
+
+            // 2. Fetch Ordered Tests (Source of truth for names and what tests are required)
+            var nameReq = new HttpRequestMessage(HttpMethod.Get, $"{AppSettings.BaseUrl}Culture/request-tests?requestGuid={RequestGuid}");
+            if (!string.IsNullOrEmpty(token))
+                nameReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var nameRes = await http.SendAsync(nameReq);
+            List<TestCodeNameDto> orderedNames = new();
+            if (nameRes.IsSuccessStatusCode)
+            {
+                var nameContent = await nameRes.Content.ReadAsStringAsync();
+                var namesResponse = Newtonsoft.Json.Linq.JObject.Parse(nameContent);
+                orderedNames = namesResponse["data"]?.ToObject<List<TestCodeNameDto>>() ?? new();
+            }
+
+            // 3. Merge: Every ordered test must have a tab.
+            var finalTabs = new List<CultureTestListDto>();
+            int fallbackOrder = 1;
+
+            if (orderedNames != null && orderedNames.Any())
+            {
+                foreach (var ordered in orderedNames)
+                {
+                    var saved = savedTabs.FirstOrDefault(t => t.TCode == ordered.TCode);
+                    if (saved != null)
+                    {
+                        saved.TestName = ordered.TestName; // Precision name
+                        finalTabs.Add(saved);
+                    }
+                    else
+                    {
+                        // Create tab for test that hasn't been started yet
+                        finalTabs.Add(new CultureTestListDto
+                        {
+                            TCode = ordered.TCode,
+                            TestName = ordered.TestName,
+                            OrderNo = fallbackOrder++,
+                            ResultStatus = false
+                        });
+                    }
+                }
+            }
+            else
+            {
+                // If special names endpoint empty, use what we have from main endpoint
+                finalTabs = savedTabs;
+            }
+
+            CultureTabs = finalTabs.OrderBy(t => t.OrderNo).ToList();
+            
+            // 4. Selection Logic
+            if (ActiveCultureTab == null && CultureTabs.Any())
+            {
+                await SelectTab(CultureTabs.First());
+            }
+            else if (ActiveCultureTab != null)
+            {
+                // Find current tab in new list to maintain selection
+                var prevOrderNo = ActiveCultureTab.OrderNo;
+                var prevTCode = ActiveCultureTab.TCode;
+                var prevGuid = ActiveCultureTab.ResultCultureGUID;
+
+                ActiveCultureTab = CultureTabs.FirstOrDefault(t => t.OrderNo == prevOrderNo && t.TCode == prevTCode && t.ResultCultureGUID == prevGuid) 
+                                    ?? CultureTabs.FirstOrDefault(t => t.OrderNo == prevOrderNo && t.TCode == prevTCode)
+                                    ?? CultureTabs.First();
+                
+                await SelectTab(ActiveCultureTab);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in LoadTabs: {ex.Message}");
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private async Task SelectTab(CultureTestListDto tab)
+    {
+        if (tab == null) return;
+        
+        // --- Sync current UI state back to the previous tab's state ---
+        if (ActiveCultureTab != null)
+        {
+            var prevKey = $"{ActiveCultureTab.ResultCultureGUID}-{ActiveCultureTab.TCode}-{ActiveCultureTab.OrderNo}";
+            if (TabStates.ContainsKey(prevKey))
+            {
+                var prevState = TabStates[prevKey];
+                prevState.IsGrowth = IsGrowth;
+                prevState.EnteredByName = EnteredByName;
+                prevState.AuthorizedByName = AuthorizedByName;
+                // saveModel and SectionResults are already references to the state's objects, so they are updated auto.
+            }
+        }
+
+        ActiveCultureTab = tab;
+        
+        // Key includes OrderNo to strictly separate duplicate test types (same TCode)
+        var key = $"{tab.ResultCultureGUID}-{tab.TCode}-{tab.OrderNo}";
+        if (!TabStates.ContainsKey(key))
+            TabStates[key] = new TabState();
+            
+        var state = TabStates[key];
+
+        // Link the UI variables to this tab's state reference
+        saveModel = state.saveModel;
+        SectionResults = state.SectionResults;
+        IsGrowth = state.IsGrowth;
+        EnteredByName = state.EnteredByName;
+        AuthorizedByName = state.AuthorizedByName;
+
+        if (!state.DataLoaded)
+        {
+            var isValidGuid = !string.IsNullOrEmpty(tab.ResultCultureGUID) && 
+                              tab.ResultCultureGUID != "00000000-0000-0000-0000-000000000000" && 
+                              tab.ResultCultureGUID != "0";
+                              
+            if (isValidGuid)
+            {
+                await LoadDataAsync();
+            }
+            else
+            {
+                saveModel.ResultCultureGUID = "";
+                saveModel.RequestGUID = RequestGuid;
+                saveModel.TCode = tab.TCode;
+            }
+            
+            // Mark loaded and sync back reference reassignments (since LoadDataAsync might instantiate new objects)
+            state.DataLoaded = true;
+            state.saveModel = saveModel;
+            state.SectionResults = SectionResults;
+            state.IsGrowth = IsGrowth;
+            state.EnteredByName = EnteredByName;
+            state.AuthorizedByName = AuthorizedByName;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task LoadMastersAsync()
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(token))
+            {
+                http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+            
+            // Load Organisms
+            var orgRes = await http.GetAsync($"{AppSettings.BaseUrl}Masters/CultureOrganism");
+            if (orgRes.IsSuccessStatusCode)
+            {
+                var content = await orgRes.Content.ReadAsStringAsync();
+                OrganismsList = JsonConvert.DeserializeObject<List<CultureOrganismDto>>(content) ?? new();
+            }
+
+            // Load Antibiotics
+            var abRes = await http.GetAsync($"{AppSettings.BaseUrl}Masters/getAllAntibiotics");
+            if (abRes.IsSuccessStatusCode)
+            {
+                var content = await abRes.Content.ReadAsStringAsync();
+                AntibioticsMasterList = JsonConvert.DeserializeObject<List<Antibiotics>>(content) ?? new();
+                AvailableAntibiotics = AntibioticsMasterList.Select(a => a.Name ?? "").Where(x => !string.IsNullOrEmpty(x)).ToList();
+            }
+
+            // Load Samples
+            var sampleRes = await http.GetAsync($"{AppSettings.BaseUrl}Masters/getAllSamples");
+            if (sampleRes.IsSuccessStatusCode)
+            {
+                var content = await sampleRes.Content.ReadAsStringAsync();
+                SamplesList = JsonConvert.DeserializeObject<List<Sample_Master>>(content) ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading masters: {ex.Message}");
+        }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        if (ActiveCultureTab == null) return;
+        var guidToUse = ActiveCultureTab.ResultCultureGUID ?? "";
+
+        try
+        {
+            // Load Culture Entry Result Data
+            var cultureReq = new HttpRequestMessage(HttpMethod.Get, $"{AppSettings.BaseUrl}Culture/entry?resultCultureGuid={guidToUse}");
+            if (!string.IsNullOrEmpty(token))
+                cultureReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var cultureRes = await http.SendAsync(cultureReq);
+            if (cultureRes.IsSuccessStatusCode)
+            {
+                var cultureContent = await cultureRes.Content.ReadAsStringAsync();
+                var jsonResponse = Newtonsoft.Json.Linq.JObject.Parse(cultureContent);
+                var data = jsonResponse["data"];
+                var e = (data != null && data.HasValues) ? data : jsonResponse;
+                
+                // Look into the "master" object for main fields
+                var m = e["master"];
+                if (m != null)
+                {
+                    saveModel.ReportStatus     = m["reportStatus"]?.ToString();
+                    saveModel.IsGrowth         = m["isGrowth"]?.ToObject<bool?>();
+                    saveModel.ReportingMethod  = m["reportingMethod"]?.ToString();
+                    saveModel.Sample           = m["sample"]?.ToString();
+                    saveModel.Bacteria         = m["bacteria"]?.ToString();
+                    saveModel.GrowthGrade      = m["growthGrade"]?.ToString();
+                    saveModel.SmearAFB         = m["smearAFB"]?.ToString();
+                    saveModel.PUSCells         = m["pusCells"]?.ToString();
+                    saveModel.GramsStaining    = m["gramsStaining"]?.ToString();
+                    saveModel.Diagnosis        = m["diagnosis"]?.ToString();
+                    saveModel.RECode           = m["reCode"]?.ToObject<decimal?>();
+                    
+                    // Mapping Organisms (JSON 'organismsGrown' is the first section)
+                    saveModel.OrganismsGrownA  = m["organismsGrown"]?.ToString();
+                    saveModel.OrganismsGrownB  = m["organismsGrownB"]?.ToString();
+                    saveModel.OrganismsGrownC  = m["organismsGrownC"]?.ToString();
+                    
+                    // Mapping Colony Counts
+                    saveModel.ColonyCountA     = m["colonyCount"]?.ToString();
+                    saveModel.ColonyCountB     = m["colonyCountB"]?.ToString();
+                    saveModel.ColonyCountC     = m["colonyCountC"]?.ToString();
+                    
+                    // Mapping Comments
+                    saveModel.CommentsA        = m["commentsA"]?.ToString();
+                    saveModel.CommentsB        = m["commentsB"]?.ToString();
+                    saveModel.CommentsC        = m["commentsC"]?.ToString();
+                    saveModel.Comments         = m["comments"]?.ToString();
+                    saveModel.NoteMessage      = m["footerText"]?.ToString();
+
+                    saveModel.IsAuthorized = m["isAuthorized"]?.ToObject<bool?>();
+                    saveModel.EnteredByCode = m["resultEnteredBy"]?.ToObject<int?>();
+                    saveModel.AuthorizedByCode = m["resultAuthorizedby"]?.ToObject<int?>();
+
+                    if (usermaster != null && usermaster.Count > 0)
+                    {
+                        if (saveModel.EnteredByCode.HasValue)
+                        {
+                            EnteredByName = usermaster.FirstOrDefault(x => x.UserCode == saveModel.EnteredByCode.Value)?.Name ?? "--";
+                        }
+                        if (saveModel.AuthorizedByCode.HasValue)
+                        {
+                            AuthorizedByName = usermaster.FirstOrDefault(x => x.UserCode == saveModel.AuthorizedByCode.Value)?.Name ?? "--";
+                        }
+                    }
+
+                    // Dates
+                    if (DateTime.TryParse(m["sampleReceivedDate"]?.ToString(), out var sd)) saveModel.SampleReceivedDate = sd;
+                    if (DateTime.TryParse(m["cultureReportedDate"]?.ToString(), out var rd)) saveModel.CultureReportedDate = rd;
+
+                    // Important: Explicitly set identifying properties for updates
+                    saveModel.ResultCultureGUID = guidToUse;
+                    saveModel.TCode = ActiveCultureTab.TCode;
+                    saveModel.RequestGUID = RequestGuid;
+
+                    // Sync Growth toggle for UI
+                    IsGrowth = saveModel.IsGrowth ?? false;
+                }
+                else
+                {
+                    // If no master found, at least reset form basic state
+                    saveModel = new SaveCultureResultRequestDto 
+                    { 
+                        ResultCultureGUID = ActiveCultureTab.ResultCultureGUID ?? "", 
+                        RequestGUID = RequestGuid,
+                        TCode = ActiveCultureTab.TCode
+                    };
+                    IsGrowth = false;
+                }
+
+                // 3. Restore Isolation Rows from the "iso" array
+                SectionResults["A"] = new List<CultureIsolationRowDto>();
+                SectionResults["B"] = new List<CultureIsolationRowDto>();
+                SectionResults["C"] = new List<CultureIsolationRowDto>();
+
+                var isoArray = (e["iso"] ?? e["isolationRows"] ?? e["IsolationRows"]) as Newtonsoft.Json.Linq.JArray;
+                if (isoArray != null && isoArray.Count > 0)
+                {
+                    // 1. Load all rows into a flat list
+                    var flatList = new List<CultureIsolationRowDto>();
+                    foreach (var rowToken in isoArray)
+                    {
+                        var row = new CultureIsolationRowDto
+                        {
+                            LCDIIID        = (rowToken["lcdiiid"] ?? rowToken["LCDIIID"]) != null && Guid.TryParse((rowToken["lcdiiid"] ?? rowToken["LCDIIID"])?.ToString(), out var g) ? g : null,
+                            AntibioticName = (rowToken["columnName"] ?? rowToken["ColumnName"] ?? rowToken["antibioticName"] ?? rowToken["AntibioticName"] ?? rowToken["abName"])?.ToString()?.Trim(),
+                            ABCode         = (rowToken["abCode"] ?? rowToken["ABCode"])?.ToObject<int?>(),
+                            TCode          = (rowToken["tCode"] ?? rowToken["TCode"])?.ToObject<int?>(),
+                            Sno            = (rowToken["sno"] ?? rowToken["Sno"])?.ToObject<int?>(),
+                            ActualSno      = (rowToken["actualSno"] ?? rowToken["ActualSno"])?.ToObject<int?>(),
+                            ColumnName     = (rowToken["columnName"] ?? rowToken["ColumnName"])?.ToString()?.Trim(),
+                            ReportStatus   = (rowToken["reportStatus"] ?? rowToken["ReportStatus"])?.ToString(),
+                            
+                            Isolation_A    = (rowToken["isolation_A"] ?? rowToken["Isolation_A"] ?? rowToken["isolation_a"] ?? rowToken["isolationA"] ?? rowToken["IsolationA"])?.ToString(),
+                            DiskContentA   = (rowToken["diskContentA"] ?? rowToken["DiskContentA"] ?? rowToken["diskcontenta"] ?? rowToken["diskA"])?.ToString(),
+                            MMA1           = (rowToken["mma1"] ?? rowToken["MMA1"] ?? rowToken["mmA1"] ?? rowToken["mm1"])?.ToString(),
+                            
+                            Isolation_B    = (rowToken["isolation_B"] ?? rowToken["Isolation_B"] ?? rowToken["isolation_b"] ?? rowToken["isolationB"] ?? rowToken["IsolationB"])?.ToString(),
+                            DiskContentB   = (rowToken["diskContentB"] ?? rowToken["DiskContentB"] ?? rowToken["diskcontentb"] ?? rowToken["diskB"])?.ToString(),
+                            MMA2           = (rowToken["mma2"] ?? rowToken["MMA2"] ?? rowToken["mmA2"] ?? rowToken["mm2"])?.ToString(),
+                            
+                            Isolation_C    = (rowToken["isolation_C"] ?? rowToken["Isolation_C"] ?? rowToken["isolation_c"] ?? rowToken["isolationC"] ?? rowToken["IsolationC"])?.ToString(),
+                            DiskContentC   = (rowToken["diskContentC"] ?? rowToken["DiskContentC"] ?? rowToken["diskcontentc"] ?? rowToken["diskC"])?.ToString(),
+                            MMA3           = (rowToken["mma3"] ?? rowToken["MMA3"] ?? rowToken["mmA3"] ?? rowToken["mm3"])?.ToString(),
+                        };
+
+                        // Fallback: If AntibioticName is still null but ABCode is present, look it up in the master list
+                        if (string.IsNullOrEmpty(row.AntibioticName) && row.ABCode.HasValue)
+                        {
+                            row.AntibioticName = AntibioticsMasterList.FirstOrDefault(a => a.ABCode == row.ABCode.Value)?.Name;
+                        }
+
+                        // Ensure ColumnName is also set if it's the antibiotic name
+                        if (string.IsNullOrEmpty(row.ColumnName)) row.ColumnName = row.AntibioticName;
+
+                        flatList.Add(row);
+                    }
+
+                    // 2. Merge duplicate rows by name to clean up any legacy pollution
+                    var mergedRows = flatList
+                                        .GroupBy(r => r.AntibioticName ?? "")
+                                        .Select(g => {
+                                            var merged = g.First();
+                                            foreach(var other in g.Skip(1))
+                                            {
+                                                if (!string.IsNullOrEmpty(other.Isolation_A)) { merged.Isolation_A = other.Isolation_A; merged.DiskContentA = other.DiskContentA; merged.MMA1 = other.MMA1; }
+                                                if (!string.IsNullOrEmpty(other.Isolation_B)) { merged.Isolation_B = other.Isolation_B; merged.DiskContentB = other.DiskContentB; merged.MMA2 = other.MMA2; }
+                                                if (!string.IsNullOrEmpty(other.Isolation_C)) { merged.Isolation_C = other.Isolation_C; merged.DiskContentC = other.DiskContentC; merged.MMA3 = other.MMA3; }
+                                            }
+                                            return merged;
+                                        })
+                                        .ToList();
+
+                    // 3. Add to appropriate UI grid based on which column has data
+                    foreach(var row in mergedRows)
+                    {
+                        if (!string.IsNullOrEmpty(row.Isolation_A)) SectionResults["A"].Add(row);
+                        if (!string.IsNullOrEmpty(row.Isolation_B)) SectionResults["B"].Add(row);
+                        if (!string.IsNullOrEmpty(row.Isolation_C)) SectionResults["C"].Add(row);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in LoadDataAsync: {ex.Message}");
+        }
+    }
+
+    private async Task AuthorizeResultAsync()
+    {
+        if (currentUser == null || !isauthorized || ActiveCultureTab == null) return;
+
+        try
+        {
+            var req = new AuthorizeCultureRequestDto
+            {
+                ResultCultureGUID = ActiveCultureTab.ResultCultureGUID ?? "",
+                AuthorizedByCode = currentUser.UserCode,
+                ReportStatus = "Final Report"
+            };
+
+            var request = new HttpRequestMessage(HttpMethod.Post, $"{AppSettings.BaseUrl}Culture/authorize?requestGuid={RequestGuid}");
+            if (!string.IsNullOrEmpty(token))
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                
+            request.Content = new StringContent(JsonConvert.SerializeObject(req), System.Text.Encoding.UTF8, "application/json");
+
+            var res = await http.SendAsync(request);
+            if (res.IsSuccessStatusCode)
+            {
+                await NotificationService.ShowSuccess("Culture result authorized successfully!");
+                TabStates.Clear(); 
+                await LoadTabsAsync(); // Refresh state
+            }
+            else
+            {
+                var errorText = await res.Content.ReadAsStringAsync();
+                await NotificationService.ShowError($"Failed to authorize: {errorText}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await NotificationService.ShowError($"Error: {ex.Message}");
+        }
+    }
+
+    private async Task RevokeResultAsync()
+    {
+        if (ActiveCultureTab == null || string.IsNullOrEmpty(ActiveCultureTab.ResultCultureGUID)) return;
+
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, $"{AppSettings.BaseUrl}Culture/revoke?resultCultureGuid={ActiveCultureTab.ResultCultureGUID}&requestGuid={RequestGuid}");
+            if (!string.IsNullOrEmpty(token))
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                
+            var res = await http.SendAsync(request);
+            if (res.IsSuccessStatusCode)
+            {
+                await NotificationService.ShowSuccess("Culture result revoked!");
+                TabStates.Clear();
+                await LoadTabsAsync();
+            }
+            else
+            {
+                var errorText = await res.Content.ReadAsStringAsync();
+                await NotificationService.ShowError($"Failed to revoke: {errorText}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await NotificationService.ShowError($"Error: {ex.Message}");
+        }
+    }
+
+    private async Task SaveResultAsync()
+    {
+        if (!isentered && !isauthorized)
+        {
+            await NotificationService.ShowError("You do not have rights to save the record.");
+            return;
+        }
+
+        // Validation logic
+        if (string.IsNullOrEmpty(saveModel.ReportingMethod) || string.IsNullOrEmpty(saveModel.Sample))
+        {
+            showValidationErrors = true;
+            await NotificationService.ShowWarning("Please fill all required fields.");
+            StateHasChanged();
+            return;
+        }
+
+        showValidationErrors = false;
+
+        try
+        {
+            // Prepare the bulk request container
+            var requestsToSave = new List<SaveCultureResultRequestDto>();
+
+            // Iterate through all tab states that have been initialized/loaded
+            foreach (var stateEntry in TabStates)
+            {
+                var state = stateEntry.Value;
+                if (!state.DataLoaded) continue; // Skip tabs the user never opened
+
+                var sm = state.saveModel;
+                var sections = state.SectionResults;
+
+                // 1. Sync UI state if this is the ACTIVE tab
+                if (ActiveCultureTab != null)
+                {
+                    var currentKey = $"{ActiveCultureTab.ResultCultureGUID}-{ActiveCultureTab.TCode}-{ActiveCultureTab.OrderNo}";
+                    if (stateEntry.Key == currentKey)
+                    {
+                        sm.IsGrowth = IsGrowth;
+                        // EnteredBy/AuthorizedBy are already synced back in SelectTab or set here
+                        if (isentered && sm.EnteredByCode == null) sm.EnteredByCode = currentUser?.UserCode;
+                    }
+                }
+
+                // 2. Prepare Isolation Rows for this tab
+                sm.IsolationRows.Clear();
+                var allRows = sections.Values
+                                .SelectMany(x => x)
+                                .GroupBy(r => (r.AntibioticName ?? "").Trim())
+                                .Select(g => {
+                                    var merged = g.First();
+                                    foreach(var other in g.Skip(1))
+                                    {
+                                        if (!string.IsNullOrEmpty(other.Isolation_A)) { merged.Isolation_A = other.Isolation_A; merged.DiskContentA = other.DiskContentA; merged.MMA1 = other.MMA1; }
+                                        if (!string.IsNullOrEmpty(other.Isolation_B)) { merged.Isolation_B = other.Isolation_B; merged.DiskContentB = other.DiskContentB; merged.MMA2 = other.MMA2; }
+                                        if (!string.IsNullOrEmpty(other.Isolation_C)) { merged.Isolation_C = other.Isolation_C; merged.DiskContentC = other.DiskContentC; merged.MMA3 = other.MMA3; }
+                                    }
+                                    return merged;
+                                })
+                                .ToList();
+
+                int sno = 1;
+                foreach (var item in allRows)
+                {
+                    item.Sno = sno;
+                    item.ActualSno = sno;
+                    item.ColumnName = item.AntibioticName; 
+                    item.ReportStatus = sm.ReportStatus ?? "Final Report";
+                    item.TCode = sm.TCode ?? 0;
+                    sm.IsolationRows.Add(item);
+                    sno++;
+                }
+
+                // 3. Set mandatory metadata
+                sm.RequestGUID = RequestGuid;
+                sm.UserCode = currentUser?.UserCode;
+                sm.ComputerCode = 1;
+                
+                if (sm.RECode == null || sm.RECode == 0) sm.RECode = 0;
+                if (sm.RTMCode == null || sm.RTMCode == 0) sm.RTMCode = 1;
+                if (sm.CFCode == null || sm.CFCode == 0) sm.CFCode = 1;
+
+                sm.IsIsolationA = sections["A"].Any();
+                sm.IsIsolationB = sections["B"].Any();
+                sm.IsIsolationC = sections["C"].Any();
+
+                requestsToSave.Add(sm);
+            }
+
+            if (!requestsToSave.Any())
+            {
+                await NotificationService.ShowWarning("No data to save.");
+                return;
+            }
+
+            // 4. Finalize mapping and send as a bulk list
+            foreach (var sm in requestsToSave)
+            {
+                sm.FooterText = sm.NoteMessage;
+                sm.Description = sm.Comments ;
+                if (sm.SampleDate == null) sm.SampleDate = sm.SampleReceivedDate;
+            }
+
+            var json = JsonConvert.SerializeObject(requestsToSave, new JsonSerializerSettings 
+            { 
+                NullValueHandling = NullValueHandling.Include,
+                ContractResolver = new Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver(),
+                Formatting = Formatting.Indented 
+            });
+            
+            Console.WriteLine("====== SAVE PAYLOAD ======");
+            Console.WriteLine(json);
+            Console.WriteLine("==========================");
+
+            var req_content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            var request = new HttpRequestMessage(HttpMethod.Post, $"{AppSettings.BaseUrl}Culture/save");
+            if (!string.IsNullOrEmpty(token))
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Content = req_content;
+
+            var res = await http.SendAsync(request);
+            if (res.IsSuccessStatusCode)
+            {
+                await NotificationService.ShowSuccess("Culture results saved successfully!");
+                TabStates.Clear(); 
+                await LoadTabsAsync(); 
+            }
+            else
+            {
+                var errorText = await res.Content.ReadAsStringAsync();
+                await NotificationService.ShowError($"Failed to save: {errorText}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception in SaveResultAsync: {ex.Message}");
+            await NotificationService.ShowError($"Error: {ex.Message}");
         }
     }
 
     private void NavigateBack()
     {
         NavigationManager.NavigateTo("/result-search");
+    }
+
+    // --- Tab State Management to prevent data leakage/reset ---
+    private Dictionary<string, TabState> TabStates = new();
+
+    public class TabState
+    {
+        public SaveCultureResultRequestDto saveModel = new();
+        public Dictionary<string, List<CultureIsolationRowDto>> SectionResults = new() {
+            { "A", new() }, { "B", new() }, { "C", new() }
+        };
+        public bool IsGrowth;
+        public string EnteredByName { get; set; } = "--";
+        public string AuthorizedByName { get; set; } = "--";
+        public bool DataLoaded { get; set; }
     }
 }
